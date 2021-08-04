@@ -56,7 +56,7 @@ class MetaTemplate(nn.Module):
 
         avg_loss=0
         for i, (x,_) in enumerate(train_loader):
-            self.n_query = x.size(1) - self.n_support           
+            self.n_query = x.size(1) - self.n_support
             if self.change_way:
                 self.n_way  = x.size(0)
             optimizer.zero_grad()

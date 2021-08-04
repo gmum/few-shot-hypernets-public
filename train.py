@@ -15,6 +15,7 @@ from data.datamgr import SimpleDataManager, SetDataManager
 from methods.baselinetrain import BaselineTrain
 from methods.baselinefinetune import BaselineFinetune
 from methods.DKT import DKT
+from methods.hypernet_poc import HyperNetPOC
 from methods.protonet import ProtoNet
 from methods.matchingnet import MatchingNet
 from methods.relationnet import RelationNet
@@ -37,7 +38,7 @@ def _set_seed(seed, verbose=True):
 def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params):
     print("Tot epochs: " + str(stop_epoch))
     if optimization == 'Adam':
-        optimizer = torch.optim.Adam(model.parameters())
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     else:
         raise ValueError('Unknown optimization, please define by yourself')
 
@@ -90,7 +91,8 @@ if __name__ == '__main__':
 
     if params.dataset in ['omniglot', 'cross_char']:
         assert params.model == 'Conv4' and not params.train_aug, 'omniglot only support Conv4 without augmentation'
-        params.model = 'Conv4S'
+        # params.model = 'Conv4S'
+        # no need for this, since omniglot is loaded as RGB
 
     optimization = 'Adam'
 
@@ -128,10 +130,10 @@ if __name__ == '__main__':
         elif params.method == 'baseline++':
             model = BaselineTrain(model_dict[params.model], params.num_classes, loss_type='dist')
 
-    elif params.method in ['DKT', 'protonet', 'matchingnet', 'relationnet', 'relationnet_softmax', 'maml', 'maml_approx']:
+    elif params.method in ['DKT', 'protonet', 'matchingnet', 'relationnet', 'relationnet_softmax', 'maml', 'maml_approx', "hn_poc"]:
         n_query = max(1, int(
             16 * params.test_n_way / params.train_n_way))  # if test_n_way is smaller than train_n_way, reduce n_query to keep batch size small
-
+        print("n_query", n_query)
         train_few_shot_params = dict(n_way=params.train_n_way, n_support=params.n_shot)
         base_datamgr = SetDataManager(image_size, n_query=n_query, **train_few_shot_params) #n_eposide=100
         base_loader = base_datamgr.get_data_loader(base_file, aug=params.train_aug)
@@ -170,6 +172,10 @@ if __name__ == '__main__':
                 model.n_task = 32
                 model.task_update_num = 1
                 model.train_lr = 0.1
+
+        elif params.method == "hn_poc":
+            model = HyperNetPOC(model_dict[params.model], **train_few_shot_params)
+
     else:
         raise ValueError('Unknown method')
 
