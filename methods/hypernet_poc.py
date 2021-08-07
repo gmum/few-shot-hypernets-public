@@ -8,10 +8,10 @@ from methods.meta_template import MetaTemplate
 
 
 class HyperNetPOC(MetaTemplate):
-    def __init__(self, model_func, n_way, n_support):
+    def __init__(self, model_func, n_way: int, n_support: int):
         super().__init__(model_func, n_way, n_support)
         print(self.feature.final_feat_dim)
-        hidden_size = 64
+        hidden_size = 64 # final conv size
 
         target_network = nn.Sequential(
             nn.Linear(hidden_size, hidden_size),
@@ -47,14 +47,13 @@ class HyperNetPOC(MetaTemplate):
 
         self.taskset_size = 32
 
-    def taskset_epochs(self, task_set_id: int):
-        if task_set_id > 25:
-            return 5
-        if task_set_id > 50:
-            return 2
-        if task_set_id > 100:
+    def taskset_epochs(self, progress_id: int):
+        if progress_id > 30:
             return 1
-
+        if progress_id > 20:
+            return 2
+        if progress_id > 10:
+            return 5
         return 10
 
     def get_labels(self, x: torch.Tensor) -> torch.Tensor:
@@ -83,7 +82,17 @@ class HyperNetPOC(MetaTemplate):
         set_from_param_dict(tn, network_params)
         return tn.cuda()
 
-    def set_forward(self, x, is_feature: bool=False):
+    def set_forward(self, x: torch.Tensor, is_feature: bool=False):
+        import matplotlib.pyplot as plt
+
+
+        # print(x.shape)
+        # fig, ax = plt.subplots(5, 5, figsize=(15,15))
+        # for i in range(5):
+        #     for j in range(5):
+        #         ax[i, j].imshow(x[i,j,0])
+        #         ax[i,j].axis("off")
+        # plt.show()
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
         classifier = self.generate_target_net(support_feature)
@@ -94,26 +103,34 @@ class HyperNetPOC(MetaTemplate):
         return y_pred
 
     def set_forward_loss(self, x: torch.Tensor):
-        y = self.get_labels(x)
+        # y = self.get_labels(x)
         nw, ne, c, h, w = x.shape
-        y = y.reshape(nw * ne)
+        # y = y.reshape(nw * ne)
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
+
         classifier = self.generate_target_net(support_feature)
+
 
         all_feature = torch.cat(
             [
                 support_feature.reshape(
-                    -1, support_feature.shape[-1]
+                    (self.n_way * self.n_support), support_feature.shape[-1]
                 ),
                 query_feature.reshape(
-                    -1, query_feature.shape[-1]
+                    (self.n_way * (ne - self.n_support)), query_feature.shape[-1]
                 )
             ])
-        y_pred = classifier(all_feature)
 
-        return self.loss_fn(y_pred, y, )
+        y_support = self.get_labels(support_feature)
+        y_query = self.get_labels(query_feature)
+        all_y = torch.cat([
+            y_support.reshape(self.n_way * self.n_support),
+            y_query.reshape(self.n_way * (ne - self.n_support))
+        ])
+        y_pred = classifier(all_feature)
+        return self.loss_fn(y_pred, all_y, )
 
     def train_loop(self, epoch, train_loader, optimizer ):
 

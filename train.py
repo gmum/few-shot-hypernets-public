@@ -38,7 +38,7 @@ def _set_seed(seed, verbose=True):
 def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params):
     print("Tot epochs: " + str(stop_epoch))
     if optimization == 'Adam':
-        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+        optimizer = torch.optim.Adam(model.parameters())
     else:
         raise ValueError('Unknown optimization, please define by yourself')
 
