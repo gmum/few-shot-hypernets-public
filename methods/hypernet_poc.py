@@ -45,7 +45,8 @@ class HyperNetPOC(MetaTemplate):
         self.target_network = target_network
         self.loss_fn = nn.CrossEntropyLoss()
 
-        self.taskset_size = 32
+        self.taskset_size = 1
+        self.taskset_print_every = 20
 
     def taskset_epochs(self, progress_id: int):
         if progress_id > 30:
@@ -140,7 +141,7 @@ class HyperNetPOC(MetaTemplate):
         n_train = len(train_loader)
         for i, (x,_) in enumerate(train_loader):
             taskset.append(x)
-
+            # TODO: perhaps the idea of tasksets is redundant and it's better to update weights at every task
             if i % self.taskset_size == (self.taskset_size-1) or i == (n_train-1):
                 ts_epochs = self.taskset_epochs(epoch)
                 loss_sum = torch.tensor(0).cuda()
@@ -158,15 +159,12 @@ class HyperNetPOC(MetaTemplate):
                     optimizer.step()
                     optimizer.zero_grad()
 
-                print(f"Epoch {epoch} | Taskset {taskset_id} | TS {len(taskset)} | TS epochs {ts_epochs} | Loss {loss_sum.item()}")
                 taskset_id += 1
                 taskset = []
 
-
-
-
-
-
+                if taskset_id % self.taskset_print_every == 0:
+                    print(
+                        f"Epoch {epoch} | Taskset {taskset_id} | TS {len(taskset)} | TS epochs {ts_epochs} | Loss {loss_sum.item()}")
 
             # if i % print_freq==0:
             #     #print(optimizer.state_dict()['param_groups'][0]['lr'])
