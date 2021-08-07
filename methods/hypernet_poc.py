@@ -25,6 +25,7 @@ class HyperNetPOC(MetaTemplate):
 
         param_dict = {
             name.replace(".", "-"): p
+            # replace dots with hyphens bc torch doesn't like dots in modules names
             for name, p in param_dict.items()
         }
 
@@ -84,16 +85,6 @@ class HyperNetPOC(MetaTemplate):
         return tn.cuda()
 
     def set_forward(self, x: torch.Tensor, is_feature: bool=False):
-        import matplotlib.pyplot as plt
-
-
-        # print(x.shape)
-        # fig, ax = plt.subplots(5, 5, figsize=(15,15))
-        # for i in range(5):
-        #     for j in range(5):
-        #         ax[i, j].imshow(x[i,j,0])
-        #         ax[i,j].axis("off")
-        # plt.show()
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
         classifier = self.generate_target_net(support_feature)
@@ -104,15 +95,11 @@ class HyperNetPOC(MetaTemplate):
         return y_pred
 
     def set_forward_loss(self, x: torch.Tensor):
-        # y = self.get_labels(x)
         nw, ne, c, h, w = x.shape
-        # y = y.reshape(nw * ne)
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
-
         classifier = self.generate_target_net(support_feature)
-
 
         all_feature = torch.cat(
             [
