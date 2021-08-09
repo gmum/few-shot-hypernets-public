@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+import numpy as np
 import torch
 from torch import nn
 from typing import Dict
@@ -94,6 +95,17 @@ class HyperNetPOC(MetaTemplate):
         y_pred = classifier(query_feature)
         return y_pred
 
+    def query_accuracy(self, x: torch.Tensor):
+        scores = self.set_forward(x)
+        y_query = np.repeat(range(self.n_way), self.n_query)
+        topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
+        topk_ind = topk_labels.cpu().numpy()
+        top1_correct = np.sum(topk_ind[:, 0] == y_query)
+        correct_this = float(top1_correct)
+        count_this = len(y_query)
+
+        return correct_this / count_this
+
     def set_forward_loss(self, x: torch.Tensor):
         nw, ne, c, h, w = x.shape
 
@@ -124,8 +136,8 @@ class HyperNetPOC(MetaTemplate):
 
         taskset_id = 0
         taskset = []
-
         n_train = len(train_loader)
+        accuracies = []
         for i, (x,_) in enumerate(train_loader):
             taskset.append(x)
             # TODO: perhaps the idea of tasksets is redundant and it's better to update weights at every task
@@ -146,16 +158,19 @@ class HyperNetPOC(MetaTemplate):
                     optimizer.step()
                     optimizer.zero_grad()
 
-                taskset_id += 1
-                taskset = []
+                accuracies.extend([
+                    self.query_accuracy(task_x) for task_x in taskset
+                ])
+                acc_mean = np.mean(accuracies) * 100
+                acc_std = np.std(accuracies) * 100
+
 
                 if taskset_id % self.taskset_print_every == 0:
                     print(
-                        f"Epoch {epoch} | Taskset {taskset_id} | TS {len(taskset)} | TS epochs {ts_epochs} | Loss {loss_sum.item()}")
+                        f"Epoch {epoch} | Taskset {taskset_id} | TS {len(taskset)} | TS epochs {ts_epochs} | Loss {loss_sum.item()} | Train acc {acc_mean:.2f} +- {acc_std:.2f} %")
 
-            # if i % print_freq==0:
-            #     #print(optimizer.state_dict()['param_groups'][0]['lr'])
-            #     print('Epoch {:d} | Batch {:d}/{:d} | Loss {:f}'.format(epoch, i, len(train_loader), avg_loss/float(i+1)))
+                taskset_id += 1
+                taskset = []
 
 
 def get_param_dict(net: nn.Module) -> Dict[str, nn.Parameter]:
