@@ -55,6 +55,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             os.makedirs(params.checkpoint_dir)
 
         acc = model.test_loop(val_loader)
+        print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f}")
         if acc > max_acc:  # for baseline and baseline++, we don't use validation here so we let acc = -1
             print("--> Best model! save...")
             max_acc = acc

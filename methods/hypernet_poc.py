@@ -14,7 +14,7 @@ class HyperNetPOC(MetaTemplate):
         print(self.feature.final_feat_dim)
 
         conv_out_size = 64 # final conv size
-        hidden_size = 128
+        hidden_size = 256
 
         target_network = nn.Sequential(
             nn.Linear(conv_out_size, hidden_size),
