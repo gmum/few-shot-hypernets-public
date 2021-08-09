@@ -12,15 +12,17 @@ class HyperNetPOC(MetaTemplate):
     def __init__(self, model_func, n_way: int, n_support: int):
         super().__init__(model_func, n_way, n_support)
         print(self.feature.final_feat_dim)
-        hidden_size = 64 # final conv size
+
+        conv_out_size = 64 # final conv size
+        hidden_size = 128
 
         target_network = nn.Sequential(
-            nn.Linear(hidden_size, hidden_size),
+            nn.Linear(conv_out_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, self.n_way)
         )
 
-        param_head_size = hidden_size * self.n_way * self.n_support
+        param_head_size = conv_out_size * self.n_way * self.n_support
 
         param_dict = get_param_dict(target_network)
 
