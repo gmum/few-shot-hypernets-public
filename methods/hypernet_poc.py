@@ -15,44 +15,44 @@ class HyperNetPOC(MetaTemplate):
 
         conv_out_size = 64 # final conv size
         hidden_size = 256
+        param_head_size = conv_out_size * self.n_way * self.n_support
 
-        target_network = nn.Sequential(
+        self.taskset_size = 1
+        self.taskset_print_every = 20
+
+        # TODO #1 - tweak the architecture of the target network
+        target_network_architecture = nn.Sequential(
             nn.Linear(conv_out_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, self.n_way)
         )
 
-        param_head_size = conv_out_size * self.n_way * self.n_support
-
-        param_dict = get_param_dict(target_network)
-
-        param_dict = {
+        target_net_param_dict = get_param_dict(target_network_architecture)
+        target_net_param_dict = {
             name.replace(".", "-"): p
             # replace dots with hyphens bc torch doesn't like dots in modules names
-            for name, p in param_dict.items()
+            for name, p in target_net_param_dict.items()
         }
-
-        self.param_shapes = {
+        self.target_net_param_shapes = {
             name: p.shape
             for (name, p)
-            in param_dict.items()
+            in target_net_param_dict.items()
         }
 
-        self.param_nets = nn.ModuleDict()
-
-        for name, param in param_dict.items():
-            self.param_nets[name] = nn.Sequential(
+        # TODO 2 - tweak parameter predictors
+        self.target_net_param_predictors = nn.ModuleDict()
+        for name, param in target_net_param_dict.items():
+            self.target_net_param_predictors[name] = nn.Sequential(
                 nn.Linear(param_head_size, hidden_size),
                 nn.ReLU(),
                 nn.Linear(hidden_size, param.numel())
             )
-        self.target_network = target_network
+        self.target_network_architecture = target_network_architecture
         self.loss_fn = nn.CrossEntropyLoss()
 
-        self.taskset_size = 1
-        self.taskset_print_every = 20
 
     def taskset_epochs(self, progress_id: int):
+        # TODO - initial bootstrapping - is this essential?
         if progress_id > 30:
             return 1
         if progress_id > 20:
@@ -80,10 +80,10 @@ class HyperNetPOC(MetaTemplate):
         embedding = features.reshape(1, -1)
 
         network_params = {
-            name.replace("-", "."): param_net(embedding).reshape(self.param_shapes[name])
-            for name, param_net in self.param_nets.items()
+            name.replace("-", "."): param_net(embedding).reshape(self.target_net_param_shapes[name])
+            for name, param_net in self.target_net_param_predictors.items()
         }
-        tn = deepcopy(self.target_network)
+        tn = deepcopy(self.target_network_architecture)
         set_from_param_dict(tn, network_params)
         return tn.cuda()
 
@@ -142,7 +142,8 @@ class HyperNetPOC(MetaTemplate):
         accuracies = []
         for i, (x,_) in enumerate(train_loader):
             taskset.append(x)
-            # TODO: perhaps the idea of tasksets is redundant and it's better to update weights at every task
+
+            # TODO 3: perhaps the idea of tasksets is redundant and it's better to update weights at every task
             if i % self.taskset_size == (self.taskset_size-1) or i == (n_train-1):
                 ts_epochs = self.taskset_epochs(epoch)
                 loss_sum = torch.tensor(0).cuda()
