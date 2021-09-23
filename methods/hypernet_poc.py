@@ -11,20 +11,21 @@ from methods.meta_template import MetaTemplate
 class HyperNetPOC(MetaTemplate):
     def __init__(self, model_func, n_way: int, n_support: int):
         super().__init__(model_func, n_way, n_support)
-        print(self.feature.final_feat_dim)
 
-        conv_out_size = 64 # final conv size
+        conv_out_size = self.feature.final_feat_dim
         hidden_size = 256
+        tn_hidden_size = 128
         param_head_size = conv_out_size * self.n_way * self.n_support
 
         self.taskset_size = 1
         self.taskset_print_every = 20
+        self.taskset_n_permutations = 1
 
         # TODO #1 - tweak the architecture of the target network
         target_network_architecture = nn.Sequential(
             nn.Linear(conv_out_size, hidden_size),
             nn.ReLU(),
-            nn.Linear(hidden_size, self.n_way)
+            nn.Linear(tn_hidden_size, self.n_way)
         )
 
         target_net_param_dict = get_param_dict(target_network_architecture)
@@ -63,22 +64,23 @@ class HyperNetPOC(MetaTemplate):
 
     def get_labels(self, x: torch.Tensor) -> torch.Tensor:
         """
-        x: [n_way, (n_support+n_query), c, h, w]
+        x: [n_way, (n_support+n_query), hidden_size]
         """
         ys = torch.tensor(list(range(x.shape[0]))).reshape(len(x), 1)
         ys = ys.repeat(1, x.shape[1]).to(x.device)
         return ys.cuda()
+
+    def build_embedding(self, support_feature: torch.Tensor) -> torch.Tensor:
+        way, n_support, feat = support_feature.shape
+        features = support_feature.reshape(way * n_support, feat)
+        return features.reshape(1, -1)
 
     def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
         """
         x_support: [n_way, n_support, hidden_size]
         """
 
-        nw, ns, feat = support_feature.shape
-        features = support_feature.reshape(nw * ns, feat)
-
-        embedding = features.reshape(1, -1)
-
+        embedding = self.build_embedding(support_feature)
         network_params = {
             name.replace("-", "."): param_net(embedding).reshape(self.target_net_param_shapes[name])
             for name, param_net in self.target_net_param_predictors.items()
@@ -151,11 +153,13 @@ class HyperNetPOC(MetaTemplate):
                     loss_sum = torch.tensor(0).cuda()
 
                     for task_x in taskset:
-                        self.n_query = task_x.size(1) - self.n_support
                         if self.change_way:
                             self.n_way = task_x.size(0)
-                        loss = self.set_forward_loss(task_x)
-                        loss_sum = loss_sum + loss
+                        self.n_query = task_x.size(1) - self.n_support
+
+                        for _ in range(self.taskset_n_permutations):
+                            loss = self.set_forward_loss(task_x)
+                            loss_sum = loss_sum + loss
 
                     loss_sum.backward()
                     optimizer.step()
