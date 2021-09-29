@@ -23,7 +23,7 @@ class HyperNetPOC(MetaTemplate):
 
         # TODO #1 - tweak the architecture of the target network
         target_network_architecture = nn.Sequential(
-            nn.Linear(conv_out_size, hidden_size),
+            nn.Linear(conv_out_size, tn_hidden_size),
             nn.ReLU(),
             nn.Linear(tn_hidden_size, self.n_way)
         )
