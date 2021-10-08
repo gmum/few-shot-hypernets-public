@@ -20,6 +20,7 @@ class HyperNetPOC(MetaTemplate):
         self.taskset_size = 1
         self.taskset_print_every = 20
         self.taskset_n_permutations = 1
+        self.conv_out_size = conv_out_size
 
         # TODO #1 - tweak the architecture of the target network
         target_network_architecture = nn.Sequential(
@@ -51,7 +52,6 @@ class HyperNetPOC(MetaTemplate):
         self.target_network_architecture = target_network_architecture
         self.loss_fn = nn.CrossEntropyLoss()
 
-
     def taskset_epochs(self, progress_id: int):
         # TODO - initial bootstrapping - is this essential?
         if progress_id > 30:
@@ -64,7 +64,7 @@ class HyperNetPOC(MetaTemplate):
 
     def get_labels(self, x: torch.Tensor) -> torch.Tensor:
         """
-        x: [n_way, (n_support+n_query), hidden_size]
+        x: [n_way, n_shot, hidden_size]
         """
         ys = torch.tensor(list(range(x.shape[0]))).reshape(len(x), 1)
         ys = ys.repeat(1, x.shape[1]).to(x.device)
@@ -89,7 +89,7 @@ class HyperNetPOC(MetaTemplate):
         set_from_param_dict(tn, network_params)
         return tn.cuda()
 
-    def set_forward(self, x: torch.Tensor, is_feature: bool=False):
+    def set_forward(self, x: torch.Tensor, is_feature: bool = False):
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
         classifier = self.generate_target_net(support_feature)
@@ -115,6 +115,8 @@ class HyperNetPOC(MetaTemplate):
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
+        # support_feature = support_feature.detach().clone()
+        # query_feature = query_feature.detach().clone()
         classifier = self.generate_target_net(support_feature)
 
         all_feature = torch.cat(
@@ -133,20 +135,20 @@ class HyperNetPOC(MetaTemplate):
             y_support.reshape(self.n_way * self.n_support),
             y_query.reshape(self.n_way * (ne - self.n_support))
         ])
+        # all_feature = all_feature.detach().clone()
         y_pred = classifier(all_feature)
         return self.loss_fn(y_pred, all_y, )
 
-    def train_loop(self, epoch, train_loader, optimizer ):
-
+    def train_loop(self, epoch, train_loader, optimizer):
         taskset_id = 0
         taskset = []
         n_train = len(train_loader)
         accuracies = []
-        for i, (x,_) in enumerate(train_loader):
+        for i, (x, _) in enumerate(train_loader):
             taskset.append(x)
 
             # TODO 3: perhaps the idea of tasksets is redundant and it's better to update weights at every task
-            if i % self.taskset_size == (self.taskset_size-1) or i == (n_train-1):
+            if i % self.taskset_size == (self.taskset_size - 1) or i == (n_train - 1):
                 ts_epochs = self.taskset_epochs(epoch)
                 loss_sum = torch.tensor(0).cuda()
                 for e in range(ts_epochs):
@@ -157,9 +159,9 @@ class HyperNetPOC(MetaTemplate):
                             self.n_way = task_x.size(0)
                         self.n_query = task_x.size(1) - self.n_support
 
-                        for _ in range(self.taskset_n_permutations):
-                            loss = self.set_forward_loss(task_x)
-                            loss_sum = loss_sum + loss
+                        # for _ in range(self.taskset_n_permutations):
+                        loss = self.set_forward_loss(task_x)
+                        loss_sum = loss_sum + loss
 
                     loss_sum.backward()
                     optimizer.step()
@@ -170,7 +172,6 @@ class HyperNetPOC(MetaTemplate):
                 ])
                 acc_mean = np.mean(accuracies) * 100
                 acc_std = np.std(accuracies) * 100
-
 
                 if taskset_id % self.taskset_print_every == 0:
                     print(
@@ -203,3 +204,113 @@ def set_from_param_dict(net: nn.Module, param_dict: Dict[str, torch.Tensor]):
         assert param.shape == v.shape, (sdk, param.shape, v.shape)
         delattr(m, param_name)
         setattr(m, param_name, v)
+
+
+class HyperNetConvFromDKT(HyperNetPOC):
+    def __init__(self, model_func, n_way: int, n_support: int):
+        super().__init__(model_func, n_way, n_support)
+        self.feature.trunk.add_module("bn_out", nn.BatchNorm1d(self.feature.final_feat_dim))
+
+        dkt_state_dict = torch.load(
+            "save/checkpoints/cross_char/Conv4_DKT_5way_5shot/best_model.tar",
+        )
+
+        state = dkt_state_dict["state"]
+        state = {
+            k: v
+            for (k, v)
+            in state.items()
+            if k.startswith("feature.")
+        }
+        self.load_state_dict(state, strict=False)
+
+
+class HyperNetSepJoint(HyperNetPOC):
+    def __init__(self, model_func, n_way: int, n_support: int):
+        super().__init__(model_func, n_way, n_support)
+
+        self.support_individual_processor = nn.Sequential(
+            nn.Linear(self.conv_out_size, self.conv_out_size),
+            nn.ReLU(),
+            # nn.Linear(self.conv_out_size, self.conv_out_size)
+        )
+
+        joint_size = self.conv_out_size * self.n_way
+        self.support_joint_processor = nn.Sequential(
+            nn.Linear(joint_size, joint_size),
+            nn.ReLU(),
+            # nn.Linear(joint_size, joint_size)
+        )
+
+    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
+        """
+        x_support: [n_way, n_support, hidden_size]
+        """
+        way, shot, feat = support_feature.shape
+        support_feature_transposed = torch.transpose(support_feature, 0, 1)
+
+        sft_flat = support_feature_transposed.reshape(shot * way, feat)
+
+        sft_separate = self.support_individual_processor(sft_flat)
+        sft_joint = sft_separate.reshape(shot, way * feat)
+        sft_joint = self.support_joint_processor(sft_joint)
+
+        embedding = sft_joint.reshape(1, way * shot * feat)
+
+        network_params = {
+            name.replace("-", "."): param_net(embedding).reshape(self.target_net_param_shapes[name])
+            for name, param_net in self.target_net_param_predictors.items()
+        }
+        tn = deepcopy(self.target_network_architecture)
+        set_from_param_dict(tn, network_params)
+        return tn.cuda()
+
+
+class HyperNetSupportConv(HyperNetPOC):
+    def __init__(self, model_func, n_way: int, n_support: int):
+        super().__init__(model_func, n_way, n_support)
+
+        self.feat_size=  self.conv_out_size + self.n_way
+
+        self.support_conv_processor = nn.Sequential(
+            nn.Conv2d(self.feat_size, self.feat_size, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(self.feat_size, self.feat_size, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(self.feat_size, self.feat_size, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(self.feat_size, self.conv_out_size, kernel_size=3, padding=1),
+
+        )
+
+    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
+        """
+        x_support: [n_way, n_support, hidden_size]
+        """
+        way, shot, feat = support_feature.shape
+        logits = torch.zeros(way, shot, way).cuda()
+
+        for c in range(way):
+            logits[c, torch.arange(shot), c] = 1
+
+        support_feature = torch.cat([logits, support_feature], 2)
+        sf = support_feature.permute(2, 0, 1).unsqueeze(0)
+        sf_conved = self.support_conv_processor(sf)
+
+        sf_conved = sf_conved.squeeze().permute(1, 2, 0)
+        embedding = self.build_embedding(sf_conved)
+        network_params = {
+            name.replace("-", "."): param_net(embedding).reshape(self.target_net_param_shapes[name])
+            for name, param_net in self.target_net_param_predictors.items()
+        }
+        tn = deepcopy(self.target_network_architecture)
+        set_from_param_dict(tn, network_params)
+        return tn.cuda()
+
+
+hn_poc_types = {
+    "hn_poc": HyperNetPOC,
+    "hn_sep_joint": HyperNetSepJoint,
+    "hn_from_dkt": HyperNetConvFromDKT,
+    "hn_cnv": HyperNetSupportConv
+}

@@ -15,7 +15,7 @@ from data.datamgr import SimpleDataManager, SetDataManager
 from methods.baselinetrain import BaselineTrain
 from methods.baselinefinetune import BaselineFinetune
 from methods.DKT import DKT
-from methods.hypernet_poc import HyperNetPOC
+from methods.hypernet_poc import HyperNetPOC, HyperNetSepJoint, hn_poc_types
 from methods.protonet import ProtoNet
 from methods.matchingnet import MatchingNet
 from methods.relationnet import RelationNet
@@ -131,7 +131,7 @@ if __name__ == '__main__':
         elif params.method == 'baseline++':
             model = BaselineTrain(model_dict[params.model], params.num_classes, loss_type='dist')
 
-    elif params.method in ['DKT', 'protonet', 'matchingnet', 'relationnet', 'relationnet_softmax', 'maml', 'maml_approx', "hn_poc"]:
+    elif params.method in ['DKT', 'protonet', 'matchingnet', 'relationnet', 'relationnet_softmax', 'maml', 'maml_approx'] + list(hn_poc_types.keys()):
         n_query = max(1, int(
             16 * params.test_n_way / params.train_n_way))  # if test_n_way is smaller than train_n_way, reduce n_query to keep batch size small
         print("n_query", n_query)
@@ -174,9 +174,9 @@ if __name__ == '__main__':
                 model.task_update_num = 1
                 model.train_lr = 0.1
 
-        elif params.method == "hn_poc":
-            model = HyperNetPOC(model_dict[params.model], **train_few_shot_params)
-
+        elif params.method in hn_poc_types.keys():
+            print(params.method)
+            model = hn_poc_types[params.method](model_dict[params.model], **train_few_shot_params)
     else:
         raise ValueError('Unknown method')
 

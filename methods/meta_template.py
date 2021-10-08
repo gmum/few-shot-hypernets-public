@@ -69,7 +69,7 @@ class MetaTemplate(nn.Module):
                 #print(optimizer.state_dict()['param_groups'][0]['lr'])
                 print('Epoch {:d} | Batch {:d}/{:d} | Loss {:f}'.format(epoch, i, len(train_loader), avg_loss/float(i+1)))
 
-    def test_loop(self, test_loader, record = None):
+    def test_loop(self, test_loader, record = None, return_std: bool = False):
         correct =0
         count = 0
         acc_all = []
@@ -96,8 +96,10 @@ class MetaTemplate(nn.Module):
         acc_mean = np.mean(acc_all)
         acc_std  = np.std(acc_all)
         print('%d Test Acc = %4.2f%% +- %4.2f%%' %(iter_num,  acc_mean, 1.96* acc_std/np.sqrt(iter_num)))
-
-        return acc_mean
+        if return_std:
+            return acc_mean, acc_std
+        else:
+            return acc_mean
 
     def set_forward_adaptation(self, x, is_feature = True): #further adaptation, default is fixing feature and train a new softmax clasifier
         assert is_feature == True, 'Feature is fixed in further adaptation'

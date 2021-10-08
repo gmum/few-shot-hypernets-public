@@ -16,6 +16,7 @@ import data.feature_loader as feat_loader
 from data.datamgr import SetDataManager
 from methods.baselinetrain import BaselineTrain
 from methods.baselinefinetune import BaselineFinetune
+from methods.hypernet_poc import HyperNetPOC
 from methods.protonet import ProtoNet
 from methods.DKT import DKT
 from methods.matchingnet import MatchingNet
@@ -68,7 +69,7 @@ def single_test(params):
 
     if params.dataset in ['omniglot', 'cross_char']:
         assert params.model == 'Conv4' and not params.train_aug ,'omniglot only support Conv4 without augmentation'
-        params.model = 'Conv4S'
+        # params.model = 'Conv4S'
 
     if params.method == 'baseline':
         model           = BaselineFinetune( model_dict[params.model], **few_shot_params )
@@ -101,6 +102,9 @@ def single_test(params):
             model.n_task     = 32
             model.task_update_num = 1
             model.train_lr = 0.1
+    elif params.method == "hn_poc":
+        model = HyperNetPOC(model_dict[params.model], **few_shot_params)
+
     else:
        raise ValueError('Unknown method')
 
@@ -130,7 +134,7 @@ def single_test(params):
         split_str = split + "_" +str(params.save_iter)
     else:
         split_str = split
-    if params.method in ['maml', 'maml_approx', 'DKT']: #maml do not support testing with feature
+    if params.method in ['maml', 'maml_approx', 'DKT', "hn_poc"]: #maml do not support testing with feature
         if 'Conv' in params.model:
             if params.dataset in ['omniglot', 'cross_char']:
                 image_size = 28
