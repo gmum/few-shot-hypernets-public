@@ -5,6 +5,7 @@ import torch
 from torch import nn
 from typing import Dict
 
+from methods.kernels import NNKernel
 from methods.meta_template import MetaTemplate
 
 
@@ -13,14 +14,15 @@ class HyperNetPOC(MetaTemplate):
         super().__init__(model_func, n_way, n_support)
 
         conv_out_size = self.feature.final_feat_dim
-        hidden_size = 256
+        hn_hidden_size = 256
         tn_hidden_size = 128
-        param_head_size = conv_out_size * self.n_way * self.n_support
+        embedding_size = conv_out_size * self.n_way * self.n_support
 
         self.taskset_size = 1
         self.taskset_print_every = 20
         self.taskset_n_permutations = 1
         self.conv_out_size = conv_out_size
+        self.embedding_size = embedding_size
 
         # TODO #1 - tweak the architecture of the target network
         target_network_architecture = nn.Sequential(
@@ -45,9 +47,9 @@ class HyperNetPOC(MetaTemplate):
         self.target_net_param_predictors = nn.ModuleDict()
         for name, param in target_net_param_dict.items():
             self.target_net_param_predictors[name] = nn.Sequential(
-                nn.Linear(param_head_size, hidden_size),
+                nn.Linear(embedding_size, hn_hidden_size),
                 nn.ReLU(),
-                nn.Linear(hidden_size, param.numel())
+                nn.Linear(hn_hidden_size, param.numel())
             )
         self.target_network_architecture = target_network_architecture
         self.loss_fn = nn.CrossEntropyLoss()
@@ -308,9 +310,47 @@ class HyperNetSupportConv(HyperNetPOC):
         return tn.cuda()
 
 
+
+class HyperNetSupportKernel(HyperNetPOC):
+    def __init__(self, model_func, n_way: int, n_support: int):
+        super().__init__(model_func, n_way, n_support)
+
+        self.kernel = NNKernel(
+            input_dim=self.conv_out_size,
+            output_dim=self.conv_out_size,
+            num_layers=1,
+            hidden_dim=self.conv_out_size
+        )
+
+        self.kernel_to_embedding = nn.Sequential(
+            nn.Linear((n_way * n_support)**2, self.embedding_size)
+        )
+
+    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
+        """
+        x_support: [n_way, n_support, hidden_size]
+        """
+
+        way, shot, feat = support_feature.shape
+        sf = support_feature.reshape(way*shot, feat)
+
+        sf_k = self.kernel(sf, sf).evaluate()
+
+        sf_k = sf_k.view(1, (way*shot)**2)
+        embedding = self.kernel_to_embedding(sf_k)
+
+        network_params = {
+            name.replace("-", "."): param_net(embedding).reshape(self.target_net_param_shapes[name])
+            for name, param_net in self.target_net_param_predictors.items()
+        }
+        tn = deepcopy(self.target_network_architecture)
+        set_from_param_dict(tn, network_params)
+        return tn.cuda()
+
 hn_poc_types = {
     "hn_poc": HyperNetPOC,
     "hn_sep_joint": HyperNetSepJoint,
     "hn_from_dkt": HyperNetConvFromDKT,
-    "hn_cnv": HyperNetSupportConv
+    "hn_cnv": HyperNetSupportConv,
+    "hn_kernel": HyperNetSupportKernel
 }
