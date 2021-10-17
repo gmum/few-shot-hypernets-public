@@ -3,14 +3,14 @@ from copy import deepcopy
 import numpy as np
 import torch
 from torch import nn
-from typing import Dict
+from typing import Dict, Optional
 
 from methods.kernels import NNKernel
 from methods.meta_template import MetaTemplate
 
 
 class HyperNetPOC(MetaTemplate):
-    def __init__(self, model_func, n_way: int, n_support: int):
+    def __init__(self, model_func, n_way: int, n_support: int, target_net_architecture: Optional[nn.Module] = None):
         super().__init__(model_func, n_way, n_support)
 
         conv_out_size = self.feature.final_feat_dim
@@ -23,15 +23,17 @@ class HyperNetPOC(MetaTemplate):
         self.taskset_n_permutations = 1
         self.conv_out_size = conv_out_size
         self.embedding_size = embedding_size
+        self.detach_support = False
+        self.detach_query = False
 
         # TODO #1 - tweak the architecture of the target network
-        target_network_architecture = nn.Sequential(
+        target_net_architecture = target_net_architecture or nn.Sequential(
             nn.Linear(conv_out_size, tn_hidden_size),
             nn.ReLU(),
             nn.Linear(tn_hidden_size, self.n_way)
         )
 
-        target_net_param_dict = get_param_dict(target_network_architecture)
+        target_net_param_dict = get_param_dict(target_net_architecture)
         target_net_param_dict = {
             name.replace(".", "-"): p
             # replace dots with hyphens bc torch doesn't like dots in modules names
@@ -51,7 +53,7 @@ class HyperNetPOC(MetaTemplate):
                 nn.ReLU(),
                 nn.Linear(hn_hidden_size, param.numel())
             )
-        self.target_network_architecture = target_network_architecture
+        self.target_network_architecture = target_net_architecture
         self.loss_fn = nn.CrossEntropyLoss()
 
     def taskset_epochs(self, progress_id: int):
@@ -117,10 +119,10 @@ class HyperNetPOC(MetaTemplate):
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
-        # support_feature = support_feature.detach().clone()
-        # query_feature = query_feature.detach().clone()
         classifier = self.generate_target_net(support_feature)
 
+        support_feature = support_feature.detach().clone() if self.detach_support else support_feature
+        query_feature = query_feature.detach().clone() if self.detach_query else query_feature
         all_feature = torch.cat(
             [
                 support_feature.reshape(
@@ -137,11 +139,11 @@ class HyperNetPOC(MetaTemplate):
             y_support.reshape(self.n_way * self.n_support),
             y_query.reshape(self.n_way * (ne - self.n_support))
         ])
-        # all_feature = all_feature.detach().clone()
         y_pred = classifier(all_feature)
         return self.loss_fn(y_pred, all_y, )
 
     def train_loop(self, epoch, train_loader, optimizer):
+
         taskset_id = 0
         taskset = []
         n_train = len(train_loader)
@@ -272,7 +274,7 @@ class HyperNetSupportConv(HyperNetPOC):
     def __init__(self, model_func, n_way: int, n_support: int):
         super().__init__(model_func, n_way, n_support)
 
-        self.feat_size=  self.conv_out_size + self.n_way
+        self.feat_size = self.conv_out_size + self.n_way
 
         self.support_conv_processor = nn.Sequential(
             nn.Conv2d(self.feat_size, self.feat_size, kernel_size=3, padding=1),
@@ -310,7 +312,6 @@ class HyperNetSupportConv(HyperNetPOC):
         return tn.cuda()
 
 
-
 class HyperNetSupportKernel(HyperNetPOC):
     def __init__(self, model_func, n_way: int, n_support: int):
         super().__init__(model_func, n_way, n_support)
@@ -323,7 +324,7 @@ class HyperNetSupportKernel(HyperNetPOC):
         )
 
         self.kernel_to_embedding = nn.Sequential(
-            nn.Linear((n_way * n_support)**2, self.embedding_size)
+            nn.Linear((n_way * n_support) ** 2, self.embedding_size)
         )
 
     def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
@@ -332,11 +333,11 @@ class HyperNetSupportKernel(HyperNetPOC):
         """
 
         way, shot, feat = support_feature.shape
-        sf = support_feature.reshape(way*shot, feat)
+        sf = support_feature.reshape(way * shot, feat)
 
         sf_k = self.kernel(sf, sf).evaluate()
 
-        sf_k = sf_k.view(1, (way*shot)**2)
+        sf_k = sf_k.view(1, (way * shot) ** 2)
         embedding = self.kernel_to_embedding(sf_k)
 
         network_params = {
@@ -347,10 +348,56 @@ class HyperNetSupportKernel(HyperNetPOC):
         set_from_param_dict(tn, network_params)
         return tn.cuda()
 
+
+class KernelWithSupportClassifier(nn.Module):
+    def __init__(self, kernel: NNKernel, support: Optional[torch.Tensor] = None):
+        super().__init__()
+        self.kernel = kernel
+        self.support = support
+
+    def forward(self, query: torch.Tensor):
+        way, n_support, feat = self.support.shape
+        n_query, feat = query.shape
+
+        similarities = self.kernel.forward(
+            self.support.reshape(way * n_support, feat)
+            , query)
+
+        res = similarities.reshape(way, n_support, n_query).sum(axis=1).T
+        res = res - res.mean(axis=0)
+
+        return res
+
+
+class HNKernelBetweenSupportAndQuery(HyperNetPOC):
+    def __init__(self, model_func, n_way: int, n_support: int):
+        target_net_architecture = KernelWithSupportClassifier(NNKernel(64, 16, 1, 128))
+
+        super().__init__(
+            model_func, n_way, n_support, target_net_architecture=target_net_architecture)
+
+    def taskset_epochs(self, progress_id: int):
+        return 1
+
+    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
+        way, n_support, feat = support_feature.shape
+
+        embedding = self.build_embedding(support_feature)
+        network_params = {
+            name.replace("-", "."): param_net(embedding).reshape(self.target_net_param_shapes[name])
+            for name, param_net in self.target_net_param_predictors.items()
+        }
+        tn: KernelWithSupportClassifier = deepcopy(self.target_network_architecture)
+        set_from_param_dict(tn, network_params)
+        tn.support = support_feature
+        return tn.cuda()
+
+
 hn_poc_types = {
     "hn_poc": HyperNetPOC,
     "hn_sep_joint": HyperNetSepJoint,
     "hn_from_dkt": HyperNetConvFromDKT,
     "hn_cnv": HyperNetSupportConv,
-    "hn_kernel": HyperNetSupportKernel
+    "hn_kernel": HyperNetSupportKernel,
+    "hn_sup_kernel": HNKernelBetweenSupportAndQuery # the best architecture right now
 }

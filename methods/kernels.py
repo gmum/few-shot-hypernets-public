@@ -1,12 +1,11 @@
 import gpytorch
 import torch
 import torch.nn as nn
-import numpy as np
 
-class NNKernel(gpytorch.kernels.Kernel):
+
+class NNKernel(nn.Module):
     def __init__(self, input_dim: int, output_dim: int, num_layers: int, hidden_dim: int, flatten: bool =False, **kwargs):
-        super(NNKernel, self).__init__(**kwargs)
-
+        super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.num_layers = num_layers
