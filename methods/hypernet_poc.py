@@ -1,3 +1,4 @@
+from collections import defaultdict
 from copy import deepcopy
 
 import numpy as np
@@ -148,6 +149,7 @@ class HyperNetPOC(MetaTemplate):
         taskset = []
         n_train = len(train_loader)
         accuracies = []
+        gradient_strengths = defaultdict(list)
         for i, (x, _) in enumerate(train_loader):
             taskset.append(x)
 
@@ -163,11 +165,15 @@ class HyperNetPOC(MetaTemplate):
                             self.n_way = task_x.size(0)
                         self.n_query = task_x.size(1) - self.n_support
 
-                        # for _ in range(self.taskset_n_permutations):
                         loss = self.set_forward_loss(task_x)
                         loss_sum = loss_sum + loss
 
                     loss_sum.backward()
+
+                    if e == 0:
+                        for k, p in get_param_dict(self).items():
+                            gradient_strengths[k] = p.abs().mean().item()
+
                     optimizer.step()
                     optimizer.zero_grad()
 
@@ -183,6 +189,31 @@ class HyperNetPOC(MetaTemplate):
 
                 taskset_id += 1
                 taskset = []
+
+        return gradient_strengths
+
+
+class HNPocWithUniversalFinal(HyperNetPOC):
+    def __init__(self, model_func, n_way: int, n_support: int):
+
+        tn = nn.Sequential(
+                nn.Linear(64, 128),
+                nn.ReLU(),
+                nn.Linear(128, 64),
+                nn.ReLU()
+            )
+
+        super().__init__(model_func, n_way, n_support, target_net_architecture=tn)
+        self.final_layer = nn.Sequential(
+            nn.Linear(64,64),
+            nn.ReLU(),
+            nn.Linear(64, n_way)
+        ).cuda()
+
+
+    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
+        target_net = super().generate_target_net(support_feature)
+        return nn.Sequential(target_net, self.final_layer)
 
 
 def get_param_dict(net: nn.Module) -> Dict[str, nn.Parameter]:
@@ -372,7 +403,6 @@ class KernelWithSupportClassifier(nn.Module):
 class HNKernelBetweenSupportAndQuery(HyperNetPOC):
     def __init__(self, model_func, n_way: int, n_support: int):
         target_net_architecture = KernelWithSupportClassifier(NNKernel(64, 16, 1, 128))
-
         super().__init__(
             model_func, n_way, n_support, target_net_architecture=target_net_architecture)
 
@@ -392,6 +422,13 @@ class HNKernelBetweenSupportAndQuery(HyperNetPOC):
         tn.support = support_feature
         return tn.cuda()
 
+class NoHNKernelBetweenSupportAndQuery(HNKernelBetweenSupportAndQuery):
+    """Simply training the "kernel" target net, without using the hypernetwork"""
+    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
+        tn = self.target_network_architecture
+        tn.support = support_feature
+        return tn.cuda()
+
 
 hn_poc_types = {
     "hn_poc": HyperNetPOC,
@@ -399,5 +436,7 @@ hn_poc_types = {
     "hn_from_dkt": HyperNetConvFromDKT,
     "hn_cnv": HyperNetSupportConv,
     "hn_kernel": HyperNetSupportKernel,
-    "hn_sup_kernel": HNKernelBetweenSupportAndQuery # the best architecture right now
+    "hn_sup_kernel": HNKernelBetweenSupportAndQuery,
+    "no_hn_sup_kernel": NoHNKernelBetweenSupportAndQuery,
+    "hn_uni_final": HNPocWithUniversalFinal
 }

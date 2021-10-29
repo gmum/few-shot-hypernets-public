@@ -1,3 +1,6 @@
+import json
+from collections import defaultdict
+
 import numpy as np
 import torch
 import random
@@ -22,6 +25,9 @@ from methods.relationnet import RelationNet
 from methods.maml import MAML
 from io_utils import model_dict, parse_args, get_resume_file
 
+import matplotlib.pyplot as plt
+from pathlib import Path
+
 def _set_seed(seed, verbose=True):
     if(seed!=0):
         random.seed(seed)
@@ -44,11 +50,14 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
     max_acc = 0
 
+    metrics_per_epoch = defaultdict(list)
+
+
     for epoch in range(start_epoch, stop_epoch):
         #model.eval()
         #acc = model.test_loop(val_loader)
         model.train()
-        model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
+        metrics = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
         model.eval()
 
         if not os.path.isdir(params.checkpoint_dir):
@@ -56,6 +65,10 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
         acc = model.test_loop(val_loader)
         print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f}")
+
+        metrics = metrics or dict()
+        metrics["acc"] = acc
+        metrics["max_acc"] = max_acc
         if acc > max_acc:  # for baseline and baseline++, we don't use validation here so we let acc = -1
             print("--> Best model! save...")
             max_acc = acc
@@ -65,6 +78,20 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         if (epoch % params.save_freq == 0) or (epoch == stop_epoch - 1):
             outfile = os.path.join(params.checkpoint_dir, '{:d}.tar'.format(epoch))
             torch.save({'epoch': epoch, 'state': model.state_dict()}, outfile)
+
+        if metrics is not None:
+            for k, v in metrics.items():
+                metrics_per_epoch[k].append(v)
+
+        fig_dir = Path(params.checkpoint_dir) / "figs"
+        fig_dir.mkdir(exist_ok=True, parents=True)
+        for m, values in metrics_per_epoch.items():
+            plt.figure()
+            plt.plot(list(range(len(values))), values)
+            plt.title(f"{epoch}- {m}")
+            plt.savefig(fig_dir / f"{m}.png")
+        with (Path(params.checkpoint_dir) / "metrics.json").open("w") as f:
+            json.dump(metrics_per_epoch, f, indent=2)
 
     return model
 
