@@ -4,7 +4,8 @@ import torch.nn as nn
 
 
 class NNKernel(nn.Module):
-    def __init__(self, input_dim: int, output_dim: int, num_layers: int, hidden_dim: int, flatten: bool =False, **kwargs):
+    def __init__(self, input_dim: int, output_dim: int, num_layers: int, hidden_dim: int, flatten: bool = False,
+                 **kwargs):
         super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -87,7 +88,7 @@ class NNKernelNoInner(gpytorch.kernels.Kernel):
     def __init__(self, input_dim, num_layers, hidden_dim, flatten=False, **kwargs):
         super(NNKernelNoInner, self).__init__(**kwargs)
 
-        self.input_dim = input_dim*2
+        self.input_dim = input_dim * 2
         self.output_dim = 1
         self.num_layers = num_layers
         self.hidden_dim = hidden_dim
@@ -104,7 +105,6 @@ class NNKernelNoInner(gpytorch.kernels.Kernel):
             modules.append(PositiveLinear(self.hidden_dim, self.hidden_dim))
             modules.append(nn.Sigmoid())
         modules.append(PositiveLinear(self.hidden_dim, self.output_dim))
-
 
         model = nn.Sequential(*modules)
         return model
@@ -139,17 +139,17 @@ class NNKernelNoInner(gpytorch.kernels.Kernel):
         else:
             n = x1.shape[0]
             m = x2.shape[0]
-            out = torch.zeros((n,m), device=x1.get_device())
+            out = torch.zeros((n, m), device=x1.get_device())
 
             for i in range(n):
-                for j in range(i+1):
+                for j in range(i + 1):
                     out[i, j] = self.model(torch.cat((x1[i], x2[j]))).view(-1)
                     if i != j:
                         out[j, i] = out[i, j]
 
-            #npout = out.cpu().detach().numpy()
-            #print(np.linalg.eigvals(npout))
-            #assert np.all(np.linalg.eigvals(npout) +1e-2 >= 0), "not positive"
+            # npout = out.cpu().detach().numpy()
+            # print(np.linalg.eigvals(npout))
+            # assert np.all(np.linalg.eigvals(npout) +1e-2 >= 0), "not positive"
             if diag:
                 return torch.diag(out)
             else:
@@ -203,11 +203,11 @@ class MultiNNKernel(gpytorch.kernels.Kernel):
             out = torch.zeros((n * self.num_tasks, m * self.num_tasks), device=x1.get_device())
             for i in range(self.num_tasks):
                 for j in range(self.num_tasks):
-
                     z1 = self.kernels[i].model(x1)
                     z2 = self.kernels[j].model(x2)
 
-                    out[i:n*self.num_tasks:self.num_tasks, j:m*self.num_tasks:self.num_tasks] = torch.matmul(z1, z2.T)
+                    out[i:n * self.num_tasks:self.num_tasks, j:m * self.num_tasks:self.num_tasks] = torch.matmul(z1,
+                                                                                                                 z2.T)
             if diag:
                 return torch.diag(out)
             else:

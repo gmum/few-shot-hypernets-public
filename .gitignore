@@ -1,4 +1,11 @@
+# filelist
+filelists/**/*.png
+filelists/**/*.txt
+filelists/**/*.json
+filelists/**/*.zip
+
 # Byte-compiled / optimized / DLL files
+.idea
 __pycache__/
 *.py[cod]
 *$py.class

@@ -1,3 +1,4 @@
+import abc
 from copy import deepcopy
 
 import numpy as np
@@ -77,7 +78,8 @@ class HyperNetPOC(MetaTemplate):
     def build_embedding(self, support_feature: torch.Tensor) -> torch.Tensor:
         way, n_support, feat = support_feature.shape
         features = support_feature.reshape(way * n_support, feat)
-        return features.reshape(1, -1)
+        features = features.reshape(1, -1)
+        return features
 
     def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
         """
@@ -114,22 +116,25 @@ class HyperNetPOC(MetaTemplate):
 
         return correct_this / count_this
 
-    def set_forward_loss(self, x: torch.Tensor):
-        nw, ne, c, h, w = x.shape
+    def get_second_support_query(
+            self, support_feature: torch.Tensor, query_feature: torch.Tensor) -> (torch.Tensor, torch.Tensor):
+        det_support_feature = support_feature.detach().clone() if self.detach_support else support_feature
+        det_query_feature = query_feature.detach().clone() if self.detach_query else query_feature
+        return det_support_feature, det_query_feature
 
+    def get_all_labels(self, x: torch.Tensor):
+        nw, ne, c, h, w = x.shape
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
-        classifier = self.generate_target_net(support_feature)
+        det_support_feature, det_query_feature = self.get_second_support_query(support_feature, query_feature)
 
-        support_feature = support_feature.detach().clone() if self.detach_support else support_feature
-        query_feature = query_feature.detach().clone() if self.detach_query else query_feature
         all_feature = torch.cat(
             [
                 support_feature.reshape(
-                    (self.n_way * self.n_support), support_feature.shape[-1]
+                    (self.n_way * self.n_support), det_support_feature.shape[-1]
                 ),
                 query_feature.reshape(
-                    (self.n_way * (ne - self.n_support)), query_feature.shape[-1]
+                    (self.n_way * (ne - self.n_support)), det_query_feature.shape[-1]
                 )
             ])
 
@@ -139,8 +144,17 @@ class HyperNetPOC(MetaTemplate):
             y_support.reshape(self.n_way * self.n_support),
             y_query.reshape(self.n_way * (ne - self.n_support))
         ])
+        return support_feature, query_feature, all_feature, all_y
+
+    def set_forward_loss(self, x: torch.Tensor) -> torch.Tensor:
+        # create all necessary items
+        support_feature, query_feature, all_feature, all_y = self.get_all_labels(x)
+        # create target net
+        classifier = self.generate_target_net(support_feature)
+        # predict
         y_pred = classifier(all_feature)
-        return self.loss_fn(y_pred, all_y, )
+        # return loss
+        return self.loss_fn(y_pred, all_y)
 
     def train_loop(self, epoch, train_loader, optimizer):
 
@@ -393,11 +407,59 @@ class HNKernelBetweenSupportAndQuery(HyperNetPOC):
         return tn.cuda()
 
 
+class AbstractPermutationHN(abc.ABC):
+    permute_support = True
+    permute_query = False
+
+    def permute_set(self, input_set: torch.Tensor, permute_dim: int = 0) -> torch.Tensor:
+        """
+        Permute set:
+        input_set: torch.Tensor
+            Tensor of size [x1, ..., xN]
+        permute_dim: int
+            Axis to permute
+        For example for tensor:
+        input_set = [[1, 2], [4, 5], [6, 7]]
+        permute_dim = 0
+        Example transformation result may be:
+        [[4, 5], [1, 2], [6, 7]]
+        """
+        if permute_dim >= len(input_set.shape):
+            raise ValueError(f'Input tensor has rank: {len(input_set.shape)}, but get permute_dim: {permute_dim}')
+        permutation = torch.randperm(input_set.shape[permute_dim]).to(input_set.device)
+        permuted_tensor = input_set.index_select(dim=permute_dim, index=permutation)
+        return permuted_tensor
+
+    def get_second_support_query(
+            self, support_feature: torch.Tensor, query_feature: torch.Tensor) -> (torch.Tensor, torch.Tensor):
+        det_support_feature = support_feature.detach().clone() if self.detach_support else support_feature
+        det_query_feature = query_feature.detach().clone() if self.detach_query else query_feature
+
+        det_support_feature = self.permute_set(
+            det_support_feature,
+            permute_dim=0) if self.permute_support else det_support_feature
+        det_query_feature = self.permute_set(
+            det_query_feature,
+            permute_dim=0) if self.permute_query else det_query_feature
+
+        return det_support_feature, det_query_feature
+
+
+class PermutationHN(AbstractPermutationHN, HyperNetPOC):
+    pass
+
+
+class PermutationHNKernelBetweenSupportAndQuery(AbstractPermutationHN, HNKernelBetweenSupportAndQuery):
+    pass
+
+
 hn_poc_types = {
     "hn_poc": HyperNetPOC,
     "hn_sep_joint": HyperNetSepJoint,
     "hn_from_dkt": HyperNetConvFromDKT,
     "hn_cnv": HyperNetSupportConv,
     "hn_kernel": HyperNetSupportKernel,
-    "hn_sup_kernel": HNKernelBetweenSupportAndQuery # the best architecture right now
+    "hn_sup_kernel": HNKernelBetweenSupportAndQuery,  # the best architecture right now
+    "hn_perm": PermutationHN,
+    "hn_perm_sup_kernel": PermutationHNKernelBetweenSupportAndQuery
 }
