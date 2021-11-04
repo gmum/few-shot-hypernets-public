@@ -1,5 +1,6 @@
 import json
 from collections import defaultdict
+from typing import Type, List, Union, Dict
 
 import numpy as np
 import torch
@@ -28,8 +29,9 @@ from io_utils import model_dict, parse_args, get_resume_file
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+
 def _set_seed(seed, verbose=True):
-    if(seed!=0):
+    if (seed != 0):
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
@@ -37,9 +39,10 @@ def _set_seed(seed, verbose=True):
         torch.cuda.manual_seed_all(seed)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
-        if(verbose): print("[INFO] Setting SEED: " + str(seed))
+        if (verbose): print("[INFO] Setting SEED: " + str(seed))
     else:
-        if(verbose): print("[INFO] Setting SEED: None")
+        if (verbose): print("[INFO] Setting SEED: None")
+
 
 def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params):
     print("Tot epochs: " + str(stop_epoch))
@@ -52,23 +55,31 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
     metrics_per_epoch = defaultdict(list)
 
+    if not os.path.isdir(params.checkpoint_dir):
+        os.makedirs(params.checkpoint_dir)
+
+    args_dict = vars(params)
+    with (Path(params.checkpoint_dir) / "args.json").open("w") as f:
+        json.dump(
+            {
+                k: v if isinstance(v, (int, str, bool, float)) else str(v)
+                for (k, v) in args_dict.items()
+            },
+            f,
+            indent=2,
+        )
 
     for epoch in range(start_epoch, stop_epoch):
-        #model.eval()
-        #acc = model.test_loop(val_loader)
         model.train()
         metrics = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
         model.eval()
-
-        if not os.path.isdir(params.checkpoint_dir):
-            os.makedirs(params.checkpoint_dir)
 
         acc = model.test_loop(val_loader)
         print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f}")
 
         metrics = metrics or dict()
-        metrics["acc"] = acc
-        metrics["max_acc"] = max_acc
+        metrics["accuracy_val"] = acc
+        metrics["accuracy_val_max"] = max_acc
         if acc > max_acc:  # for baseline and baseline++, we don't use validation here so we let acc = -1
             print("--> Best model! save...")
             max_acc = acc
@@ -85,15 +96,33 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
         fig_dir = Path(params.checkpoint_dir) / "figs"
         fig_dir.mkdir(exist_ok=True, parents=True)
-        for m, values in metrics_per_epoch.items():
-            plt.figure()
-            plt.plot(list(range(len(values))), values)
-            plt.title(f"{epoch}- {m}")
-            plt.savefig(fig_dir / f"{m}.png")
+        plot_metrics(metrics_per_epoch, epoch=epoch, fig_dir=fig_dir)
         with (Path(params.checkpoint_dir) / "metrics.json").open("w") as f:
             json.dump(metrics_per_epoch, f, indent=2)
 
     return model
+
+
+def plot_metrics(metrics_per_epoch: Dict[str, Union[List[float], float]], epoch: int, fig_dir: Path):
+    for m, values in metrics_per_epoch.items():
+        plt.figure()
+        if "accuracy" in m:
+            plt.ylim((0, 100))
+        plt.errorbar(
+            list(range(len(values))),
+            [
+                np.mean(v) if isinstance(v, list) else v for v in values
+            ],
+            [
+                np.std(v) if isinstance(v, list) else 0 for v in values
+            ],
+            ecolor="black",
+            fmt="o",
+        )
+        plt.grid()
+        plt.title(f"{epoch}- {m}")
+        plt.savefig(fig_dir / f"{m}.png")
+        plt.close()
 
 
 if __name__ == '__main__':
@@ -158,12 +187,13 @@ if __name__ == '__main__':
         elif params.method == 'baseline++':
             model = BaselineTrain(model_dict[params.model], params.num_classes, loss_type='dist')
 
-    elif params.method in ['DKT', 'protonet', 'matchingnet', 'relationnet', 'relationnet_softmax', 'maml', 'maml_approx'] + list(hn_poc_types.keys()):
+    elif params.method in ['DKT', 'protonet', 'matchingnet', 'relationnet', 'relationnet_softmax', 'maml',
+                           'maml_approx'] + list(hn_poc_types.keys()):
         n_query = max(1, int(
             16 * params.test_n_way / params.train_n_way))  # if test_n_way is smaller than train_n_way, reduce n_query to keep batch size small
         print("n_query", n_query)
         train_few_shot_params = dict(n_way=params.train_n_way, n_support=params.n_shot)
-        base_datamgr = SetDataManager(image_size, n_query=n_query, **train_few_shot_params) #n_eposide=100
+        base_datamgr = SetDataManager(image_size, n_query=n_query, **train_few_shot_params)  # n_eposide=100
         base_loader = base_datamgr.get_data_loader(base_file, aug=params.train_aug)
 
         test_few_shot_params = dict(n_way=params.test_n_way, n_support=params.n_shot)
@@ -171,7 +201,7 @@ if __name__ == '__main__':
         val_loader = val_datamgr.get_data_loader(val_file, aug=False)
         # a batch for SetDataManager: a [n_way, n_support + n_query, dim, w, h] tensor
 
-        if(params.method == 'DKT'):
+        if (params.method == 'DKT'):
             model = DKT(model_dict[params.model], **train_few_shot_params)
             model.init_summary()
         elif params.method == 'protonet':
@@ -203,21 +233,24 @@ if __name__ == '__main__':
 
         elif params.method in hn_poc_types.keys():
             print(params.method)
-            model = hn_poc_types[params.method](model_dict[params.model], **train_few_shot_params)
+            hn_type: Type[HyperNetPOC] = hn_poc_types[params.method]
+            model = hn_type(model_dict[params.model], params=params, **train_few_shot_params)
     else:
         raise ValueError('Unknown method')
 
     model = model.cuda()
 
     params.checkpoint_dir = '%s/checkpoints/%s/%s_%s' % (configs.save_dir, params.dataset, params.model, params.method)
+
     if params.train_aug:
         params.checkpoint_dir += '_aug'
     if not params.method in ['baseline', 'baseline++']:
         params.checkpoint_dir += '_%dway_%dshot' % (params.train_n_way, params.n_shot)
-
+    if params.checkpoint_suffix != "":
+        params.checkpoint_dir = params.checkpoint_dir + "_" + params.checkpoint_suffix
     if not os.path.isdir(params.checkpoint_dir):
         os.makedirs(params.checkpoint_dir)
-
+    print(params.checkpoint_dir)
     start_epoch = params.start_epoch
     stop_epoch = params.stop_epoch
     if params.method == 'maml' or params.method == 'maml_approx':
@@ -231,7 +264,7 @@ if __name__ == '__main__':
             model.load_state_dict(tmp['state'])
     elif params.warmup:  # We also support warmup from pretrained baseline feature, but we never used in our paper
         baseline_checkpoint_dir = '%s/checkpoints/%s/%s_%s' % (
-        configs.save_dir, params.dataset, params.model, 'baseline')
+            configs.save_dir, params.dataset, params.model, 'baseline')
         if params.train_aug:
             baseline_checkpoint_dir += '_aug'
         warmup_resume_file = get_resume_file(baseline_checkpoint_dir)

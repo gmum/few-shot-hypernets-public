@@ -3,6 +3,7 @@ import os
 import glob
 import argparse
 import backbone
+import hn_args
 from methods.hypernet_poc import hn_poc_types
 
 model_dict = dict(
@@ -27,7 +28,7 @@ def parse_args(script):
     parser.add_argument('--test_n_way'  , default=5, type=int,  help='class num to classify for testing (validation) ') #baseline and baseline++ only use this parameter in finetuning
     parser.add_argument('--n_shot'      , default=5, type=int,  help='number of labeled data in each class, same as n_support') #baseline and baseline++ only use this parameter in finetuning
     parser.add_argument('--train_aug'   , action='store_true',  help='perform data augmentation or not during training ') #still required for save_features.py and test.py to find the model path correctly
-
+    parser.add_argument("--checkpoint_suffix", type=str,default="", help="Suffix for custom experiment differentiation" )
     if script == 'train':
         parser.add_argument('--num_classes' , default=200, type=int, help='total number of classes in softmax, only used in baseline') #make it larger than the maximum label value in base class
         parser.add_argument('--save_freq'   , default=50, type=int, help='Save frequency')
@@ -46,7 +47,7 @@ def parse_args(script):
     else:
        raise ValueError('Unknown script')
 
-
+    parser = hn_args.add_hn_args_to_parser(parser)
     return parser.parse_args()
 
 def parse_args_regression(script):

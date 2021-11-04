@@ -11,30 +11,35 @@ from methods.meta_template import MetaTemplate
 
 
 class HyperNetPOC(MetaTemplate):
-    def __init__(self, model_func, n_way: int, n_support: int, target_net_architecture: Optional[nn.Module] = None):
+    def __init__(
+            self, model_func: nn.Module, n_way: int, n_support: int,
+            params: "ArgparseHNParams", target_net_architecture: Optional[nn.Module] = None
+    ):
         super().__init__(model_func, n_way, n_support)
 
         conv_out_size = self.feature.final_feat_dim
-        hn_hidden_size = 256
-        tn_hidden_size = 128
-        embedding_size = conv_out_size * self.n_way * self.n_support
-
-        self.taskset_size = 1
-        self.taskset_print_every = 20
-        self.taskset_n_permutations = 1
+        tn_hidden_size = params.hn_tn_hidden_size
+        self.taskset_size = params.hn_taskset_size
+        self.taskset_print_every = params.hn_taskset_print_every
+        self.hn_hidden_size = params.hn_hidden_size
         self.conv_out_size = conv_out_size
-        self.embedding_size = embedding_size
-        self.detach_support = False
-        self.detach_query = False
+        self.embedding_size = conv_out_size * self.n_way * self.n_support
+        self.detach_support = params.hn_detach_support
+        self.detach_query = params.hn_detach_query
+        self.hn_neck_len = params.hn_neck_len
+        self.hn_head_len = params.hn_head_len
+        self.taskset_repeats_config = params.hn_taskset_repeats
 
-        # TODO #1 - tweak the architecture of the target network
-        target_net_architecture = target_net_architecture or nn.Sequential(
+        self.target_net_architecture = target_net_architecture or nn.Sequential(
             nn.Linear(conv_out_size, tn_hidden_size),
             nn.ReLU(),
             nn.Linear(tn_hidden_size, self.n_way)
         )
+        self.loss_fn = nn.CrossEntropyLoss()
+        self.init_hypernet_modules()
 
-        target_net_param_dict = get_param_dict(target_net_architecture)
+    def init_hypernet_modules(self):
+        target_net_param_dict = get_param_dict(self.target_net_architecture)
         target_net_param_dict = {
             name.replace(".", "-"): p
             # replace dots with hyphens bc torch doesn't like dots in modules names
@@ -45,27 +50,47 @@ class HyperNetPOC(MetaTemplate):
             for (name, p)
             in target_net_param_dict.items()
         }
+        neck_modules = []
+        if self.hn_neck_len > 0:
+            neck_modules = [
+                nn.Linear(self.embedding_size, self.hn_hidden_size),
+                nn.ReLU()
+            ]
+            for _ in range(self.hn_neck_len - 1):
+                neck_modules.extend(
+                    [nn.Linear(self.hn_hidden_size, self.hn_hidden_size), nn.ReLU()]
+                )
 
-        # TODO 2 - tweak parameter predictors
-        self.target_net_param_predictors = nn.ModuleDict()
+            neck_modules = neck_modules[:-1]  # remove the last ReLU
+
+        self.hypernet_neck = nn.Sequential(*neck_modules)
+
+        self.hypernet_heads = nn.ModuleDict()
+        assert self.hn_head_len >= 1, "Head len must be >= 1!"
         for name, param in target_net_param_dict.items():
-            self.target_net_param_predictors[name] = nn.Sequential(
-                nn.Linear(embedding_size, hn_hidden_size),
-                nn.ReLU(),
-                nn.Linear(hn_hidden_size, param.numel())
-            )
-        self.target_network_architecture = target_net_architecture
-        self.loss_fn = nn.CrossEntropyLoss()
+            head_in = self.embedding_size if self.hn_neck_len == 0 else self.hn_hidden_size
+            head_out = param.numel()
+            head_modules = []
 
-    def taskset_epochs(self, progress_id: int):
-        # TODO - initial bootstrapping - is this essential?
-        if progress_id > 30:
+            for i in range(self.hn_head_len):
+                in_size = head_in if i == 0 else self.hn_hidden_size
+                is_final = (i == (self.hn_head_len - 1))
+                out_size = head_out if is_final else self.hn_hidden_size
+                head_modules.append(nn.Linear(in_size, out_size))
+                if not is_final:
+                    head_modules.append(nn.ReLU())
+
+            self.hypernet_heads[name] = nn.Sequential(*head_modules)
+
+    def taskset_repeats(self, epoch: int):
+        epoch_ceiling_to_n_repeats = {
+            int(kv.split(":")[0]): int(kv.split(":")[1])
+            for kv in self.taskset_repeats_config.split("-")
+        }
+        epoch_ceiling_to_n_repeats = {k: v for (k, v) in epoch_ceiling_to_n_repeats.items() if k > epoch}
+        if len(epoch_ceiling_to_n_repeats) == 0:
             return 1
-        if progress_id > 20:
-            return 2
-        if progress_id > 10:
-            return 5
-        return 10
+        return epoch_ceiling_to_n_repeats[min(epoch_ceiling_to_n_repeats.keys())]
 
     def get_labels(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -86,11 +111,13 @@ class HyperNetPOC(MetaTemplate):
         """
 
         embedding = self.build_embedding(support_feature)
+
+        root = self.hypernet_neck(embedding)
         network_params = {
-            name.replace("-", "."): param_net(embedding).reshape(self.target_net_param_shapes[name])
-            for name, param_net in self.target_net_param_predictors.items()
+            name.replace("-", "."): param_net(root).reshape(self.target_net_param_shapes[name])
+            for name, param_net in self.hypernet_heads.items()
         }
-        tn = deepcopy(self.target_network_architecture)
+        tn = deepcopy(self.target_net_architecture)
         set_from_param_dict(tn, network_params)
         return tn.cuda()
 
@@ -149,67 +176,69 @@ class HyperNetPOC(MetaTemplate):
         taskset = []
         n_train = len(train_loader)
         accuracies = []
-        gradient_strengths = defaultdict(list)
+        losses = []
+        metrics = defaultdict(list)
+        ts_repeats = self.taskset_repeats(epoch)
+
         for i, (x, _) in enumerate(train_loader):
             taskset.append(x)
 
             # TODO 3: perhaps the idea of tasksets is redundant and it's better to update weights at every task
             if i % self.taskset_size == (self.taskset_size - 1) or i == (n_train - 1):
-                ts_epochs = self.taskset_epochs(epoch)
                 loss_sum = torch.tensor(0).cuda()
-                for e in range(ts_epochs):
+                for tr in range(ts_repeats):
                     loss_sum = torch.tensor(0).cuda()
 
-                    for task_x in taskset:
+                    for task in taskset:
                         if self.change_way:
-                            self.n_way = task_x.size(0)
-                        self.n_query = task_x.size(1) - self.n_support
-
-                        loss = self.set_forward_loss(task_x)
+                            self.n_way = task.size(0)
+                        self.n_query = task.size(1) - self.n_support
+                        loss = self.set_forward_loss(task)
                         loss_sum = loss_sum + loss
 
+                    optimizer.zero_grad()
                     loss_sum.backward()
 
-                    if e == 0:
+                    if tr == 0:
                         for k, p in get_param_dict(self).items():
-                            gradient_strengths[k] = p.abs().mean().item()
+                            metrics[f"grad_norm.{k}"].append(p.grad.abs().mean().item() if p.grad is not None else 0)
 
                     optimizer.step()
-                    optimizer.zero_grad()
 
+                losses.append(loss_sum.item())
                 accuracies.extend([
-                    self.query_accuracy(task_x) for task_x in taskset
+                    self.query_accuracy(task) for task in taskset
                 ])
                 acc_mean = np.mean(accuracies) * 100
                 acc_std = np.std(accuracies) * 100
 
                 if taskset_id % self.taskset_print_every == 0:
                     print(
-                        f"Epoch {epoch} | Taskset {taskset_id} | TS {len(taskset)} | TS epochs {ts_epochs} | Loss {loss_sum.item()} | Train acc {acc_mean:.2f} +- {acc_std:.2f} %")
+                        f"Epoch {epoch} | Taskset {taskset_id} | TS {len(taskset)} | TS epochs {ts_repeats} | Loss {loss_sum.item()} | Train acc {acc_mean:.2f} +- {acc_std:.2f} %")
 
                 taskset_id += 1
                 taskset = []
 
-        return gradient_strengths
+        metrics["loss_train"] = losses
+        metrics["accuracy_train"] = [a * 100 for a in accuracies]
+        return metrics
 
 
 class HNPocWithUniversalFinal(HyperNetPOC):
     def __init__(self, model_func, n_way: int, n_support: int):
-
         tn = nn.Sequential(
-                nn.Linear(64, 128),
-                nn.ReLU(),
-                nn.Linear(128, 64),
-                nn.ReLU()
-            )
+            nn.Linear(64, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU()
+        )
 
         super().__init__(model_func, n_way, n_support, target_net_architecture=tn)
         self.final_layer = nn.Sequential(
-            nn.Linear(64,64),
+            nn.Linear(64, 64),
             nn.ReLU(),
             nn.Linear(64, n_way)
         ).cuda()
-
 
     def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
         target_net = super().generate_target_net(support_feature)
@@ -294,9 +323,9 @@ class HyperNetSepJoint(HyperNetPOC):
 
         network_params = {
             name.replace("-", "."): param_net(embedding).reshape(self.target_net_param_shapes[name])
-            for name, param_net in self.target_net_param_predictors.items()
+            for name, param_net in self.hypernet_heads.items()
         }
-        tn = deepcopy(self.target_network_architecture)
+        tn = deepcopy(self.target_net_architecture)
         set_from_param_dict(tn, network_params)
         return tn.cuda()
 
@@ -336,9 +365,9 @@ class HyperNetSupportConv(HyperNetPOC):
         embedding = self.build_embedding(sf_conved)
         network_params = {
             name.replace("-", "."): param_net(embedding).reshape(self.target_net_param_shapes[name])
-            for name, param_net in self.target_net_param_predictors.items()
+            for name, param_net in self.hypernet_heads.items()
         }
-        tn = deepcopy(self.target_network_architecture)
+        tn = deepcopy(self.target_net_architecture)
         set_from_param_dict(tn, network_params)
         return tn.cuda()
 
@@ -373,9 +402,9 @@ class HyperNetSupportKernel(HyperNetPOC):
 
         network_params = {
             name.replace("-", "."): param_net(embedding).reshape(self.target_net_param_shapes[name])
-            for name, param_net in self.target_net_param_predictors.items()
+            for name, param_net in self.hypernet_heads.items()
         }
-        tn = deepcopy(self.target_network_architecture)
+        tn = deepcopy(self.target_net_architecture)
         set_from_param_dict(tn, network_params)
         return tn.cuda()
 
@@ -406,7 +435,7 @@ class HNKernelBetweenSupportAndQuery(HyperNetPOC):
         super().__init__(
             model_func, n_way, n_support, target_net_architecture=target_net_architecture)
 
-    def taskset_epochs(self, progress_id: int):
+    def taskset_repeats(self, epoch: int):
         return 1
 
     def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
@@ -415,17 +444,60 @@ class HNKernelBetweenSupportAndQuery(HyperNetPOC):
         embedding = self.build_embedding(support_feature)
         network_params = {
             name.replace("-", "."): param_net(embedding).reshape(self.target_net_param_shapes[name])
-            for name, param_net in self.target_net_param_predictors.items()
+            for name, param_net in self.hypernet_heads.items()
         }
-        tn: KernelWithSupportClassifier = deepcopy(self.target_network_architecture)
+        tn: KernelWithSupportClassifier = deepcopy(self.target_net_architecture)
         set_from_param_dict(tn, network_params)
         tn.support = support_feature
         return tn.cuda()
 
+
 class NoHNKernelBetweenSupportAndQuery(HNKernelBetweenSupportAndQuery):
     """Simply training the "kernel" target net, without using the hypernetwork"""
+
     def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
-        tn = self.target_network_architecture
+        tn = self.target_net_architecture
+        tn.support = support_feature
+        return tn.cuda()
+
+
+class ConditionedClassifier(nn.Module):
+    def __init__(self, emb_size: int, n_way: int, n_support: int, hidden_size: int = 128):
+        super().__init__()
+        sup_h_size = 128
+        self.net = nn.Sequential(
+            nn.Linear((emb_size + sup_h_size), hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, n_way)
+        )
+        self.support = None
+        self.emb_size = emb_size
+        self.sup_net = nn.Sequential(
+            nn.Linear((n_way * n_support) * emb_size, sup_h_size),
+            nn.ReLU(),
+            nn.Linear(sup_h_size, sup_h_size)
+        )
+
+    def forward(self, query: torch.Tensor):
+        b, es = query.shape
+
+        support_emb = self.support.reshape(1, -1).repeat(b, 1)
+        support_emb = self.sup_net(support_emb)
+
+        q_cond = torch.cat([
+            query, support_emb
+        ], dim=1)
+        return self.net(q_cond)
+
+
+class NoHNConditioning(HyperNetPOC):
+    def __init__(self, model_func, n_way: int, n_support: int):
+        target_net_architecture = ConditionedClassifier(64, n_way, n_support)
+
+        super().__init__(model_func, n_way, n_support, target_net_architecture=target_net_architecture)
+
+    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
+        tn = self.target_net_architecture
         tn.support = support_feature
         return tn.cuda()
 
@@ -438,5 +510,6 @@ hn_poc_types = {
     "hn_kernel": HyperNetSupportKernel,
     "hn_sup_kernel": HNKernelBetweenSupportAndQuery,
     "no_hn_sup_kernel": NoHNKernelBetweenSupportAndQuery,
-    "hn_uni_final": HNPocWithUniversalFinal
+    "hn_uni_final": HNPocWithUniversalFinal,
+    "no_hn_cond": NoHNConditioning
 }
