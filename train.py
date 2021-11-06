@@ -1,4 +1,5 @@
 import json
+import sys
 from collections import defaultdict
 from typing import Type, List, Union, Dict
 
@@ -58,16 +59,6 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
     if not os.path.isdir(params.checkpoint_dir):
         os.makedirs(params.checkpoint_dir)
 
-    args_dict = vars(params)
-    with (Path(params.checkpoint_dir) / "args.json").open("w") as f:
-        json.dump(
-            {
-                k: v if isinstance(v, (int, str, bool, float)) else str(v)
-                for (k, v) in args_dict.items()
-            },
-            f,
-            indent=2,
-        )
 
     for epoch in range(start_epoch, stop_epoch):
         model.train()
@@ -282,5 +273,19 @@ if __name__ == '__main__':
             model.feature.load_state_dict(state)
         else:
             raise ValueError('No warm_up file')
+
+    args_dict = vars(params)
+    with (Path(params.checkpoint_dir) / "args.json").open("w") as f:
+        json.dump(
+            {
+                k: v if isinstance(v, (int, str, bool, float)) else str(v)
+                for (k, v) in args_dict.items()
+            },
+            f,
+            indent=2,
+        )
+
+    with (Path(params.checkpoint_dir) / "rerun.sh").open("w") as f:
+        print("python", " ".join(sys.argv), file=f)
 
     model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params)
