@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-source ~/.anaconda3/etc/profile.d/conda.sh
+source ~/anaconda3/etc/profile.d/conda.sh
 conda activate uj
 
 set -xe
