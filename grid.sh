@@ -8,7 +8,7 @@ set -xe
 
 which python
 
-CMD="python train.py --dataset cross_char --num_classes 4112 --method hn_poc --train_n_way 5 --seed 1"
+CMD="python train.py --dataset cross_char --num_classes 4112 --method hn_poc --train_n_way 5 --seed 1 --resume"
 
 
 for HN_HIDDEN_SIZE in 128 256 512;
