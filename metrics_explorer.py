@@ -1,3 +1,5 @@
+# run with:
+# streamlit run metrics_explorer.py
 from typing import Tuple, Dict, List, Union, Any
 
 import streamlit as st
@@ -9,7 +11,6 @@ import seaborn as sns
 import altair as alt
 import base64
 from collections import defaultdict
-
 
 st.set_page_config(
     page_title="FSL metrics",
@@ -29,7 +30,12 @@ LOADING_PROGRESS = st.progress(0.0)
 PROGRESS_TEXT = st.empty()
 HN_PREFIX = "hn"
 
-def metrics_dict_to_df(experiment_name: str, metrics_dict:Dict[str, List[Union[float, List[float]]]], args_dict: Dict[str, Any]) -> pd.DataFrame:
+
+def metrics_dict_to_df(
+        experiment_name: str,
+        metrics_dict: Dict[str, List[Union[float, List[float]]]],
+        args_dict: Dict[str, Any]
+) -> pd.DataFrame:
     rows = []
     for m_name, values in metrics_dict.items():
         for e, vls in enumerate(values):
@@ -60,7 +66,6 @@ experiment_metrics = dict()
 
 loggable_experiments = list(loggable_experiments.items())  # [:3]
 
-
 for i, (e, p) in enumerate(loggable_experiments):
     PROGRESS_TEXT.text(f"loading {p.parent.name} {i}/{len(loggable_experiments)}")
 
@@ -78,7 +83,6 @@ PROGRESS_TEXT.text(f"Loaded {len(experiment_metrics)} experiments")
 
 df = pd.concat([mdf for mdf in experiment_metrics.values()])
 
-
 available_metrics = sorted(df.met_name.unique())
 all_args = sorted({a for ad in experiment_args.values() for a in ad.keys()})
 
@@ -86,16 +90,9 @@ selected_metric = st.selectbox("Select metric", available_metrics, index=availab
 aggregate_y = st.checkbox("Aggregate Y?", value=True)
 
 st.altair_chart(alt.Chart(
-    df[df.met_name==selected_metric],
+    df[df.met_name == selected_metric],
 ).mark_line(point=True).encode(
     x="epoch",
     y=alt.Y("value", aggregate=("mean" if aggregate_y else alt.Undefined)),
     color="exp_name", tooltip=["exp_name", "value", "epoch"] + [a for a in all_args if a.startswith(HN_PREFIX)],
-).configure_legend(labelLimit= 0).interactive().properties(title=selected_metric), use_container_width=True)
-
-
-
-
-
-
-
+).configure_legend(labelLimit=0).interactive().properties(title=selected_metric), use_container_width=True)
