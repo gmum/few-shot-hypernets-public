@@ -54,10 +54,18 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
     max_acc = 0
 
-    metrics_per_epoch = defaultdict(list)
+
 
     if not os.path.isdir(params.checkpoint_dir):
         os.makedirs(params.checkpoint_dir)
+
+    if (Path(params.checkpoint_dir) / "metrics.json").exists():
+        with (Path(params.checkpoint_dir) / "metrics.json").open("r") as f:
+            metrics_per_epoch = json.load(f)
+            max_acc = metrics_per_epoch["accuracy_val_max"][-1]
+    else:
+        metrics_per_epoch = defaultdict(list)
+
 
 
     for epoch in range(start_epoch, stop_epoch):
