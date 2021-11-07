@@ -2,6 +2,7 @@
 # streamlit run metrics_explorer.py
 from typing import Tuple, Dict, List, Union, Any
 
+import numpy as np
 import streamlit as st
 from pathlib import Path
 import json
@@ -39,7 +40,7 @@ def metrics_dict_to_df(
     rows = []
     for m_name, values in metrics_dict.items():
         for e, vls in enumerate(values):
-            vls = [vls] if not isinstance(vls, list) else vls
+            vls = [vls] if not isinstance(vls, list) else [np.mean(vls)] #vls
             rows.extend([{
                 "exp_name": experiment_name,
                 "met_name": m_name,
@@ -86,6 +87,9 @@ df = pd.concat([mdf for mdf in experiment_metrics.values()])
 available_metrics = sorted(df.met_name.unique())
 all_args = sorted({a for ad in experiment_args.values() for a in ad.keys()})
 
+
+"""## Selected metric over the course of epochs"""
+
 selected_metric = st.selectbox("Select metric", available_metrics, index=available_metrics.index("accuracy_val_max"))
 aggregate_y = st.checkbox("Aggregate Y?", value=True)
 
@@ -96,3 +100,19 @@ st.altair_chart(alt.Chart(
     y=alt.Y("value", aggregate=("mean" if aggregate_y else alt.Undefined)),
     color="exp_name", tooltip=["exp_name", "value", "epoch"] + [a for a in all_args if a.startswith(HN_PREFIX)],
 ).configure_legend(labelLimit=0).interactive().properties(title=selected_metric), use_container_width=True)
+
+
+"""## How do hyperparams influence the metric?"""
+
+for a in all_args:
+    if a.startswith(HN_PREFIX):
+        unique_as = sorted(df[a].unique())
+        with st.expander(f"{a} := {unique_as}", expanded=(len(unique_as) > 1)):
+            st.altair_chart(alt.Chart(
+                df[df.met_name == selected_metric],
+            ).mark_line(point=True).encode(
+                x="epoch",
+                y=alt.Y("value", aggregate=("mean" if aggregate_y else alt.Undefined)),
+                color="exp_name", tooltip=["exp_name", "value", "epoch"] + [a for a in all_args if a.startswith(HN_PREFIX)],
+                column=a
+            ).configure_legend(labelLimit=0).interactive().properties(title=selected_metric))
