@@ -201,7 +201,7 @@ class HyperNetPOC(MetaTemplate):
 
                     if tr == 0:
                         for k, p in get_param_dict(self).items():
-                            metrics[f"grad_norm.{k}"].append(p.grad.abs().mean().item() if p.grad is not None else 0)
+                            metrics[f"grad_norm/{k}"] = p.grad.abs().mean().item() if p.grad is not None else 0
 
                     optimizer.step()
 
@@ -219,8 +219,8 @@ class HyperNetPOC(MetaTemplate):
                 taskset_id += 1
                 taskset = []
 
-        metrics["loss_train"] = losses
-        metrics["accuracy_train"] = [a * 100 for a in accuracies]
+        metrics["loss/train"] = np.mean(losses)
+        metrics["accuracy/train"] = np.mean(accuracies) * 100
         return metrics
 
 

@@ -1,7 +1,7 @@
 import json
 import sys
 from collections import defaultdict
-from typing import Type, List, Union, Dict
+from typing import Type, List, Union, Dict, Optional
 
 import numpy as np
 import torch
@@ -25,11 +25,11 @@ from methods.protonet import ProtoNet
 from methods.matchingnet import MatchingNet
 from methods.relationnet import RelationNet
 from methods.maml import MAML
-from io_utils import model_dict, parse_args, get_resume_file
+from io_utils import model_dict, parse_args, get_resume_file, setup_neptune
 
 import matplotlib.pyplot as plt
 from pathlib import Path
-
+import neptune
 
 def _set_seed(seed, verbose=True):
     if (seed != 0):
@@ -45,12 +45,14 @@ def _set_seed(seed, verbose=True):
         if (verbose): print("[INFO] Setting SEED: None")
 
 
-def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params):
+def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, *, neptune_run: Optional[neptune.projects.Project] = None):
     print("Tot epochs: " + str(stop_epoch))
-    if optimization == 'Adam':
-        optimizer = torch.optim.Adam(model.parameters())
+    if optimization == 'adam':
+        optimizer = torch.optim.Adam(model.parameters(), lr=params.lr)
+    elif optimization == "sgd":
+        optimizer = torch.optim.SGD(model.parameters(), lr=params.lr)
     else:
-        raise ValueError('Unknown optimization, please define by yourself')
+        raise ValueError(f'Unknown optimization {optimization}, please define by yourself')
 
     max_acc = 0
 
@@ -59,14 +61,12 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
     if not os.path.isdir(params.checkpoint_dir):
         os.makedirs(params.checkpoint_dir)
 
-    if (Path(params.checkpoint_dir) / "metrics.json").exists():
+    if (Path(params.checkpoint_dir) / "metrics.json").exists() and params.resume:
         with (Path(params.checkpoint_dir) / "metrics.json").open("r") as f:
             metrics_per_epoch = json.load(f)
-            max_acc = metrics_per_epoch["accuracy_val_max"][-1]
+            max_acc = metrics_per_epoch["accuracy/val_max"][-1]
     else:
         metrics_per_epoch = defaultdict(list)
-
-
 
     for epoch in range(start_epoch, stop_epoch):
         model.train()
@@ -77,8 +77,8 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f}")
 
         metrics = metrics or dict()
-        metrics["accuracy_val"] = acc
-        metrics["accuracy_val_max"] = max_acc
+        metrics["accuracy/val"] = acc
+        metrics["accuracy/val_max"] = max_acc
         if acc > max_acc:  # for baseline and baseline++, we don't use validation here so we let acc = -1
             print("--> Best model! save...")
             max_acc = acc
@@ -93,11 +93,17 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             for k, v in metrics.items():
                 metrics_per_epoch[k].append(v)
 
-        fig_dir = Path(params.checkpoint_dir) / "figs"
-        fig_dir.mkdir(exist_ok=True, parents=True)
-        plot_metrics(metrics_per_epoch, epoch=epoch, fig_dir=fig_dir)
+        # fig_dir = Path(params.checkpoint_dir) / "figs"
+        # fig_dir.mkdir(exist_ok=True, parents=True)
+        # # plot_metrics(metrics_per_epoch, epoch=epoch, fig_dir=fig_dir)
         with (Path(params.checkpoint_dir) / "metrics.json").open("w") as f:
             json.dump(metrics_per_epoch, f, indent=2)
+
+        if neptune_run is not None:
+            for m, v in metrics.items():
+                neptune_run[m].log(v, step=epoch)
+
+
 
     return model
 
@@ -150,7 +156,8 @@ if __name__ == '__main__':
         # params.model = 'Conv4S'
         # no need for this, since omniglot is loaded as RGB
 
-    optimization = 'Adam'
+    # optimization = 'Adam'
+    optimization = params.optim
 
     if params.stop_epoch == -1:
         if params.method in ['baseline', 'baseline++']:
@@ -296,4 +303,8 @@ if __name__ == '__main__':
     with (Path(params.checkpoint_dir) / "rerun.sh").open("w") as f:
         print("python", " ".join(sys.argv), file=f)
 
-    model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params)
+
+    neptune_run = setup_neptune(params)
+    model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
+
+

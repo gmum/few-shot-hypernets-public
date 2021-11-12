@@ -1,8 +1,13 @@
+from pathlib import Path
+from typing import Optional
+
+import neptune.new as neptune
 import numpy as np
 import os
 import glob
 import argparse
 import backbone
+import configs
 import hn_args
 from methods.hypernet_poc import hn_poc_types
 
@@ -29,6 +34,8 @@ def parse_args(script):
     parser.add_argument('--n_shot'      , default=5, type=int,  help='number of labeled data in each class, same as n_support') #baseline and baseline++ only use this parameter in finetuning
     parser.add_argument('--train_aug'   , action='store_true',  help='perform data augmentation or not during training ') #still required for save_features.py and test.py to find the model path correctly
     parser.add_argument("--checkpoint_suffix", type=str,default="", help="Suffix for custom experiment differentiation" )
+    parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
+    parser.add_argument("--optim", type=str, choices=["adam", "sgd"], help="Optimizer", default="adam")
     if script == 'train':
         parser.add_argument('--num_classes' , default=200, type=int, help='total number of classes in softmax, only used in baseline') #make it larger than the maximum label value in base class
         parser.add_argument('--save_freq'   , default=50, type=int, help='Save frequency')
@@ -88,3 +95,19 @@ def get_best_file(checkpoint_dir):
         return best_file
     else:
         return get_resume_file(checkpoint_dir)
+
+def setup_neptune(params, ):
+    try:
+        run_name = Path(params.checkpoint_dir).relative_to(Path(configs.save_dir) / "checkpoints").name
+        print(run_name)
+        run = neptune.init(
+            name=run_name,
+            source_files="*.py",
+            tags=[params.checkpoint_suffix] if params.checkpoint_suffix != "" else [],
+        )
+        run["params"] = vars(params)
+
+        return run
+    except Exception as e:
+        print("Cannot initialize neptune because of", e)
+        pass
