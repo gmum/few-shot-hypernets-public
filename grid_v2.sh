@@ -32,6 +32,7 @@ do
               --stop_epoch 1000
               --checkpoint_suffix $SUFFIX &
           done
+          wait
         done
 
       done
