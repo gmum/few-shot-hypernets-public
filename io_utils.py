@@ -6,6 +6,9 @@ import numpy as np
 import os
 import glob
 import argparse
+
+from neptune.new import Run
+
 import backbone
 import configs
 import hn_args
@@ -96,18 +99,29 @@ def get_best_file(checkpoint_dir):
     else:
         return get_resume_file(checkpoint_dir)
 
-def setup_neptune(params, ):
+def setup_neptune(params) -> Run:
     try:
         run_name = Path(params.checkpoint_dir).relative_to(Path(configs.save_dir) / "checkpoints").name
-        print(run_name)
+        run_file = Path(params.checkpoint_dir) / "NEPTUNE_RUN.txt"
+
+        run_id = None
+        if params.resume and run_file.exists():
+            with run_file.open("r") as f:
+                run_id = f.read()
+                print("Resuming neptune run", run_id)
+
         run = neptune.init(
             name=run_name,
             source_files="*.py",
             tags=[params.checkpoint_suffix] if params.checkpoint_suffix != "" else [],
+            run=run_id
         )
+        with run_file.open("w") as f:
+            f.write(run._short_id)
+            print("Starting neptune run", run._short_id)
         run["params"] = vars(params)
-
         return run
+
     except Exception as e:
         print("Cannot initialize neptune because of", e)
         pass

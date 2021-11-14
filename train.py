@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import random
 import torch.nn as nn
+from neptune.new import Run
 from torch.autograd import Variable
 import torch.optim
 import torch.optim.lr_scheduler as lr_scheduler
@@ -45,7 +46,7 @@ def _set_seed(seed, verbose=True):
         if (verbose): print("[INFO] Setting SEED: None")
 
 
-def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, *, neptune_run: Optional[neptune.projects.Project] = None):
+def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, *, neptune_run: Optional[Run] = None):
     print("Tot epochs: " + str(stop_epoch))
     if optimization == 'adam':
         optimizer = torch.optim.Adam(model.parameters(), lr=params.lr)
