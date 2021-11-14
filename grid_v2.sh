@@ -29,7 +29,7 @@ do
               --hn_taskset_size $HN_TASKSET_SIZE \
               --hn_neck_len $HN_NECK_LEN \
               --hn_head_len $HN_HEAD_LEN \
-              --stop_epoch 1000
+              --stop_epoch 1000 \
               --checkpoint_suffix $SUFFIX &
           done
           wait
