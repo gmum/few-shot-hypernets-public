@@ -24,8 +24,8 @@ class HyperNetPOC(MetaTemplate):
         self.hn_hidden_size = params.hn_hidden_size
         self.conv_out_size = conv_out_size
         self.embedding_size = conv_out_size * self.n_way * self.n_support
-        self.detach_support = params.hn_detach_support
-        self.detach_query = params.hn_detach_query
+        self.detach_ft_in_hn = params.hn_detach_ft_in_hn
+        self.detach_ft_in_tn = params.hn_detach_ft_in_tn
         self.hn_neck_len = params.hn_neck_len
         self.hn_head_len = params.hn_head_len
         self.taskset_repeats_config = params.hn_taskset_repeats
@@ -147,11 +147,12 @@ class HyperNetPOC(MetaTemplate):
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
-        classifier = self.generate_target_net(support_feature)
+        feature_to_hn = support_feature.detach() if self.detach_ft_in_hn else support_feature
+        classifier = self.generate_target_net(feature_to_hn)
 
-        support_feature = support_feature.detach().clone() if self.detach_support else support_feature
-        query_feature = query_feature.detach().clone() if self.detach_query else query_feature
-        all_feature = torch.cat(
+        support_feature = support_feature.detach().clone() if self.detach_ft_in_hn else support_feature
+        query_feature = query_feature.detach().clone() if self.detach_ft_in_tn else query_feature
+        feature_to_classify = torch.cat(
             [
                 support_feature.reshape(
                     (self.n_way * self.n_support), support_feature.shape[-1]
@@ -163,12 +164,16 @@ class HyperNetPOC(MetaTemplate):
 
         y_support = self.get_labels(support_feature)
         y_query = self.get_labels(query_feature)
-        all_y = torch.cat([
+        y_to_classify_gt = torch.cat([
             y_support.reshape(self.n_way * self.n_support),
             y_query.reshape(self.n_way * (ne - self.n_support))
         ])
-        y_pred = classifier(all_feature)
-        return self.loss_fn(y_pred, all_y, )
+
+        if self.detach_ft_in_tn:
+            feature_to_classify = feature_to_classify.detach()
+
+        y_pred = classifier(feature_to_classify)
+        return self.loss_fn(y_pred, y_to_classify_gt)
 
     def train_loop(self, epoch, train_loader, optimizer):
 
@@ -271,8 +276,13 @@ def set_from_param_dict(net: nn.Module, param_dict: Dict[str, torch.Tensor]):
 
 
 class HyperNetConvFromDKT(HyperNetPOC):
-    def __init__(self, model_func, n_way: int, n_support: int):
-        super().__init__(model_func, n_way, n_support)
+    def __init__(
+            self, model_func: nn.Module, n_way: int, n_support: int,
+            params: "ArgparseHNParams", target_net_architecture: Optional[nn.Module] = None
+    ):
+        super().__init__(
+            model_func, n_way, n_support, params=params, target_net_architecture=target_net_architecture
+        )
         self.feature.trunk.add_module("bn_out", nn.BatchNorm1d(self.feature.final_feat_dim))
 
         dkt_state_dict = torch.load(

@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import backbone
 import torch
 import torch.nn as nn
@@ -29,7 +31,7 @@ class MetaTemplate(nn.Module):
         out  = self.feature.forward(x)
         return out
 
-    def parse_feature(self,x,is_feature):
+    def parse_feature(self,x,is_feature) -> Tuple[torch.Tensor, torch.Tensor]:
         x    = Variable(x.cuda())
         if is_feature:
             z_all = x
