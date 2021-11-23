@@ -27,13 +27,13 @@ do
               SUFFIX="${HN_HIDDEN_SIZE}-${HN_TN_HIDDEN_SIZE}-${HN_TASKSET_SIZE}-${HN_NECK_LEN}-${HN_HEAD_LEN}_${HN_TN_DEPTH}_${LR}_long"
               $CMD --hn_hidden_size $HN_HIDDEN_SIZE \
                 --hn_tn_hidden_size $HN_TN_HIDDEN_SIZE \
-                --hn_taskset_size $HN_TASKSET_SIZE \
+                --hn_taskset_size 1 \
                 --hn_neck_len $HN_NECK_LEN \
                 --hn_head_len $HN_HEAD_LEN \
                 --hn_tn_depth $HN_TN_DEPTH \
                 --hn_detach_ft_in_hn $DETACH_EPOCH \
                 --hn_detach_ft_in_tn $DETACH_EPOCH \
-                --stop_epoch 1000 \
+                --stop_epoch 1001 \
                 --checkpoint_suffix $SUFFIX
             done
             wait
