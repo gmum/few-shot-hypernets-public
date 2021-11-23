@@ -64,11 +64,15 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
     if (Path(params.checkpoint_dir) / "metrics.json").exists() and params.resume:
         with (Path(params.checkpoint_dir) / "metrics.json").open("r") as f:
-            metrics_per_epoch = json.load(f)
             try:
-                max_acc = metrics_per_epoch["accuracy/val_max"][-1]
+                metrics_per_epoch = json.load(f)
+                try:
+                    max_acc = metrics_per_epoch["accuracy/val_max"][-1]
+                except:
+                    max_acc = metrics_per_epoch["accuracy_val_max"][-1]
             except:
-                max_acc = metrics_per_epoch["accuracy_val_max"][-1]
+                metrics_per_epoch = defaultdict(list)
+
     else:
         metrics_per_epoch = defaultdict(list)
 
