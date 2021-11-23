@@ -42,11 +42,12 @@ class HyperNetPOC(MetaTemplate):
             is_final = i == (params.hn_tn_depth - 1)
             insize = self.feature.final_feat_dim if i ==0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
-            layers.append(nn.Sequential(insize, outsize))
+            layers.append(nn.Linear(insize, outsize))
             if not is_final:
                 layers.append(nn.ReLU())
-        return nn.Sequential(*layers)
-
+        res = nn.Sequential(*layers)
+        print(res)
+        return res
 
 
     def init_hypernet_modules(self):
