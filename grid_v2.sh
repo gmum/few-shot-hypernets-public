@@ -22,7 +22,7 @@ do
         do
           for HN_HEAD_LEN in 1;
           do
-            for LR in 1e-3 1e-4;
+            for LR in 1e-4 1e-3;
             do
               SUFFIX="${HN_HIDDEN_SIZE}-${HN_TN_HIDDEN_SIZE}-${HN_TASKSET_SIZE}-${HN_NECK_LEN}-${HN_HEAD_LEN}_${HN_TN_DEPTH}_${LR}_long"
               $CMD --hn_hidden_size $HN_HIDDEN_SIZE \
