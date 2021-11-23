@@ -6,6 +6,8 @@ import torch
 from torch import nn
 from typing import Dict, Optional
 
+from torch.utils.data import DataLoader
+
 from methods.kernels import NNKernel
 from methods.meta_template import MetaTemplate
 
@@ -18,25 +20,34 @@ class HyperNetPOC(MetaTemplate):
         super().__init__(model_func, n_way, n_support)
 
         conv_out_size = self.feature.final_feat_dim
-        tn_hidden_size = params.hn_tn_hidden_size
-        self.taskset_size = params.hn_taskset_size
-        self.taskset_print_every = params.hn_taskset_print_every
-        self.hn_hidden_size = params.hn_hidden_size
-        self.conv_out_size = conv_out_size
-        self.embedding_size = conv_out_size * self.n_way * self.n_support
-        self.detach_ft_in_hn = params.hn_detach_ft_in_hn
-        self.detach_ft_in_tn = params.hn_detach_ft_in_tn
-        self.hn_neck_len = params.hn_neck_len
-        self.hn_head_len = params.hn_head_len
-        self.taskset_repeats_config = params.hn_taskset_repeats
+        self.taskset_size: int = params.hn_taskset_size
+        self.taskset_print_every: int = params.hn_taskset_print_every
+        self.hn_hidden_size: int = params.hn_hidden_size
+        self.conv_out_size: int = conv_out_size
+        self.embedding_size: int = conv_out_size * self.n_way * self.n_support
+        self.detach_ft_in_hn: int = params.hn_detach_ft_in_hn
+        self.detach_ft_in_tn: int = params.hn_detach_ft_in_tn
+        self.hn_neck_len: int = params.hn_neck_len
+        self.hn_head_len: int = params.hn_head_len
+        self.taskset_repeats_config: str = params.hn_taskset_repeats
 
-        self.target_net_architecture = target_net_architecture or nn.Sequential(
-            nn.Linear(conv_out_size, tn_hidden_size),
-            nn.ReLU(),
-            nn.Linear(tn_hidden_size, self.n_way)
-        )
+        self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.loss_fn = nn.CrossEntropyLoss()
         self.init_hypernet_modules()
+
+    def build_target_net_architecture(self, params) -> nn.Module:
+        tn_hidden_size = params.hn_tn_hidden_size
+        layers = []
+        for i in range(params.hn_tn_depth):
+            is_final = i == (params.hn_tn_depth - 1)
+            insize = self.feature.final_feat_dim if i ==0 else tn_hidden_size
+            outsize = self.n_way if is_final else tn_hidden_size
+            layers.append(nn.Sequential(insize, outsize))
+            if not is_final:
+                layers.append(nn.ReLU())
+        return nn.Sequential(*layers)
+
+
 
     def init_hypernet_modules(self):
         target_net_param_dict = get_param_dict(self.target_net_architecture)
@@ -142,16 +153,15 @@ class HyperNetPOC(MetaTemplate):
 
         return correct_this / count_this
 
-    def set_forward_loss(self, x: torch.Tensor):
+    def set_forward_loss(self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False):
         nw, ne, c, h, w = x.shape
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
-        feature_to_hn = support_feature.detach() if self.detach_ft_in_hn else support_feature
+        feature_to_hn = support_feature.detach() if detach_ft_hn else support_feature
         classifier = self.generate_target_net(feature_to_hn)
 
-        support_feature = support_feature.detach().clone() if self.detach_ft_in_hn else support_feature
-        query_feature = query_feature.detach().clone() if self.detach_ft_in_tn else query_feature
+
         feature_to_classify = torch.cat(
             [
                 support_feature.reshape(
@@ -169,13 +179,13 @@ class HyperNetPOC(MetaTemplate):
             y_query.reshape(self.n_way * (ne - self.n_support))
         ])
 
-        if self.detach_ft_in_tn:
+        if detach_ft_tn:
             feature_to_classify = feature_to_classify.detach()
 
         y_pred = classifier(feature_to_classify)
         return self.loss_fn(y_pred, y_to_classify_gt)
 
-    def train_loop(self, epoch, train_loader, optimizer):
+    def train_loop(self, epoch: int, train_loader: DataLoader, optimizer: torch.optim.Optimizer):
 
         taskset_id = 0
         taskset = []

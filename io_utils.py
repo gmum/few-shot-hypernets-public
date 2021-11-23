@@ -112,7 +112,7 @@ def setup_neptune(params) -> Run:
 
         run = neptune.init(
             name=run_name,
-            source_files="*.py",
+            source_files="**/*.py",
             tags=[params.checkpoint_suffix] if params.checkpoint_suffix != "" else [],
             run=run_id
         )
