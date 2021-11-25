@@ -14,5 +14,6 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hn_args.add_argument("--hn_detach_ft_in_hn", type=int, default=10000, help="Detach FE output before hypernetwork in training *after* this epoch")
     hn_args.add_argument("--hn_detach_ft_in_tn", type=int, default=10000, help="Detach FE output before target network in training *after* this epoch")
     hn_args.add_argument("--hn_tn_depth", type=int, default=2, help="Depth of target network")
+    hn_args.add_argument("--hn_ln", action="store_true", default=False, help="Add BatchNorm to hypernet")
 
     return parser
