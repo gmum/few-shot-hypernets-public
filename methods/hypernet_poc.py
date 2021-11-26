@@ -30,7 +30,8 @@ class HyperNetPOC(MetaTemplate):
         self.hn_neck_len: int = params.hn_neck_len
         self.hn_head_len: int = params.hn_head_len
         self.taskset_repeats_config: str = params.hn_taskset_repeats
-        self.hn_ln = params.hn_ln
+        self.hn_ln: bool = params.hn_ln
+        self.hn_dropout: float = params.hn_dropout
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.loss_fn = nn.CrossEntropyLoss()
         self.init_hypernet_modules()
@@ -75,7 +76,7 @@ class HyperNetPOC(MetaTemplate):
                 if self.hn_ln:
                     neck_modules.append(nn.LayerNorm(self.hn_hidden_size))
                 neck_modules.extend(
-                    [nn.Linear(self.hn_hidden_size, self.hn_hidden_size), nn.ReLU()]
+                    [nn.Dropout(self.hn_dropout), nn.Linear(self.hn_hidden_size, self.hn_hidden_size), nn.ReLU()]
                 )
 
             neck_modules = neck_modules[:-1]  # remove the last ReLU
@@ -95,7 +96,7 @@ class HyperNetPOC(MetaTemplate):
                 out_size = head_out if is_final else self.hn_hidden_size
                 if self.hn_ln:
                     head_modules.append(nn.LayerNorm(in_size))
-                head_modules.append(nn.Linear(in_size, out_size))
+                head_modules.extend([nn.Dropout(self.hn_dropout), nn.Linear(in_size, out_size)])
                 if not is_final:
                     head_modules.append(nn.ReLU())
 
