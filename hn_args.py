@@ -14,5 +14,9 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hn_args.add_argument("--hn_detach_ft_in_hn", type=int, default=10000, help="Detach FE output before hypernetwork in training *after* this epoch")
     hn_args.add_argument("--hn_detach_ft_in_tn", type=int, default=10000, help="Detach FE output before target network in training *after* this epoch")
     hn_args.add_argument("--hn_tn_depth", type=int, default=2, help="Depth of target network")
+    hn_args.add_argument("--hn_transformer_layers_no", type=int, default=1, help="Number of layers in transformer")
+    hn_args.add_argument("--hn_transformer_heads_no", type=int, default=1, help="Number of attention heads in transformer")
+    hn_args.add_argument("--hn_transformer_feedforward_dim", type=int, default=512, help="Transformer's feedforward dimensionality")
+    hn_args.add_argument("--hn_attention_embedding", action='store_true', help="Utilize attention-based embedding")
 
     return parser

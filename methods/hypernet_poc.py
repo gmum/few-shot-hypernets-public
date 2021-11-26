@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader
 
 from methods.kernels import NNKernel
 from methods.meta_template import MetaTemplate
+from methods.transformer import TransformerEncoder
 
 
 class HyperNetPOC(MetaTemplate):
@@ -24,7 +25,11 @@ class HyperNetPOC(MetaTemplate):
         self.taskset_print_every: int = params.hn_taskset_print_every
         self.hn_hidden_size: int = params.hn_hidden_size
         self.conv_out_size: int = conv_out_size
-        self.embedding_size: int = conv_out_size * self.n_way * self.n_support
+        self.attention_embedding: bool = params.hn_attention_embedding
+        if self.attention_embedding:
+            self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support
+        else:
+            self.embedding_size: int = conv_out_size * self.n_way * self.n_support
         self.detach_ft_in_hn: int = params.hn_detach_ft_in_hn
         self.detach_ft_in_tn: int = params.hn_detach_ft_in_tn
         self.hn_neck_len: int = params.hn_neck_len
@@ -34,6 +39,8 @@ class HyperNetPOC(MetaTemplate):
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.loss_fn = nn.CrossEntropyLoss()
         self.init_hypernet_modules()
+        if self.attention_embedding:
+            self.init_transformer_architecture(params)
 
     def build_target_net_architecture(self, params) -> nn.Module:
         tn_hidden_size = params.hn_tn_hidden_size
@@ -49,6 +56,12 @@ class HyperNetPOC(MetaTemplate):
         print(res)
         return res
 
+    def init_transformer_architecture(self, params):
+        self.transformers_layers_no: int = params.hn_transformer_layers_no
+        self.transformer_input_dim: int = self.conv_out_size + self.n_way
+        self.transformer_heads: int = params.hn_transformer_heads_no
+        self.transformer_dim_feedforward: int = params.hn_transformer_feedforward_dim
+        self.transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.transformers_layers_no, input_dim=self.transformer_input_dim, num_heads=self.transformer_heads, dim_feedforward=self.transformer_dim_feedforward)
 
     def init_hypernet_modules(self):
         target_net_param_dict = get_param_dict(self.target_net_architecture)
@@ -115,7 +128,11 @@ class HyperNetPOC(MetaTemplate):
     def build_embedding(self, support_feature: torch.Tensor) -> torch.Tensor:
         way, n_support, feat = support_feature.shape
         features = support_feature.reshape(way * n_support, feat)
-        return features.reshape(1, -1)
+        features = features.reshape(1, -1)
+        if self.attention_embedding:
+            attention_features = torch.flatten(self.transformer_encoder.forward(features))
+            return attention_features
+        return features
 
     def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
         """
@@ -134,7 +151,14 @@ class HyperNetPOC(MetaTemplate):
         return tn.cuda()
 
     def set_forward(self, x: torch.Tensor, is_feature: bool = False):
+        #TODO - one-hot!!!
         support_feature, query_feature = self.parse_feature(x, is_feature)
+
+        if self.attention_embedding:
+            y_support = self.get_labels(support_feature)
+            y_support_one_hot = torch.nn.functional.one_hot(y_support)
+            support_feature_with_classes_one_hot = torch.cat((support_feature, y_support_one_hot), 2)
+            support_feature = support_feature_with_classes_one_hot
 
         classifier = self.generate_target_net(support_feature)
         query_feature = query_feature.reshape(
@@ -155,9 +179,17 @@ class HyperNetPOC(MetaTemplate):
         return correct_this / count_this
 
     def set_forward_loss(self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False):
+        #TODO - one-hot!!!
         nw, ne, c, h, w = x.shape
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
+
+        if self.attention_embedding:
+            y_support = self.get_labels(support_feature)
+            y_query = self.get_labels(query_feature)
+            y_support_one_hot = torch.nn.functional.one_hot(y_support)
+            support_feature_with_classes_one_hot = torch.cat((support_feature, y_support_one_hot), 2)
+            support_feature = support_feature_with_classes_one_hot
 
         feature_to_hn = support_feature.detach() if detach_ft_hn else support_feature
         classifier = self.generate_target_net(feature_to_hn)
@@ -187,7 +219,8 @@ class HyperNetPOC(MetaTemplate):
         return self.loss_fn(y_pred, y_to_classify_gt)
 
     def train_loop(self, epoch: int, train_loader: DataLoader, optimizer: torch.optim.Optimizer):
-
+        #TODO - transformer - learnable params!!!
+        #TODO - add kernel solution!!!
         taskset_id = 0
         taskset = []
         n_train = len(train_loader)
