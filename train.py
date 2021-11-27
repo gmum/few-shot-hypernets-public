@@ -76,7 +76,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
     else:
         metrics_per_epoch = defaultdict(list)
 
-    scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=list(range(0, stop_epoch, stop_epoch // 4)), gamma=0.3)
+    scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=list(range(0, stop_epoch, stop_epoch // 4))[1:], gamma=0.3)
     for epoch in range(start_epoch, stop_epoch):
         if epoch >= params.es_epoch:
             if max_acc < params.es_threshold:
