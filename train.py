@@ -77,6 +77,11 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         metrics_per_epoch = defaultdict(list)
 
     for epoch in range(start_epoch, stop_epoch):
+        if epoch >= params.es_epoch:
+            if max_acc < params.es_threshold:
+                print("Breaking training at epoch", epoch, "because max accuracy", max_acc, "is lower than threshold", params.es_threshold)
+                break
+
         model.train()
         metrics = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
         model.eval()
