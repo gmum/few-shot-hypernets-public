@@ -6,3 +6,4 @@ from . import protonet
 from . import relationnet
 from . import maml
 from . import transformer
+from . import kernels
