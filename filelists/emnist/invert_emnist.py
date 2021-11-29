@@ -30,4 +30,3 @@ for character_folder in character_folder_list:
     for img in image_list:                
         inverted_img =PIL.ImageOps.invert(Image.open(join(character_folder_path,img)))
         inverted_img.save(join(inv_character_folder_path ,img))
-

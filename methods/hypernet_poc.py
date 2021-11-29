@@ -127,11 +127,12 @@ class HyperNetPOC(MetaTemplate):
 
     def build_embedding(self, support_feature: torch.Tensor) -> torch.Tensor:
         way, n_support, feat = support_feature.shape
-        features = support_feature.reshape(way * n_support, feat)
-        features = features.reshape(1, -1)
         if self.attention_embedding:
+            features = support_feature.view(1, -1, *(support_feature.size()[2:]))
             attention_features = torch.flatten(self.transformer_encoder.forward(features))
             return attention_features
+        features = support_feature.reshape(way * n_support, feat)
+        features = features.reshape(1, -1)
         return features
 
     def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
@@ -189,9 +190,11 @@ class HyperNetPOC(MetaTemplate):
             y_query = self.get_labels(query_feature)
             y_support_one_hot = torch.nn.functional.one_hot(y_support)
             support_feature_with_classes_one_hot = torch.cat((support_feature, y_support_one_hot), 2)
-            support_feature = support_feature_with_classes_one_hot
+            feature_to_hn = support_feature_with_classes_one_hot.detach() if detach_ft_hn else support_feature_with_classes_one_hot
+        else:
+            feature_to_hn = support_feature.detach() if detach_ft_hn else support_feature
+        
 
-        feature_to_hn = support_feature.detach() if detach_ft_hn else support_feature
         classifier = self.generate_target_net(feature_to_hn)
 
 
