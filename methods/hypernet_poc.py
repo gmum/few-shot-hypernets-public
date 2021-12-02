@@ -39,13 +39,21 @@ class HyperNetPOC(MetaTemplate):
     def build_target_net_architecture(self, params) -> nn.Module:
         tn_hidden_size = params.hn_tn_hidden_size
         layers = []
+
+        activation_name = params.hn_tn_activation
+        activation_fn = (
+            nn.Tanh if activation_name == "tanh" else
+            nn.ReLU if activation_name == "relu" else
+            SinActivation
+        )
+
         for i in range(params.hn_tn_depth):
             is_final = i == (params.hn_tn_depth - 1)
             insize = self.feature.final_feat_dim if i ==0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
             layers.append(nn.Linear(insize, outsize))
             if not is_final:
-                layers.append(nn.ReLU())
+                layers.append(activation_fn())
         res = nn.Sequential(*layers)
         print(res)
         return res
@@ -542,3 +550,7 @@ hn_poc_types = {
     "hn_uni_final": HNPocWithUniversalFinal,
     "no_hn_cond": NoHNConditioning
 }
+
+class SinActivation(nn.Module):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return torch.sin(x)

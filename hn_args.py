@@ -16,5 +16,6 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hn_args.add_argument("--hn_tn_depth", type=int, default=2, help="Depth of target network")
     hn_args.add_argument("--hn_ln", action="store_true", default=False, help="Add BatchNorm to hypernet")
     hn_args.add_argument("--hn_dropout", type=float, default=0, help="Dropout probability in hypernet")
+    hn_args.add_argument("--hn_tn_activation", type=str, default="relu", choices=["relu", "sin", "tanh"], help="Activation in the target network")
 
     return parser
