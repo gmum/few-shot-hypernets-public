@@ -206,12 +206,12 @@ if __name__ == '__main__':
         n_query = max(1, int(
             16 * params.test_n_way / params.train_n_way))  # if test_n_way is smaller than train_n_way, reduce n_query to keep batch size small
         print("n_query", n_query)
-        train_few_shot_params = dict(n_way=params.train_n_way, n_support=params.n_shot)
-        base_datamgr = SetDataManager(image_size, n_query=n_query, **train_few_shot_params)  # n_eposide=100
+        train_few_shot_params = dict(n_way=params.train_n_way, n_support=params.n_shot, n_query=n_query)
+        base_datamgr = SetDataManager(image_size, **train_few_shot_params)  # n_eposide=100
         base_loader = base_datamgr.get_data_loader(base_file, aug=params.train_aug)
 
-        test_few_shot_params = dict(n_way=params.test_n_way, n_support=params.n_shot)
-        val_datamgr = SetDataManager(image_size, n_query=n_query, **test_few_shot_params)
+        test_few_shot_params = dict(n_way=params.test_n_way, n_support=params.n_shot, n_query=n_query)
+        val_datamgr = SetDataManager(image_size, **test_few_shot_params)
         val_loader = val_datamgr.get_data_loader(val_file, aug=False)
         # a batch for SetDataManager: a [n_way, n_support + n_query, dim, w, h] tensor
 

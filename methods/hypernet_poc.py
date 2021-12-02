@@ -3,24 +3,26 @@ from copy import deepcopy
 
 import numpy as np
 import torch
+import gpytorch
 from torch import nn
 from typing import Dict, Optional
 
 from torch.utils.data import DataLoader
 
-from methods.kernels import NNKernel
+from methods.kernels import NNKernel, MultiNNKernel, NNKernelNoInner
 from methods.meta_template import MetaTemplate
 from methods.transformer import TransformerEncoder
 
 
 class HyperNetPOC(MetaTemplate):
     def __init__(
-            self, model_func: nn.Module, n_way: int, n_support: int,
+            self, model_func: nn.Module, n_way: int, n_support: int, n_query: int,
             params: "ArgparseHNParams", target_net_architecture: Optional[nn.Module] = None
     ):
         super().__init__(model_func, n_way, n_support)
 
         conv_out_size = self.feature.final_feat_dim
+        self.n_query_ex = n_query
         self.taskset_size: int = params.hn_taskset_size
         self.taskset_print_every: int = params.hn_taskset_print_every
         self.hn_hidden_size: int = params.hn_hidden_size
@@ -57,11 +59,11 @@ class HyperNetPOC(MetaTemplate):
         return res
 
     def init_transformer_architecture(self, params):
-        self.transformers_layers_no: int = params.hn_transformer_layers_no
+        self.transformer_layers_no: int = params.hn_transformer_layers_no
         self.transformer_input_dim: int = self.conv_out_size + self.n_way
         self.transformer_heads: int = params.hn_transformer_heads_no
         self.transformer_dim_feedforward: int = params.hn_transformer_feedforward_dim
-        self.transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.transformers_layers_no, input_dim=self.transformer_input_dim, num_heads=self.transformer_heads, dim_feedforward=self.transformer_dim_feedforward)
+        self.transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.transformer_layers_no, input_dim=self.transformer_input_dim, num_heads=self.transformer_heads, dim_feedforward=self.transformer_dim_feedforward)
 
     def init_hypernet_modules(self):
         target_net_param_dict = get_param_dict(self.target_net_architecture)
@@ -126,6 +128,7 @@ class HyperNetPOC(MetaTemplate):
         return ys.cuda()
 
     def build_embedding(self, support_feature: torch.Tensor) -> torch.Tensor:
+        #TODO - add kernel
         way, n_support, feat = support_feature.shape
         if self.attention_embedding:
             features = support_feature.view(1, -1, *(support_feature.size()[2:]))
@@ -139,7 +142,7 @@ class HyperNetPOC(MetaTemplate):
         """
         x_support: [n_way, n_support, hidden_size]
         """
-
+        #TODO - add kernel
         embedding = self.build_embedding(support_feature)
 
         root = self.hypernet_neck(embedding)
@@ -152,7 +155,7 @@ class HyperNetPOC(MetaTemplate):
         return tn.cuda()
 
     def set_forward(self, x: torch.Tensor, is_feature: bool = False):
-        #TODO - one-hot!!!
+        #TODO - add kernel!!!
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
         if self.attention_embedding:
@@ -169,6 +172,7 @@ class HyperNetPOC(MetaTemplate):
         return y_pred
 
     def query_accuracy(self, x: torch.Tensor):
+        #TODO - add kernel!!!
         scores = self.set_forward(x)
         y_query = np.repeat(range(self.n_way), self.n_query)
         topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
@@ -180,7 +184,7 @@ class HyperNetPOC(MetaTemplate):
         return correct_this / count_this
 
     def set_forward_loss(self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False):
-        #TODO - one-hot!!!
+        #TODO - add kernel!!!
         nw, ne, c, h, w = x.shape
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
@@ -224,6 +228,7 @@ class HyperNetPOC(MetaTemplate):
     def train_loop(self, epoch: int, train_loader: DataLoader, optimizer: torch.optim.Optimizer):
         #TODO - transformer - learnable params!!!
         #TODO - add kernel solution!!!
+        #TODO - add kernel!!!
         taskset_id = 0
         taskset = []
         n_train = len(train_loader)
@@ -276,8 +281,225 @@ class HyperNetPOC(MetaTemplate):
         return metrics
 
 
+class HyperNetPocWithKernel(HyperNetPOC):
+    def __init__(
+            self, model_func: nn.Module, n_way: int, n_support: int, n_query: int,
+            params: "ArgparseHNParams", target_net_architecture: Optional[nn.Module] = None
+    ):
+        super().__init__(
+            model_func, n_way, n_support, n_query, params=params, target_net_architecture=target_net_architecture
+        )
+
+        conv_out_size = self.feature.final_feat_dim
+        self.kernel_input_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
+        self.kernel_output_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
+        self.kernel_layers_no = params.hn_kernel_layers_no
+        self.kernel_hidden_dim = params.hn_kernel_hidden_dim
+        self.kernel_function = NNKernel(self.kernel_input_dim, self.kernel_output_dim,
+                                        self.kernel_layers_no, self.kernel_hidden_dim)
+        # I will be adding the kernel vector to the stacked images embeddings
+        if self.attention_embedding:
+            self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support + (self.n_way * self.n_support)
+            # self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support + (self.n_way * self.n_query_ex)
+        else:
+            self.embedding_size: int = conv_out_size * self.n_way * self.n_support + (self.n_way * self.n_support)
+            # self.embedding_size: int = conv_out_size * self.n_way * self.n_support + (self.n_way * self.n_query_ex)
+
+        self.init_kernel_transformer_architecture(params)
+
+    def init_kernel_transformer_architecture(self, params):
+        self.kernel_transformer_layers_no: int = params.kernel_transformer_layers_no
+        self.kernel_transformer_input_dim: int = self.n_way * self.n_query_ex
+        self.kernel_transformer_heads: int = params.kernel_transformer_heads_no
+        self.kernel_transformer_dim_feedforward: int = params.kernel_transformer_feedforward_dim
+        self.kernel_transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.transformer_layers_no, input_dim=self.transformer_input_dim, num_heads=self.transformer_heads, dim_feedforward=self.transformer_dim_feedforward)
+
+    def build_kernel_features_embedding(self, support_feature: torch.Tensor, query_feature: torch.Tensor) -> torch.Tensor:
+        #TODO - implement kernel here!!!
+        # support_feature
+        # query_feature
+        # x_support: [n_way, n_support, hidden_size]
+        supp_way, n_support, supp_feat = support_feature.shape
+        query_way, n_query, query_feat = query_feature.shape
+
+        if self.attention_embedding:
+            attention_support_features = support_feature.view(1, -1, *(support_feature.size()[2:]))
+            support_feature = torch.flatten(self.transformer_encoder.forward(attention_support_features))
+            attention_query_features = support_feature.view(1, -1, *(query_feature.size()[2:]))
+            query_feature = torch.flatten(self.transformer_encoder.forward(attention_query_features))
+
+        support_features = support_feature.reshape(supp_way * n_support, supp_feat)
+        # support_features = support_features.reshape(1, -1)
+        query_features = query_feature.reshape(query_way * n_query, query_feat)
+        # query_features = support_features.reshape(1, -1)
+
+        kernel_values_tensor_list = []
+        for query in query_features:
+            query_related_tensor_list = []
+            for support in support_features:
+                kernel_value = self.kernel_function.forward(support, query)
+                query_related_tensor_list.append(kernel_value)
+            query_related_tensor = torch.stack(query_related_tensor_list, 0)
+            kernel_values_tensor_list.append(query_related_tensor)
+        kernel_values_tensor = torch.stack(kernel_values_tensor_list, 1)
+
+        invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 0)
+        #TODO Add Kernel here!!!
+
+        return invariant_kernel_values
+
+    def generate_target_net_with_kernel_features(self, support_feature: torch.Tensor, query_feature: torch.Tensor) -> nn.Module:
+        """
+        x_support: [n_way, n_support, hidden_size]
+        """
+        #TODO - add kernel approach
+        #TODO - concatenate!!!
+        embedding = torch.cat((self.build_embedding(support_feature), self.build_kernel_features_embedding(support_feature, query_feature)), 0)
+
+        root = self.hypernet_neck(embedding)
+        network_params = {
+            name.replace("-", "."): param_net(root).reshape(self.target_net_param_shapes[name])
+            for name, param_net in self.hypernet_heads.items()
+        }
+        tn = deepcopy(self.target_net_architecture)
+        set_from_param_dict(tn, network_params)
+        return tn.cuda()
+
+    def set_forward(self, x: torch.Tensor, is_feature: bool = False):
+        #TODO - add kernel!!!
+        support_feature, query_feature = self.parse_feature(x, is_feature)
+
+        if self.attention_embedding:
+            y_support = self.get_labels(support_feature)
+            y_query = self.get_labels(query_feature)
+            y_support_one_hot = torch.nn.functional.one_hot(y_support)
+            support_feature_with_classes_one_hot = torch.cat((support_feature, y_support_one_hot), 2)
+            support_feature = support_feature_with_classes_one_hot
+            y_query_zeros = torch.zeros((y_query.shape[0], y_query.shape[1], y_support_one_hot.shape[2]))
+            query_feature_with_zeros = torch.cat((query_feature, y_query_zeros), 2)
+            query_feature = query_feature_with_zeros
+
+        classifier = self.generate_target_net_with_kernel_features(support_feature, query_feature)
+        query_feature = query_feature.reshape(
+            -1, query_feature.shape[-1]
+        )
+        y_pred = classifier(query_feature)
+        return y_pred
+
+    def query_accuracy(self, x: torch.Tensor):
+        #TODO - add kernel!!!
+        scores = self.set_forward(x)
+        y_query = np.repeat(range(self.n_way), self.n_query_ex)
+        topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
+        topk_ind = topk_labels.cpu().numpy()
+        top1_correct = np.sum(topk_ind[:, 0] == y_query)
+        correct_this = float(top1_correct)
+        count_this = len(y_query)
+
+        return correct_this / count_this
+
+    def set_forward_loss(self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False):
+        #TODO - add kernel!!!
+        nw, ne, c, h, w = x.shape
+
+        support_feature, query_feature = self.parse_feature(x, is_feature=False)
+
+        if self.attention_embedding:
+            y_support = self.get_labels(support_feature)
+            y_query = self.get_labels(query_feature)
+            y_support_one_hot = torch.nn.functional.one_hot(y_support)
+            support_feature_with_classes_one_hot = torch.cat((support_feature, y_support_one_hot), 2)
+            y_query_zeros = torch.zeros((y_query.shape[0], y_query.shape[1], y_support_one_hot.shape[2]))
+            query_feature_with_zeros = torch.cat((query_feature, y_query_zeros), 2)
+            feature_to_hn = support_feature_with_classes_one_hot.detach() if detach_ft_hn else support_feature_with_classes_one_hot
+            query_feature_to_hn = query_feature_with_zeros
+        else:
+            feature_to_hn = support_feature.detach() if detach_ft_hn else support_feature
+            query_feature_to_hn = query_feature
+
+        classifier = self.generate_target_net_with_kernel_features(feature_to_hn, query_feature_to_hn)
+
+        feature_to_classify = torch.cat(
+            [
+                support_feature.reshape(
+                    (self.n_way * self.n_support), support_feature.shape[-1]
+                ),
+                query_feature.reshape(
+                    (self.n_way * (ne - self.n_support)), query_feature.shape[-1]
+                )
+            ])
+
+        y_support = self.get_labels(support_feature)
+        y_query = self.get_labels(query_feature)
+        y_to_classify_gt = torch.cat([
+            y_support.reshape(self.n_way * self.n_support),
+            y_query.reshape(self.n_way * (ne - self.n_support))
+        ])
+
+        if detach_ft_tn:
+            feature_to_classify = feature_to_classify.detach()
+
+        y_pred = classifier(feature_to_classify)
+        return self.loss_fn(y_pred, y_to_classify_gt)
+
+    def train_loop(self, epoch: int, train_loader: DataLoader, optimizer: torch.optim.Optimizer):
+        #TODO - transformer - learnable params!!!
+        #TODO - add kernel solution!!!
+        #TODO - add kernel!!!
+        taskset_id = 0
+        taskset = []
+        n_train = len(train_loader)
+        accuracies = []
+        losses = []
+        metrics = defaultdict(list)
+        ts_repeats = self.taskset_repeats(epoch)
+
+        for i, (x, _) in enumerate(train_loader):
+            taskset.append(x)
+
+            # TODO 3: perhaps the idea of tasksets is redundant and it's better to update weights at every task
+            if i % self.taskset_size == (self.taskset_size - 1) or i == (n_train - 1):
+                loss_sum = torch.tensor(0).cuda()
+                for tr in range(ts_repeats):
+                    loss_sum = torch.tensor(0).cuda()
+
+                    for task in taskset:
+                        if self.change_way:
+                            self.n_way = task.size(0)
+                        # self.n_query = task.size(1) - self.n_support
+                        loss = self.set_forward_loss(task)
+                        loss_sum = loss_sum + loss
+
+                    optimizer.zero_grad()
+                    loss_sum.backward()
+
+                    if tr == 0:
+                        for k, p in get_param_dict(self).items():
+                            metrics[f"grad_norm/{k}"] = p.grad.abs().mean().item() if p.grad is not None else 0
+
+                    optimizer.step()
+
+                losses.append(loss_sum.item())
+                accuracies.extend([
+                    self.query_accuracy(task) for task in taskset
+                ])
+                acc_mean = np.mean(accuracies) * 100
+                acc_std = np.std(accuracies) * 100
+
+                if taskset_id % self.taskset_print_every == 0:
+                    print(
+                        f"Epoch {epoch} | Taskset {taskset_id} | TS {len(taskset)} | TS epochs {ts_repeats} | Loss {loss_sum.item()} | Train acc {acc_mean:.2f} +- {acc_std:.2f} %")
+
+                taskset_id += 1
+                taskset = []
+
+        metrics["loss/train"] = np.mean(losses)
+        metrics["accuracy/train"] = np.mean(accuracies) * 100
+        return metrics
+
+
 class HNPocWithUniversalFinal(HyperNetPOC):
-    def __init__(self, model_func, n_way: int, n_support: int):
+    def __init__(self, model_func, n_way: int, n_support: int, n_query: int):
         tn = nn.Sequential(
             nn.Linear(64, 128),
             nn.ReLU(),
@@ -285,7 +507,7 @@ class HNPocWithUniversalFinal(HyperNetPOC):
             nn.ReLU()
         )
 
-        super().__init__(model_func, n_way, n_support, target_net_architecture=tn)
+        super().__init__(model_func, n_way, n_support, n_query, target_net_architecture=tn)
         self.final_layer = nn.Sequential(
             nn.Linear(64, 64),
             nn.ReLU(),
@@ -324,11 +546,11 @@ def set_from_param_dict(net: nn.Module, param_dict: Dict[str, torch.Tensor]):
 
 class HyperNetConvFromDKT(HyperNetPOC):
     def __init__(
-            self, model_func: nn.Module, n_way: int, n_support: int,
+            self, model_func: nn.Module, n_way: int, n_support: int, n_query: int,
             params: "ArgparseHNParams", target_net_architecture: Optional[nn.Module] = None
     ):
         super().__init__(
-            model_func, n_way, n_support, params=params, target_net_architecture=target_net_architecture
+            model_func, n_way, n_support, n_query, params=params, target_net_architecture=target_net_architecture
         )
         self.feature.trunk.add_module("bn_out", nn.BatchNorm1d(self.feature.final_feat_dim))
 
@@ -347,8 +569,8 @@ class HyperNetConvFromDKT(HyperNetPOC):
 
 
 class HyperNetSepJoint(HyperNetPOC):
-    def __init__(self, model_func, n_way: int, n_support: int):
-        super().__init__(model_func, n_way, n_support)
+    def __init__(self, model_func, n_way: int, n_support: int, n_query: int):
+        super().__init__(model_func, n_way, n_support, n_query)
 
         self.support_individual_processor = nn.Sequential(
             nn.Linear(self.conv_out_size, self.conv_out_size),
@@ -388,8 +610,8 @@ class HyperNetSepJoint(HyperNetPOC):
 
 
 class HyperNetSupportConv(HyperNetPOC):
-    def __init__(self, model_func, n_way: int, n_support: int):
-        super().__init__(model_func, n_way, n_support)
+    def __init__(self, model_func, n_way: int, n_support: int, n_query: int):
+        super().__init__(model_func, n_way, n_support, n_query)
 
         self.feat_size = self.conv_out_size + self.n_way
 
@@ -430,8 +652,8 @@ class HyperNetSupportConv(HyperNetPOC):
 
 
 class HyperNetSupportKernel(HyperNetPOC):
-    def __init__(self, model_func, n_way: int, n_support: int):
-        super().__init__(model_func, n_way, n_support)
+    def __init__(self, model_func, n_way: int, n_support: int, n_query: int):
+        super().__init__(model_func, n_way, n_support, n_query)
 
         self.kernel = NNKernel(
             input_dim=self.conv_out_size,
@@ -487,10 +709,10 @@ class KernelWithSupportClassifier(nn.Module):
 
 
 class HNKernelBetweenSupportAndQuery(HyperNetPOC):
-    def __init__(self, model_func, n_way: int, n_support: int):
+    def __init__(self, model_func, n_way: int, n_support: int, n_query: int):
         target_net_architecture = KernelWithSupportClassifier(NNKernel(64, 16, 1, 128))
         super().__init__(
-            model_func, n_way, n_support, target_net_architecture=target_net_architecture)
+            model_func, n_way, n_support, n_query, target_net_architecture=target_net_architecture)
 
     def taskset_repeats(self, epoch: int):
         return 1
@@ -548,10 +770,10 @@ class ConditionedClassifier(nn.Module):
 
 
 class NoHNConditioning(HyperNetPOC):
-    def __init__(self, model_func, n_way: int, n_support: int):
+    def __init__(self, model_func, n_way: int, n_support: int, n_query: int):
         target_net_architecture = ConditionedClassifier(64, n_way, n_support)
 
-        super().__init__(model_func, n_way, n_support, target_net_architecture=target_net_architecture)
+        super().__init__(model_func, n_way, n_support, n_query, target_net_architecture=target_net_architecture)
 
     def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
         tn = self.target_net_architecture
@@ -561,6 +783,7 @@ class NoHNConditioning(HyperNetPOC):
 
 hn_poc_types = {
     "hn_poc": HyperNetPOC,
+    "hn_poc_kernel": HyperNetPocWithKernel,
     "hn_sep_joint": HyperNetSepJoint,
     "hn_from_dkt": HyperNetConvFromDKT,
     "hn_cnv": HyperNetSupportConv,

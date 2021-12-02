@@ -18,5 +18,10 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hn_args.add_argument("--hn_transformer_heads_no", type=int, default=1, help="Number of attention heads in transformer")
     hn_args.add_argument("--hn_transformer_feedforward_dim", type=int, default=512, help="Transformer's feedforward dimensionality")
     hn_args.add_argument("--hn_attention_embedding", action='store_true', help="Utilize attention-based embedding")
+    hn_args.add_argument("--hn_kernel_layers_no", type=int, default=2, help="Depth of a kernel network")
+    hn_args.add_argument("--hn_kernel_hidden_dim", type=int, default=128, help="Hidden dimension of a kernel network")
+    hn_args.add_argument("--kernel_transformer_layers_no", type=int, default=1, help="Number of layers in kernel's transformer")
+    hn_args.add_argument("--kernel_transformer_heads_no", type=int, default=1, help="Number of attention heads in kernel's transformer")
+    hn_args.add_argument("--kernel_transformer_feedforward_dim", type=int, default=512, help="Kernel transformer's feedforward dimensionality")
 
     return parser
