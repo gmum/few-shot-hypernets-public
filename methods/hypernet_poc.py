@@ -128,7 +128,6 @@ class HyperNetPOC(MetaTemplate):
         return ys.cuda()
 
     def build_embedding(self, support_feature: torch.Tensor) -> torch.Tensor:
-        #TODO - add kernel
         way, n_support, feat = support_feature.shape
         if self.attention_embedding:
             features = support_feature.view(1, -1, *(support_feature.size()[2:]))
@@ -142,7 +141,6 @@ class HyperNetPOC(MetaTemplate):
         """
         x_support: [n_way, n_support, hidden_size]
         """
-        #TODO - add kernel
         embedding = self.build_embedding(support_feature)
 
         root = self.hypernet_neck(embedding)
@@ -155,7 +153,6 @@ class HyperNetPOC(MetaTemplate):
         return tn.cuda()
 
     def set_forward(self, x: torch.Tensor, is_feature: bool = False):
-        #TODO - add kernel!!!
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
         if self.attention_embedding:
@@ -172,7 +169,6 @@ class HyperNetPOC(MetaTemplate):
         return y_pred
 
     def query_accuracy(self, x: torch.Tensor):
-        #TODO - add kernel!!!
         scores = self.set_forward(x)
         y_query = np.repeat(range(self.n_way), self.n_query)
         topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
@@ -184,7 +180,6 @@ class HyperNetPOC(MetaTemplate):
         return correct_this / count_this
 
     def set_forward_loss(self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False):
-        #TODO - add kernel!!!
         nw, ne, c, h, w = x.shape
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
@@ -226,9 +221,6 @@ class HyperNetPOC(MetaTemplate):
         return self.loss_fn(y_pred, y_to_classify_gt)
 
     def train_loop(self, epoch: int, train_loader: DataLoader, optimizer: torch.optim.Optimizer):
-        #TODO - transformer - learnable params!!!
-        #TODO - add kernel solution!!!
-        #TODO - add kernel!!!
         taskset_id = 0
         taskset = []
         n_train = len(train_loader)
@@ -298,12 +290,11 @@ class HyperNetPocWithKernel(HyperNetPOC):
         self.kernel_function = NNKernel(self.kernel_input_dim, self.kernel_output_dim,
                                         self.kernel_layers_no, self.kernel_hidden_dim)
         # I will be adding the kernel vector to the stacked images embeddings
+        #TODO: add/check changes for attention-like input
         if self.attention_embedding:
             self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support + (self.n_way * self.n_support)
-            # self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support + (self.n_way * self.n_query_ex)
         else:
             self.embedding_size: int = conv_out_size * self.n_way * self.n_support + (self.n_way * self.n_support)
-            # self.embedding_size: int = conv_out_size * self.n_way * self.n_support + (self.n_way * self.n_query_ex)
 
         self.init_kernel_transformer_architecture(params)
         self.init_hypernet_modules()
@@ -316,13 +307,14 @@ class HyperNetPocWithKernel(HyperNetPOC):
         self.kernel_transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.kernel_transformer_layers_no, input_dim=self.kernel_transformer_input_dim, num_heads=self.kernel_transformer_heads, dim_feedforward=self.kernel_transformer_dim_feedforward)
 
     def build_kernel_features_embedding(self, support_feature: torch.Tensor, query_feature: torch.Tensor) -> torch.Tensor:
-        #TODO - implement kernel here!!!
-        # support_feature
-        # query_feature
-        # x_support: [n_way, n_support, hidden_size]
+        """
+        x_support: [n_way, n_support, hidden_size]
+        """
+
         supp_way, n_support, supp_feat = support_feature.shape
         query_way, n_query, query_feat = query_feature.shape
 
+        #TODO: add/check changes for attention-like input
         if self.attention_embedding:
             attention_support_features = support_feature.view(1, -1, *(support_feature.size()[2:]))
             support_feature = torch.flatten(self.transformer_encoder.forward(attention_support_features))
@@ -330,9 +322,7 @@ class HyperNetPocWithKernel(HyperNetPOC):
             query_feature = torch.flatten(self.transformer_encoder.forward(attention_query_features))
 
         support_features = support_feature.reshape(supp_way * n_support, supp_feat)
-        # support_features = support_features.reshape(1, -1)
         query_features = query_feature.reshape(query_way * n_query, query_feat)
-        # query_features = support_features.reshape(1, -1)
 
         kernel_values_tensor_list = []
         for query in query_features:
@@ -342,25 +332,11 @@ class HyperNetPocWithKernel(HyperNetPOC):
                 query_related_tensor_list.append(kernel_value)
             query_related_tensor = torch.stack(query_related_tensor_list, 0)
             kernel_values_tensor_list.append(query_related_tensor)
-        kernel_values_tensor = torch.stack(kernel_values_tensor_list, 1)
-        
-        print("kernel_values_tensor.size()")
-        print(kernel_values_tensor.size())
-        print("self.kernel_transformer_layers_no")
-        print(self.kernel_transformer_layers_no)
-        print("self.kernel_transformer_input_dim")
-        print(self.kernel_transformer_input_dim)
-        print("self.kernel_transformer_heads")
-        print(self.kernel_transformer_heads)
-        print("self.kernel_transformer_dim_feedforward")
-        print(self.kernel_transformer_dim_feedforward)
 
+        kernel_values_tensor = torch.stack(kernel_values_tensor_list, 1)
         kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
-        print("kernel_values_tensor.size()")
-        print(kernel_values_tensor.size())
 
         invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
-        #TODO Add Kernel here!!!
 
         return invariant_kernel_values
 
@@ -368,27 +344,10 @@ class HyperNetPocWithKernel(HyperNetPOC):
         """
         x_support: [n_way, n_support, hidden_size]
         """
-        #TODO - add kernel approach
-        #TODO - concatenate!!!
-        print("**********************************")
-        a = self.build_embedding(support_feature)
-        b = self.build_kernel_features_embedding(support_feature, query_feature)
-        print("self.build_embedding(support_feature).size()")
-        print(a.size())
-        print("self.build_kernel_features_embedding(support_feature, query_feature).size()")
-        print(b.size())
-        print("self.embedding_size")
-        print(self.embedding_size)
-        print("**********************************")
+
         embedding = torch.cat((self.build_embedding(support_feature), self.build_kernel_features_embedding(support_feature, query_feature)), 1)
 
         root = self.hypernet_neck(embedding)
-        print("self.target_net_param_shapes")
-        print(self.target_net_param_shapes)
-        for name, param_net in self.hypernet_heads.items():
-            print(param_net(root))
-            print(self.target_net_param_shapes[name])
-        print("!!!!!!!!!!!!!!!!!!!!!")
         network_params = {
             name.replace("-", "."): param_net(root).reshape(self.target_net_param_shapes[name])
             for name, param_net in self.hypernet_heads.items()
@@ -398,9 +357,9 @@ class HyperNetPocWithKernel(HyperNetPOC):
         return tn.cuda()
 
     def set_forward(self, x: torch.Tensor, is_feature: bool = False):
-        #TODO - add kernel!!!
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
+        #TODO: add/check changes for attention-like input
         if self.attention_embedding:
             y_support = self.get_labels(support_feature)
             y_query = self.get_labels(query_feature)
@@ -419,7 +378,6 @@ class HyperNetPocWithKernel(HyperNetPOC):
         return y_pred
 
     def query_accuracy(self, x: torch.Tensor):
-        #TODO - add kernel!!!
         scores = self.set_forward(x)
         y_query = np.repeat(range(self.n_way), self.n_query)
         topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
@@ -431,20 +389,11 @@ class HyperNetPocWithKernel(HyperNetPOC):
         return correct_this / count_this
 
     def set_forward_loss(self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False):
-        #TODO - add kernel!!!
         nw, ne, c, h, w = x.shape
-
-        print("x.shape")
-        print(x.shape)
-        print("self.n_way")
-        print(self.n_way)
-        print("self.n_support")
-        print(self.n_support)
-        print("self.n_query")
-        print(self.n_query)
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
+        #TODO: add/check changes for attention-like input
         if self.attention_embedding:
             y_support = self.get_labels(support_feature)
             y_query = self.get_labels(query_feature)
@@ -484,9 +433,6 @@ class HyperNetPocWithKernel(HyperNetPOC):
         return self.loss_fn(y_pred, y_to_classify_gt)
 
     def train_loop(self, epoch: int, train_loader: DataLoader, optimizer: torch.optim.Optimizer):
-        #TODO - transformer - learnable params!!!
-        #TODO - add kernel solution!!!
-        #TODO - add kernel!!!
         taskset_id = 0
         taskset = []
         n_train = len(train_loader)
@@ -508,8 +454,6 @@ class HyperNetPocWithKernel(HyperNetPOC):
                         if self.change_way:
                             self.n_way = task.size(0)
                         # self.n_query = task.size(1) - self.n_support
-                        # print("self.n_query")
-                        # print(task.size(1) - self.n_support)
                         loss = self.set_forward_loss(task)
                         loss_sum = loss_sum + loss
 
