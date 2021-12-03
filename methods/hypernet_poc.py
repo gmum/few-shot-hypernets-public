@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from methods.kernels import NNKernel
 from methods.meta_template import MetaTemplate
-
+import hypnettorch
 
 class HyperNetPOC(MetaTemplate):
     def __init__(
@@ -539,6 +539,53 @@ class NoHNConditioning(HyperNetPOC):
         return tn.cuda()
 
 
+from hypnettorch.hnets import HMLP
+from hypnettorch.mnets import MLP
+
+class HNLibClassifier(nn.Module):
+    def __init__(self, mlp: MLP):
+        super().__init__()
+        self.mlp = mlp
+        self.weights = None
+
+    def forward(self, x):
+        return self.mlp.forward(
+            x, weights=self.weights
+        )
+
+class HNLib(HyperNetPOC):
+    def __init__(self, model_func: nn.Module, n_way: int, n_support: int, params: "ArgparseHNParams"):
+        super().__init__(model_func, n_way, n_support, params)
+
+        self.target_net_architecture = HNLibClassifier(
+            mlp=MLP(
+                n_in=self.feature.final_feat_dim,
+                n_out=n_way,
+                hidden_layers=[params.hn_tn_hidden_size] * (params.hn_tn_depth - 1)
+            )
+        )
+        self.hypernet_heads = None
+        self.hypernet_neck = None
+
+        self.hn = HMLP(
+            self.target_net_architecture.mlp.param_shapes,
+            uncond_in_size=self.embedding_size,
+            cond_in_size=0,
+            layers=[params.hn_hidden_size] * params.hn_neck_len,
+            no_cond_weights=True,
+
+        )
+
+    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
+        support_feature = support_feature.reshape(1, self.embedding_size)
+
+        weights = self.hn(support_feature)
+        tn = deepcopy(self.target_net_architecture)
+        tn.weights = weights
+        return tn
+
+
+
 hn_poc_types = {
     "hn_poc": HyperNetPOC,
     "hn_sep_joint": HyperNetSepJoint,
@@ -548,9 +595,11 @@ hn_poc_types = {
     "hn_sup_kernel": HNKernelBetweenSupportAndQuery,
     "no_hn_sup_kernel": NoHNKernelBetweenSupportAndQuery,
     "hn_uni_final": HNPocWithUniversalFinal,
-    "no_hn_cond": NoHNConditioning
+    "no_hn_cond": NoHNConditioning,
+    "hn_lib": HNLib
 }
 
 class SinActivation(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.sin(x)
+
