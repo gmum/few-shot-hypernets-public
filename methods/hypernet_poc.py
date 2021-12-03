@@ -324,16 +324,7 @@ class HyperNetPocWithKernel(HyperNetPOC):
         support_features = support_feature.reshape(supp_way * n_support, supp_feat)
         query_features = query_feature.reshape(query_way * n_query, query_feat)
 
-        kernel_values_tensor_list = []
-        for query in query_features:
-            query_related_tensor_list = []
-            for support in support_features:
-                kernel_value = self.kernel_function.forward(support, query)
-                query_related_tensor_list.append(kernel_value)
-            query_related_tensor = torch.stack(query_related_tensor_list, 0)
-            kernel_values_tensor_list.append(query_related_tensor)
-
-        kernel_values_tensor = torch.stack(kernel_values_tensor_list, 1)
+        kernel_values_tensor = self.kernel_function.forward(support_features, query_features)
         kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
 
         invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
