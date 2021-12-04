@@ -1,6 +1,6 @@
 from collections import defaultdict
 from copy import deepcopy
-from typing import Dict, Optional, Type
+from typing import Dict, Optional, Type, List
 
 import numpy as np
 import torch
@@ -568,7 +568,7 @@ class HNLib(HyperNetPOC):
         self.hypernet_type = hn_lib_types[params.hn_lib_type]
 
         self.hn = self.hypernet_type(
-            self.target_net_architecture.mlp.param_shapes,
+            target_shapes=self.target_net_architecture.mlp.param_shapes,
             uncond_in_size=self.embedding_size,
             cond_in_size=0,
             layers=[params.hn_hidden_size] * params.hn_neck_len,
@@ -586,11 +586,27 @@ class HNLib(HyperNetPOC):
         tn.weights = weights
         return tn
 
+def build_shmlp(target_shapes: List[torch.Size], uncond_in_size: int, cond_in_size: int, layers: List[int], no_cond_weights: bool) -> StructuredHMLP:
+    return StructuredHMLP(
+        target_shapes=target_shapes,
+        chunk_shapes=[[ts] for ts in target_shapes],
+        num_per_chunk=[1] * len(target_shapes),
+        uncond_in_size=uncond_in_size,
+        cond_in_size=cond_in_size,
+        hmlp_kwargs=[
+            {
+                "layers": layers
+            }
+        ],
+        chunk_emb_sizes=uncond_in_size,
+        assembly_fct=lambda x: x,
+        no_cond_weights=no_cond_weights
+    )
+
 
 hn_lib_types: Dict[str, Type[HyperNetInterface]] = {
     "hmlp": HMLP,
-    "shmlp": StructuredHMLP,
-    "chmlp": ChunkedHMLP
+    "shmlp": build_shmlp,
 }
 
 hn_poc_types = {
