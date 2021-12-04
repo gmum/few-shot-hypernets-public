@@ -597,7 +597,7 @@ def build_shmlp(target_shapes: List[torch.Size], uncond_in_size: int, cond_in_si
             {
                 "layers": layers
             }
-        ],
+        ] * len(target_shapes),
         chunk_emb_sizes=uncond_in_size,
         assembly_fct=lambda x: x,
         no_cond_weights=no_cond_weights
