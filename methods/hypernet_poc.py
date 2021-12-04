@@ -586,6 +586,7 @@ class HNLib(HyperNetPOC):
         tn.weights = weights
         return tn
 
+
 def build_shmlp(target_shapes: List[torch.Size], uncond_in_size: int, cond_in_size: int, layers: List[int], no_cond_weights: bool) -> StructuredHMLP:
     return StructuredHMLP(
         target_shapes=target_shapes,
@@ -599,7 +600,7 @@ def build_shmlp(target_shapes: List[torch.Size], uncond_in_size: int, cond_in_si
             }
         ] * len(target_shapes),
         chunk_emb_sizes=uncond_in_size,
-        assembly_fct=lambda x: x,
+        assembly_fct=lambda tlists: [tl[0] for tl in tlists],
         no_cond_weights=no_cond_weights
     )
 
