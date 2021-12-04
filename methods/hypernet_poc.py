@@ -567,7 +567,7 @@ class HNLib(HyperNetPOC):
         self.hypernet_neck = None
         self.hypernet_type = hn_lib_types[params.hn_lib_type]
 
-        self.hn = HMLP(
+        self.hn = self.hypernet_type(
             self.target_net_architecture.mlp.param_shapes,
             uncond_in_size=self.embedding_size,
             cond_in_size=0,
@@ -575,6 +575,8 @@ class HNLib(HyperNetPOC):
             no_cond_weights=True,
 
         )
+        print(self.hn)
+        print(self.target_net_architecture)
 
     def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
         support_feature = support_feature.reshape(1, self.embedding_size)
