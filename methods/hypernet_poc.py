@@ -1,16 +1,18 @@
 from collections import defaultdict
 from copy import deepcopy
+from typing import Dict, Optional, Type
 
 import numpy as np
 import torch
 from torch import nn
-from typing import Dict, Optional
-
 from torch.utils.data import DataLoader
 
 from methods.kernels import NNKernel
 from methods.meta_template import MetaTemplate
-import hypnettorch
+from hypnettorch.hnets import HMLP, HyperNetInterface, StructuredHMLP, ChunkedHMLP
+from hypnettorch.mnets import MLP
+
+
 
 class HyperNetPOC(MetaTemplate):
     def __init__(
@@ -49,7 +51,7 @@ class HyperNetPOC(MetaTemplate):
 
         for i in range(params.hn_tn_depth):
             is_final = i == (params.hn_tn_depth - 1)
-            insize = self.feature.final_feat_dim if i ==0 else tn_hidden_size
+            insize = self.feature.final_feat_dim if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
             layers.append(nn.Linear(insize, outsize))
             if not is_final:
@@ -57,7 +59,6 @@ class HyperNetPOC(MetaTemplate):
         res = nn.Sequential(*layers)
         print(res)
         return res
-
 
     def init_hypernet_modules(self):
         target_net_param_dict = get_param_dict(self.target_net_architecture)
@@ -177,7 +178,6 @@ class HyperNetPOC(MetaTemplate):
 
         feature_to_hn = support_feature.detach() if detach_ft_hn else support_feature
         classifier = self.generate_target_net(feature_to_hn)
-
 
         feature_to_classify = torch.cat(
             [
@@ -539,8 +539,6 @@ class NoHNConditioning(HyperNetPOC):
         return tn.cuda()
 
 
-from hypnettorch.hnets import HMLP
-from hypnettorch.mnets import MLP
 
 class HNLibClassifier(nn.Module):
     def __init__(self, mlp: MLP):
@@ -552,6 +550,7 @@ class HNLibClassifier(nn.Module):
         return self.mlp.forward(
             x, weights=self.weights
         )
+
 
 class HNLib(HyperNetPOC):
     def __init__(self, model_func: nn.Module, n_way: int, n_support: int, params: "ArgparseHNParams"):
@@ -566,6 +565,7 @@ class HNLib(HyperNetPOC):
         )
         self.hypernet_heads = None
         self.hypernet_neck = None
+        self.hypernet_type = hn_lib_types[params.hn_lib_type]
 
         self.hn = HMLP(
             self.target_net_architecture.mlp.param_shapes,
@@ -585,6 +585,11 @@ class HNLib(HyperNetPOC):
         return tn
 
 
+hn_lib_types: Dict[str, Type[HyperNetInterface]] = {
+    "hmlp": HMLP,
+    "shmlp": StructuredHMLP,
+    "chmlp": ChunkedHMLP
+}
 
 hn_poc_types = {
     "hn_poc": HyperNetPOC,
@@ -599,7 +604,7 @@ hn_poc_types = {
     "hn_lib": HNLib
 }
 
+
 class SinActivation(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.sin(x)
-
