@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
-from methods.hypernet_poc import hn_lib_types
+from methods.hypnettorch_utils import hn_types
+
 
 def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
 
@@ -17,5 +18,7 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hn_args.add_argument("--hn_ln", action="store_true", default=False, help="Add BatchNorm to hypernet")
     hn_args.add_argument("--hn_dropout", type=float, default=0, help="Dropout probability in hypernet")
     hn_args.add_argument("--hn_tn_activation", type=str, default="relu", choices=["relu", "sin", "tanh"], help="Activation in the target network")
-    hn_args.add_argument("--hn_lib_type", type=str, default="hmlp", choices =list(hn_lib_types.keys()), help="Hypernet type from hypnettorch package")
+    hn_args.add_argument("--hn_lib_type", type=str, default="hmlp", choices =hn_types, help="Hypernet type from hypnettorch package")
+    hn_args.add_argument("--hn_lib_chunk_size", type=int, default=1024, help="Hypnettorch chunk size")
+    hn_args.add_argument("--hn_lib_chunk_emb_size", type=int, default=8, help="Hypnettorch chunk embedding size")
     return parser
