@@ -11,7 +11,7 @@ def build_hypnettorch(
     target_shapes: List[torch.Size],
     uncond_in_size: int,
     params,
-) -> Union[HyperNetInterface, torch.Module]:
+) -> Union[HyperNetInterface, torch.nn.Module]:
     layers = [params.hn_hidden_size] * params.hn_neck_len
 
     hypernet_type = params.hn_lib_type
