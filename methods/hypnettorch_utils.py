@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from hypnettorch.hnets import StructuredHMLP, HyperNetInterface, HMLP, ChunkedHMLP
 
-hn_types = ["hmlp", "chmlp"]
+hn_types = ["hmlp", "chmlp", "shmlp"]
 
 def build_hypnettorch(
     target_shapes: List[torch.Size],
@@ -37,61 +37,25 @@ def build_hypnettorch(
 
         )
 
+    elif hypernet_type == "shmlp":
+        assert params.hn_lib_chunk_size==-1, "only -1 supported at the moment!"
+        return StructuredHMLP(
+            target_shapes=target_shapes,
+            chunk_shapes=[[ts] for ts in target_shapes],
+            num_per_chunk=[1] * len(target_shapes),
+            uncond_in_size=uncond_in_size,
+            cond_in_size=0,
+            hmlp_kwargs=[
+                {
+                    "layers": layers
+                }
+            ] * len(target_shapes),
+            chunk_emb_sizes=params.hn_lib_chunk_emb_size,
+            assembly_fct=lambda tlists: [tl[0] for tl in tlists],
+            no_cond_weights=False
+        )
     else:
         raise TypeError(f"Allowed types: {hn_types}")
 
 
 
-# def build_shmlp(
-#         target_shapes: List[torch.Size],
-#         uncond_in_size: int,
-#         cond_in_size: int,
-#         layers: List[int],
-#         no_cond_weights: bool
-# ) -> StructuredHMLP:
-#
-#     max_chunk_size = 30
-#     print(target_shapes)
-#     print([np.prod(ts) for ts in target_shapes])
-#
-#     chunk_shapes = []
-#     num_per_chunk = []
-#
-#
-#
-#
-#     assert False
-#
-#
-#     shmlp = StructuredHMLP(
-#         target_shapes=target_shapes,
-#         chunk_shapes=[[ts] for ts in target_shapes],
-#         num_per_chunk=[2] * len(target_shapes),
-#         uncond_in_size=uncond_in_size,
-#         cond_in_size=cond_in_size,
-#         hmlp_kwargs=[
-#             {
-#                 "layers": layers
-#             }
-#         ] * len(target_shapes),
-#         chunk_emb_sizes=15,
-#         assembly_fct=lambda tlists: [tl[0] for tl in tlists],
-#         no_cond_weights=no_cond_weights
-#     )
-#
-#     for i, hn in enumerate(shmlp._hnets):
-#         print("HN", i)
-#         pprint(
-#             {
-#                 pn: pt.shape
-#                 for (pn, pt) in hn.named_parameters()
-#             }
-#         )
-#
-#     return shmlp
-#
-#
-# hn_lib_types: Dict[str, Type[HyperNetInterface]] = {
-#     "hmlp": ,
-#     "shmlp": build_shmlp,
-# }
