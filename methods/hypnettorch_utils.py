@@ -39,7 +39,6 @@ def build_hypnettorch(
         )
 
     elif hypernet_type == "shmlp":
-        assert params.hn_lib_chunk_size == -1, "only -1 supported at the moment!"
         if params.hn_lib_chunk_size == -1:
             print("Chunk size = -1, there will be no chunking")
             chunk_shapes = [[ts] for ts in target_shapes]
