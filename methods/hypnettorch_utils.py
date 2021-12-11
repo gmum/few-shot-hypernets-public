@@ -47,9 +47,10 @@ def build_hypnettorch(
         else:
             chunk_shapes, num_per_chunk, assembly_fn = shmlp_args(target_shapes,
                                                                   max_chunk_size=params.hn_lib_chunk_size)
-
-        print(chunk_shapes)
-        print(num_per_chunk)
+        # chunk_shapes= [[[3]], [[10, 5], [5]]]
+        # num_per_chunk = [2, 1]
+        print("Chunk shapes", chunk_shapes)
+        print("num per chunk", num_per_chunk)
         return StructuredHMLP(
             target_shapes=target_shapes,
             chunk_shapes=chunk_shapes,
@@ -60,7 +61,7 @@ def build_hypnettorch(
                             {
                                 "layers": layers
                             }
-                        ] * len(target_shapes),
+                        ] * len(chunk_shapes),  #len(target_shapes),
             chunk_emb_sizes=params.hn_lib_chunk_emb_size,
             assembly_fct=assembly_fn,
             no_cond_weights=False
@@ -85,7 +86,6 @@ def shmlp_args(target_shapes: List[Union[torch.Size, List[int]]], max_chunk_size
     for ts in target_shapes:
         ts_size = np.prod(ts)
         num_chunks = ceil(ts_size / max_chunk_size)
-
         chunk_size = ts[:]
 
         num_chunks_acc = 1
@@ -103,7 +103,7 @@ def shmlp_args(target_shapes: List[Union[torch.Size, List[int]]], max_chunk_size
                 chunk_size[i] = cs
 
         num_per_chunk.append(num_chunks_acc)
-        chunk_shapes.append(chunk_size)
+        chunk_shapes.append([chunk_size])
 
     for i, (ts, cs, ns) in enumerate(zip(target_shapes, chunk_shapes, num_per_chunk)):
         tp = np.prod(ts)
@@ -116,10 +116,15 @@ def shmlp_args(target_shapes: List[Union[torch.Size, List[int]]], max_chunk_size
         print("-----")
 
     def assembly_fn(chunks: List[List[torch.Tensor]]) -> List[torch.Tensor]:
-        assert len(chunks) == len(target_shapes)
+        gathered_chunks = []
+        i = 0
+        for nc in num_per_chunk:
+            gathered_chunks.append([c[0] for c in chunks[i:(i+nc)]])
+            i+=nc
+        assert len(gathered_chunks) == len(target_shapes), ([[c.shape for c in cs] for cs in chunks], target_shapes)
 
         targets = []
-        for ts, t_chunks in zip(target_shapes):
+        for ts, t_chunks in zip(target_shapes, gathered_chunks):
             ts_size = np.prod(ts)
             flat = torch.stack(t_chunks).reshape(-1)
             assert len(flat) >= ts_size
