@@ -165,7 +165,7 @@ class HyperNetPOC(MetaTemplate):
     def set_forward_with_adaptation(self, x: torch.Tensor):
         self_copy = deepcopy(self)
         metrics = {
-            "accuracy/val/0": self_copy.query_accuracy(x)
+            "accuracy/val@-0": self_copy.query_accuracy(x)
         }
         val_opt = torch.optim.Adam(self_copy.parameters(), lr=self.hn_val_lr)
         for i in range(1, self.hn_val_epochs + 1):
