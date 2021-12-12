@@ -175,7 +175,7 @@ class HyperNetPOC(MetaTemplate):
             loss.backward()
             val_opt.step()
             self_copy.eval()
-            metrics[f"accuracy/val/{i}"] = self_copy.query_accuracy(x)
+            metrics[f"accuracy/val@-{i}"] = self_copy.query_accuracy(x)
 
         return self_copy.set_forward(x), metrics
 
