@@ -122,13 +122,16 @@ class HyperNetPOC(MetaTemplate):
         det_query_feature = query_feature.detach().clone() if self.detach_query else query_feature
         return det_support_feature, det_query_feature
 
+    def transform_embeddings(self, x: torch.Tensor) -> torch.Tensor:
+        return x
+
     def get_all_labels(self, x: torch.Tensor):
         nw, ne, c, h, w = x.shape
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
         det_support_feature, det_query_feature = self.get_second_support_query(support_feature, query_feature)
 
-        all_feature = torch.cat(
+        all_feture = torch.cat(
             [
                 support_feature.reshape(
                     (self.n_way * self.n_support), det_support_feature.shape[-1]
@@ -137,6 +140,11 @@ class HyperNetPOC(MetaTemplate):
                     (self.n_way * (ne - self.n_support)), det_query_feature.shape[-1]
                 )
             ])
+        #print(all_feture.shape)
+        all_feature = self.transform_embeddings(
+            all_feture
+        )
+        #print(all_feture.shape)
 
         y_support = self.get_labels(support_feature)
         y_query = self.get_labels(query_feature)
@@ -407,6 +415,76 @@ class HNKernelBetweenSupportAndQuery(HyperNetPOC):
         return tn.cuda()
 
 
+class PointNet(nn.Module):
+
+    def __init__(self, sampling, z_size, channels, batch_norm):
+        super().__init__()
+        self.sampling = sampling
+        self.z_size = z_size
+        self.channels = channels
+        if batch_norm:
+            self._conv1 = nn.Sequential(
+                nn.Conv1d(self.channels, 64, 1),
+                nn.BatchNorm1d(64),
+                nn.ReLU()
+            )
+        else:
+            self._conv1 = nn.Sequential(
+                nn.Conv1d(3, 64, 1),
+                nn.ReLU()
+            )
+
+        if batch_norm:
+            self._conv2 = nn.Sequential(
+                nn.Conv1d(64, 128, 1),
+                nn.BatchNorm1d(128),
+                nn.ReLU(),
+
+                nn.Conv1d(128, z_size, 1),
+                nn.BatchNorm1d(z_size),
+                nn.ReLU()
+            )
+        else:
+            self._conv2 = nn.Sequential(
+                # nn.Conv1d(64, 128, 1),
+                # nn.ReLU(),
+
+                nn.Conv1d(64, z_size, 1),
+                nn.ReLU()
+            )
+
+        self._pool = nn.MaxPool1d(sampling)
+        self._flatten = nn.Flatten(1)
+
+    def forward(self, x):
+        x = x.view(-1, 1, self.sampling)
+        x = self._conv1(x)
+        x = self._conv2(x)
+        x = self._pool(x)
+        return self._flatten(x)
+
+
+class AbstractPointNetHN(abc.ABC):
+    pn = PointNet(
+        sampling=64,
+        z_size=64,
+        channels=1,
+        batch_norm=True
+    )
+    pn = pn.cuda()
+
+    def transform_embeddings(self, x: torch.Tensor) -> torch.Tensor:
+        return self.pn(x)
+
+
+class PointNetHN(AbstractPointNetHN, HNKernelBetweenSupportAndQuery):
+    pass
+
+
+class PointNetHNKernelBetweenSupportAndQuery(AbstractPointNetHN, HNKernelBetweenSupportAndQuery):
+    pass
+
+
 class AbstractPermutationHN(abc.ABC):
     permute_support = True
     permute_query = False
@@ -461,5 +539,6 @@ hn_poc_types = {
     "hn_kernel": HyperNetSupportKernel,
     "hn_sup_kernel": HNKernelBetweenSupportAndQuery,  # the best architecture right now
     "hn_perm": PermutationHN,
-    "hn_perm_sup_kernel": PermutationHNKernelBetweenSupportAndQuery
+    "hn_perm_sup_kernel": PermutationHNKernelBetweenSupportAndQuery,
+    "hn_pointnet": PointNetHN
 }
