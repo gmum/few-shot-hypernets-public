@@ -21,4 +21,6 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hn_args.add_argument("--hn_lib_type", type=str, default="hmlp", choices =hn_types, help="Hypernet type from hypnettorch package")
     hn_args.add_argument("--hn_lib_chunk_size", type=int, default=1024, help="Hypnettorch chunk size")
     hn_args.add_argument("--hn_lib_chunk_emb_size", type=int, default=8, help="Hypnettorch chunk embedding size")
+    hn_args.add_argument("--hn_val_epochs", type=int, default=0, help="Epochs for finetuning on support set during validation")
+    hn_args.add_argument("--hn_val_lr", type=float, default=1e-4, help="LR for finetuning on support set during validation")
     return parser

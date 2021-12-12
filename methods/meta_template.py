@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Tuple
 
 import backbone
@@ -75,6 +76,7 @@ class MetaTemplate(nn.Module):
         correct =0
         count = 0
         acc_all = []
+        acc_at = defaultdict(list)
         
         iter_num = len(test_loader) 
         for i, (x,_) in enumerate(test_loader):
@@ -83,8 +85,14 @@ class MetaTemplate(nn.Module):
                 self.n_way  = x.size(0)
             #---------------------------                
             #TODO temporally replaced the call to correct() with the code   
-            #correct_this, count_this = self.correct(x)            
-            scores = self.set_forward(x)
+            #correct_this, count_this = self.correct(x)
+            try:
+                scores, acc_at_metrics = self.set_forward_with_adaptation(x)
+                for (k,v) in acc_at_metrics.items():
+                    acc_at[k].append(v)
+            except Exception as e:
+                raise
+                scores = self.set_forward(x)
             y_query = np.repeat(range( self.n_way ), self.n_query )
             topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
             topk_ind = topk_labels.cpu().numpy()
@@ -93,15 +101,18 @@ class MetaTemplate(nn.Module):
             count_this = len(y_query)
             #---------------------------
             acc_all.append(correct_this/ count_this*100  )
-
+        acc_at = {
+            k: np.mean(v) if len(v) > 0 else 0
+            for (k,v) in acc_at.items()
+        }
         acc_all  = np.asarray(acc_all)
         acc_mean = np.mean(acc_all)
         acc_std  = np.std(acc_all)
         print('%d Test Acc = %4.2f%% +- %4.2f%%' %(iter_num,  acc_mean, 1.96* acc_std/np.sqrt(iter_num)))
         if return_std:
-            return acc_mean, acc_std
+            return acc_mean, acc_std, acc_at
         else:
-            return acc_mean
+            return acc_mean, acc_at
 
     def set_forward_adaptation(self, x, is_feature = True): #further adaptation, default is fixing feature and train a new softmax clasifier
         assert is_feature == True, 'Feature is fixed in further adaptation'

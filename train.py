@@ -65,7 +65,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
     if (Path(params.checkpoint_dir) / "metrics.json").exists() and params.resume:
         with (Path(params.checkpoint_dir) / "metrics.json").open("r") as f:
             try:
-                metrics_per_epoch = json.load(f)
+                metrics_per_epoch = defaultdict(list, json.load(f))
                 try:
                     max_acc = metrics_per_epoch["accuracy/val_max"][-1]
                 except:
@@ -88,12 +88,16 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         scheduler.step()
         model.eval()
 
-        acc = model.test_loop(val_loader)
-        print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f}")
+        acc, acc_at = model.test_loop(val_loader)
+        print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Acc at: {acc_at}")
 
         metrics = metrics or dict()
         metrics["accuracy/val"] = acc
         metrics["accuracy/val_max"] = max_acc
+        metrics = {
+            **metrics,
+            **acc_at
+        }
         if acc > max_acc:  # for baseline and baseline++, we don't use validation here so we let acc = -1
             print("--> Best model! save...")
             max_acc = acc

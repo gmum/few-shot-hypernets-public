@@ -136,12 +136,12 @@ def shmlp_args(target_shapes: List[Union[torch.Size, List[int]]], max_chunk_size
     return chunk_shapes, num_per_chunk, assembly_fn
 
 
-shmlp_args(
-    [
-        [128, 128],
-        [1024],
-        [128, 30],
-    ],
-
-    1024
-)
+# shmlp_args(
+#     [
+#         [128, 128],
+#         [1024],
+#         [128, 30],
+#     ],
+#
+#     1024
+# )

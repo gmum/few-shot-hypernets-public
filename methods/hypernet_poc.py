@@ -34,6 +34,8 @@ class HyperNetPOC(MetaTemplate):
         self.taskset_repeats_config: str = params.hn_taskset_repeats
         self.hn_ln: bool = params.hn_ln
         self.hn_dropout: float = params.hn_dropout
+        self.hn_val_epochs: int = params.hn_val_epochs
+        self.hn_val_lr: float = params.hn_val_lr
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.loss_fn = nn.CrossEntropyLoss()
         self.init_hypernet_modules()
@@ -160,6 +162,24 @@ class HyperNetPOC(MetaTemplate):
         y_pred = classifier(query_feature)
         return y_pred
 
+    def set_forward_with_adaptation(self, x: torch.Tensor):
+        self_copy = deepcopy(self)
+        metrics = {
+            "accuracy/val/0": self_copy.query_accuracy(x)
+        }
+        val_opt = torch.optim.Adam(self_copy.parameters(), lr=self.hn_val_lr)
+        for i in range(1, self.hn_val_epochs + 1):
+            self_copy.train()
+            val_opt.zero_grad()
+            loss = self_copy.set_forward_loss(x, train_on_query=False)
+            loss.backward()
+            val_opt.step()
+            self_copy.eval()
+            metrics[f"accuracy/val/{i}"] = self_copy.query_accuracy(x)
+
+        return self_copy.set_forward(x), metrics
+
+
     def query_accuracy(self, x: torch.Tensor):
         scores = self.set_forward(x)
         y_query = np.repeat(range(self.n_way), self.n_query)
@@ -171,7 +191,11 @@ class HyperNetPOC(MetaTemplate):
 
         return correct_this / count_this
 
-    def set_forward_loss(self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False):
+    def set_forward_loss(
+            self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False,
+            train_on_support: bool = True,
+            train_on_query: bool = True
+    ):
         nw, ne, c, h, w = x.shape
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
@@ -179,22 +203,27 @@ class HyperNetPOC(MetaTemplate):
         feature_to_hn = support_feature.detach() if detach_ft_hn else support_feature
         classifier = self.generate_target_net(feature_to_hn)
 
-        feature_to_classify = torch.cat(
-            [
+        feature_to_classify = []
+        y_to_classify_gt = []
+        if train_on_support:
+            feature_to_classify.append(
                 support_feature.reshape(
                     (self.n_way * self.n_support), support_feature.shape[-1]
-                ),
+                )
+            )
+            y_support = self.get_labels(support_feature)
+            y_to_classify_gt.append(y_support.reshape(self.n_way * self.n_support))
+        if train_on_query:
+            feature_to_classify.append(
                 query_feature.reshape(
                     (self.n_way * (ne - self.n_support)), query_feature.shape[-1]
                 )
-            ])
+            )
+            y_query = self.get_labels(query_feature)
+            y_to_classify_gt.append(y_query.reshape(self.n_way * (ne - self.n_support)))
 
-        y_support = self.get_labels(support_feature)
-        y_query = self.get_labels(query_feature)
-        y_to_classify_gt = torch.cat([
-            y_support.reshape(self.n_way * self.n_support),
-            y_query.reshape(self.n_way * (ne - self.n_support))
-        ])
+        feature_to_classify = torch.cat(feature_to_classify)
+        y_to_classify_gt = torch.cat(y_to_classify_gt)
 
         if detach_ft_tn:
             feature_to_classify = feature_to_classify.detach()
