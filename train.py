@@ -88,41 +88,43 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         scheduler.step()
         model.eval()
 
-        acc, acc_at = model.test_loop(val_loader)
-        print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Acc at: {acc_at}")
+        if (epoch % params.eval_freq == 0) or epoch in [
+            params.es_epoch - 1,
+            stop_epoch - 1
+        ]:
+            acc, acc_at = model.test_loop(val_loader)
+            print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Acc at: {acc_at}")
 
-        metrics = metrics or dict()
-        metrics["accuracy/val"] = acc
-        metrics["accuracy/val_max"] = max_acc
-        metrics = {
-            **metrics,
-            **acc_at
-        }
-        if acc > max_acc:  # for baseline and baseline++, we don't use validation here so we let acc = -1
-            print("--> Best model! save...")
-            max_acc = acc
-            outfile = os.path.join(params.checkpoint_dir, 'best_model.tar')
+            metrics = metrics or dict()
+            metrics["accuracy/val"] = acc
+            metrics["accuracy/val_max"] = max_acc
+            metrics = {
+                **metrics,
+                **acc_at
+            }
+            if acc > max_acc:  # for baseline and baseline++, we don't use validation here so we let acc = -1
+                print("--> Best model! save...")
+                max_acc = acc
+                outfile = os.path.join(params.checkpoint_dir, 'best_model.tar')
+                torch.save({'epoch': epoch, 'state': model.state_dict()}, outfile)
+
+            outfile = os.path.join(params.checkpoint_dir, 'last_model.tar')
             torch.save({'epoch': epoch, 'state': model.state_dict()}, outfile)
 
-        if (epoch % params.save_freq == 0) or (epoch == stop_epoch - 1):
-            outfile = os.path.join(params.checkpoint_dir, '{:d}.tar'.format(epoch))
-            torch.save({'epoch': epoch, 'state': model.state_dict()}, outfile)
+            if (epoch % params.save_freq == 0) or (epoch == stop_epoch - 1):
+                outfile = os.path.join(params.checkpoint_dir, '{:d}.tar'.format(epoch))
+                torch.save({'epoch': epoch, 'state': model.state_dict()}, outfile)
 
-        if metrics is not None:
-            for k, v in metrics.items():
-                metrics_per_epoch[k].append(v)
+            if metrics is not None:
+                for k, v in metrics.items():
+                    metrics_per_epoch[k].append(v)
 
-        # fig_dir = Path(params.checkpoint_dir) / "figs"
-        # fig_dir.mkdir(exist_ok=True, parents=True)
-        # # plot_metrics(metrics_per_epoch, epoch=epoch, fig_dir=fig_dir)
-        with (Path(params.checkpoint_dir) / "metrics.json").open("w") as f:
-            json.dump(metrics_per_epoch, f, indent=2)
+            with (Path(params.checkpoint_dir) / "metrics.json").open("w") as f:
+                json.dump(metrics_per_epoch, f, indent=2)
 
-        if neptune_run is not None:
-            for m, v in metrics.items():
-                neptune_run[m].log(v, step=epoch)
-
-
+            if neptune_run is not None:
+                for m, v in metrics.items():
+                    neptune_run[m].log(v, step=epoch)
 
     return model
 
@@ -287,6 +289,8 @@ if __name__ == '__main__':
             tmp = torch.load(resume_file)
             start_epoch = tmp['epoch'] + 1
             model.load_state_dict(tmp['state'])
+            print("Resuming training from", resume_file, "epoch", start_epoch)
+
     elif params.warmup:  # We also support warmup from pretrained baseline feature, but we never used in our paper
         baseline_checkpoint_dir = '%s/checkpoints/%s/%s_%s' % (
             configs.save_dir, params.dataset, params.model, 'baseline')

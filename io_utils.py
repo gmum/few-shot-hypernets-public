@@ -50,6 +50,7 @@ def parse_args(script):
                              help="Check if val accuracy threshold achieved at this epoch, stop if not.")
         parser.add_argument("--es_threshold", type=float, default=70.0,
                              help="Val accuracy threshold for early stopping")
+        parser.add_argument("--eval_freq", type=int, default=1, help="Evaluation frequency")
 
     elif script == 'save_features':
         parser.add_argument('--split'       , default='novel', help='base/val/novel') #default novel, but you can also test base/val class accuracy if you want
@@ -90,6 +91,9 @@ def get_resume_file(checkpoint_dir):
     filelist = glob.glob(os.path.join(checkpoint_dir, '*.tar'))
     if len(filelist) == 0:
         return None
+    last_model_files = [x  for x in filelist if os.path.basename(x) == 'last_model.tar' ]
+    if len(last_model_files) == 1:
+        return last_model_files[0]
 
     filelist =  [ x  for x in filelist if os.path.basename(x) != 'best_model.tar' ]
     epochs = np.array([int(os.path.splitext(os.path.basename(x))[0]) for x in filelist])
