@@ -36,6 +36,7 @@ class HyperNetPOC(MetaTemplate):
         self.hn_dropout: float = params.hn_dropout
         self.hn_val_epochs: int = params.hn_val_epochs
         self.hn_val_lr: float = params.hn_val_lr
+        self.hn_val_optim: float = params.hn_val_optim
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.loss_fn = nn.CrossEntropyLoss()
         self.init_hypernet_modules()
@@ -167,7 +168,8 @@ class HyperNetPOC(MetaTemplate):
         metrics = {
             "accuracy/val@-0": self_copy.query_accuracy(x)
         }
-        val_opt = torch.optim.Adam(self_copy.parameters(), lr=self.hn_val_lr)
+        val_opt_type = torch.optim.Adam if self.hn_val_optim == "adam" else torch.optim.SGD
+        val_opt = val_opt_type(self_copy.parameters(), lr=self.hn_val_lr)
         for i in range(1, self.hn_val_epochs + 1):
             self_copy.train()
             val_opt.zero_grad()
