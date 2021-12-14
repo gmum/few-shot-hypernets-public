@@ -476,6 +476,285 @@ class HyperNetPocWithKernel(HyperNetPOC):
         return metrics
 
 
+class HyperNetPocSupportSupportKernel(HyperNetPOC):
+    def __init__(
+            self, model_func: nn.Module, n_way: int, n_support: int, n_query: int,
+            params: "ArgparseHNParams", target_net_architecture: Optional[nn.Module] = None
+    ):
+        super().__init__(
+            model_func, n_way, n_support, n_query, params=params, target_net_architecture=target_net_architecture
+        )
+
+        conv_out_size = self.feature.final_feat_dim
+        self.kernel_input_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
+        self.kernel_output_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
+        self.kernel_layers_no = params.hn_kernel_layers_no
+        self.kernel_hidden_dim = params.hn_kernel_hidden_dim
+        self.kernel_function = NNKernel(self.kernel_input_dim, self.kernel_output_dim,
+                                        self.kernel_layers_no, self.kernel_hidden_dim)
+        # I will be adding the kernel vector to the stacked images embeddings
+        #TODO: add/check changes for attention-like input
+
+
+        # if self.attention_embedding:
+        #     self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support + (self.n_way * self.n_support)
+        # else:
+        #     self.embedding_size: int = conv_out_size * self.n_way * self.n_support + (self.n_way * self.n_support)
+
+        self.hn_kernel_invariance: bool = params.hn_kernel_invariance
+        self.hn_kernel_invariance_type: str = params.hn_kernel_invariance_type
+        self.hn_kernel_convolution_output_dim: int = params.hn_kernel_convolution_output_dim
+
+        # embedding size
+        # TODO - add attention based input also
+        if self.hn_kernel_invariance:
+            if self.hn_kernel_invariance_type == 'attention':
+                self.embedding_size: int = self.n_way * self.n_support
+            else:
+                self.embedding_size: int = self.hn_kernel_convolution_output_dim
+        else:
+            self.embedding_size: int = (self.n_way * self.n_support) ** 2
+
+        # invariant operation type
+        if self.hn_kernel_invariance:
+            if self.hn_kernel_invariance_type == 'attention':
+                self.init_kernel_transformer_architecture(params)
+            else:
+                self.init_kernel_convolution_architecture(params)
+
+        self.query_relations_size = self.n_way * self.n_support
+        self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
+        self.init_hypernet_modules()
+
+    def build_target_net_architecture(self, params) -> nn.Module:
+        tn_hidden_size = params.hn_tn_hidden_size
+        layers = []
+        for i in range(params.hn_tn_depth):
+            is_final = i == (params.hn_tn_depth - 1)
+            insize = self.query_relations_size if i == 0 else tn_hidden_size
+            outsize = self.n_way if is_final else tn_hidden_size
+            layers.append(nn.Linear(insize, outsize))
+            if not is_final:
+                layers.append(nn.ReLU())
+        res = nn.Sequential(*layers)
+        print(res)
+        return res
+
+    def init_kernel_concolution_architecture(self, params):
+        # TODO - add convolution-based approach
+        self.kernel_1D_convolution: bool = True
+
+    def init_kernel_transformer_architecture(self, params):
+        self.kernel_transformer_layers_no: int = params.kernel_transformer_layers_no
+        self.kernel_transformer_input_dim: int = self.n_way * self.n_support
+        self.kernel_transformer_heads: int = params.kernel_transformer_heads_no
+        self.kernel_transformer_dim_feedforward: int = params.kernel_transformer_feedforward_dim
+        self.kernel_transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.kernel_transformer_layers_no, input_dim=self.kernel_transformer_input_dim, num_heads=self.kernel_transformer_heads, dim_feedforward=self.kernel_transformer_dim_feedforward)
+
+    def build_relations_features(self, support_feature: torch.Tensor, feature_to_classify: torch.Tensor) -> torch.Tensor:
+
+        supp_way, n_support, supp_feat = support_feature.shape
+        n_examples, feat_dim = feature_to_classify.shape
+        support_features = support_feature.reshape(supp_way * n_support, supp_feat)
+
+        kernel_values_tensor = self.kernel_function.forward(support_features, feature_to_classify)
+        print("kernel_values_tensor.shape")
+        print(kernel_values_tensor.shape)
+        relations = kernel_values_tensor.reshape(n_examples, supp_way * n_support)
+        print("relations.shape")
+        print(relations.shape)
+
+        return relations
+
+    def build_kernel_features_embedding(self, support_feature: torch.Tensor, query_feature: torch.Tensor) -> torch.Tensor:
+        """
+        x_support: [n_way, n_support, hidden_size]
+        """
+
+        supp_way, n_support, supp_feat = support_feature.shape
+        # query_way, n_query, query_feat = query_feature.shape
+
+        #TODO: add/check changes for attention-like input
+
+
+        # if self.attention_embedding:
+        #     attention_support_features = support_feature.view(1, -1, *(support_feature.size()[2:]))
+        #     support_feature = torch.flatten(self.transformer_encoder.forward(attention_support_features))
+        #     attention_query_features = support_feature.view(1, -1, *(query_feature.size()[2:]))
+        #     query_feature = torch.flatten(self.transformer_encoder.forward(attention_query_features))
+
+        support_features = support_feature.reshape(supp_way * n_support, supp_feat)
+        # query_features = query_feature.reshape(query_way * n_query, query_feat)
+        support_features_copy = torch.clone(support_features)
+
+        kernel_values_tensor = self.kernel_function.forward(support_features, support_features_copy)
+
+        if self.hn_kernel_invariance:
+            if self.hn_kernel_invariance_type == 'attention':
+                kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
+                invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
+                return invariant_kernel_values
+            else:
+                # TODO - add convolutional approach
+                kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
+                invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
+                return invariant_kernel_values
+
+        return torch.flatten(kernel_values_tensor)
+
+    def generate_target_net_with_kernel_features(self, support_feature: torch.Tensor, query_feature: torch.Tensor) -> nn.Module:
+        """
+        x_support: [n_way, n_support, hidden_size]
+        """
+
+        embedding = self.build_kernel_features_embedding(support_feature, query_feature)
+
+        root = self.hypernet_neck(embedding)
+        network_params = {
+            name.replace("-", "."): param_net(root).reshape(self.target_net_param_shapes[name])
+            for name, param_net in self.hypernet_heads.items()
+        }
+        tn = deepcopy(self.target_net_architecture)
+        set_from_param_dict(tn, network_params)
+        return tn.cuda()
+
+    def set_forward(self, x: torch.Tensor, is_feature: bool = False):
+        support_feature, query_feature = self.parse_feature(x, is_feature)
+
+        #TODO: add/check changes for attention-like input
+
+
+        # if self.attention_embedding:
+        #     y_support = self.get_labels(support_feature)
+        #     y_query = self.get_labels(query_feature)
+        #     y_support_one_hot = torch.nn.functional.one_hot(y_support)
+        #     support_feature_with_classes_one_hot = torch.cat((support_feature, y_support_one_hot), 2)
+        #     support_feature = support_feature_with_classes_one_hot
+        #     y_query_zeros = torch.zeros((y_query.shape[0], y_query.shape[1], y_support_one_hot.shape[2]))
+        #     query_feature_with_zeros = torch.cat((query_feature, y_query_zeros), 2)
+        #     query_feature = query_feature_with_zeros
+
+        classifier = self.generate_target_net_with_kernel_features(support_feature, query_feature)
+        query_feature = query_feature.reshape(
+            -1, query_feature.shape[-1]
+        )
+
+        relational_query_feature = self.build_relations_features(support_feature, query_feature)
+        print("query_feature.shape")
+        print(query_feature.shape)
+        y_pred = classifier(relational_query_feature)
+        return y_pred
+
+    def query_accuracy(self, x: torch.Tensor):
+        scores = self.set_forward(x)
+        y_query = np.repeat(range(self.n_way), self.n_query)
+        topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
+        topk_ind = topk_labels.cpu().numpy()
+        top1_correct = np.sum(topk_ind[:, 0] == y_query)
+        correct_this = float(top1_correct)
+        count_this = len(y_query)
+
+        return correct_this / count_this
+
+    def set_forward_loss(self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False):
+        nw, ne, c, h, w = x.shape
+
+        support_feature, query_feature = self.parse_feature(x, is_feature=False)
+
+        #TODO: add/check changes for attention-like input
+        if self.attention_embedding:
+            y_support = self.get_labels(support_feature)
+            y_query = self.get_labels(query_feature)
+            y_support_one_hot = torch.nn.functional.one_hot(y_support)
+            support_feature_with_classes_one_hot = torch.cat((support_feature, y_support_one_hot), 2)
+            y_query_zeros = torch.zeros((y_query.shape[0], y_query.shape[1], y_support_one_hot.shape[2]))
+            query_feature_with_zeros = torch.cat((query_feature, y_query_zeros), 2)
+            feature_to_hn = support_feature_with_classes_one_hot.detach() if detach_ft_hn else support_feature_with_classes_one_hot
+            query_feature_to_hn = query_feature_with_zeros
+        else:
+            feature_to_hn = support_feature.detach() if detach_ft_hn else support_feature
+            query_feature_to_hn = query_feature
+
+        classifier = self.generate_target_net_with_kernel_features(feature_to_hn, query_feature_to_hn)
+
+        feature_to_classify = torch.cat(
+            [
+                support_feature.reshape(
+                    (self.n_way * self.n_support), support_feature.shape[-1]
+                ),
+                query_feature.reshape(
+                    (self.n_way * (ne - self.n_support)), query_feature.shape[-1]
+                )
+            ])
+
+        y_support = self.get_labels(support_feature)
+        y_query = self.get_labels(query_feature)
+        y_to_classify_gt = torch.cat([
+            y_support.reshape(self.n_way * self.n_support),
+            y_query.reshape(self.n_way * (ne - self.n_support))
+        ])
+
+        relational_feature_to_classify = self.build_relations_features(support_feature, feature_to_classify)
+
+        if detach_ft_tn:
+            relational_feature_to_classify = relational_feature_to_classify.detach()
+
+        y_pred = classifier(relational_feature_to_classify)
+        return self.loss_fn(y_pred, y_to_classify_gt)
+
+    def train_loop(self, epoch: int, train_loader: DataLoader, optimizer: torch.optim.Optimizer):
+        taskset_id = 0
+        taskset = []
+        n_train = len(train_loader)
+        accuracies = []
+        losses = []
+        metrics = defaultdict(list)
+        ts_repeats = self.taskset_repeats(epoch)
+
+        for i, (x, _) in enumerate(train_loader):
+            taskset.append(x)
+
+            # TODO 3: perhaps the idea of tasksets is redundant and it's better to update weights at every task
+            if i % self.taskset_size == (self.taskset_size - 1) or i == (n_train - 1):
+                loss_sum = torch.tensor(0).cuda()
+                for tr in range(ts_repeats):
+                    loss_sum = torch.tensor(0).cuda()
+
+                    for task in taskset:
+                        if self.change_way:
+                            self.n_way = task.size(0)
+                        # self.n_query = task.size(1) - self.n_support
+                        loss = self.set_forward_loss(task)
+                        loss_sum = loss_sum + loss
+
+                    optimizer.zero_grad()
+                    loss_sum.backward()
+
+                    if tr == 0:
+                        for k, p in get_param_dict(self).items():
+                            metrics[f"grad_norm/{k}"] = p.grad.abs().mean().item() if p.grad is not None else 0
+
+                    optimizer.step()
+
+                losses.append(loss_sum.item())
+                accuracies.extend([
+                    self.query_accuracy(task) for task in taskset
+                ])
+                acc_mean = np.mean(accuracies) * 100
+                acc_std = np.std(accuracies) * 100
+
+                if taskset_id % self.taskset_print_every == 0:
+                    print(
+                        f"Epoch {epoch} | Taskset {taskset_id} | TS {len(taskset)} | TS epochs {ts_repeats} | Loss {loss_sum.item()} | Train acc {acc_mean:.2f} +- {acc_std:.2f} %")
+
+                taskset_id += 1
+                taskset = []
+
+        metrics["loss/train"] = np.mean(losses)
+        metrics["accuracy/train"] = np.mean(accuracies) * 100
+        return metrics
+
+
 class HNPocWithUniversalFinal(HyperNetPOC):
     def __init__(self, model_func, n_way: int, n_support: int, n_query: int):
         tn = nn.Sequential(
@@ -762,6 +1041,7 @@ class NoHNConditioning(HyperNetPOC):
 hn_poc_types = {
     "hn_poc": HyperNetPOC,
     "hn_poc_kernel": HyperNetPocWithKernel,
+    "hn_poc_sup_sup_kernel": HyperNetPocSupportSupportKernel,
     "hn_sep_joint": HyperNetSepJoint,
     "hn_from_dkt": HyperNetConvFromDKT,
     "hn_cnv": HyperNetSupportConv,
