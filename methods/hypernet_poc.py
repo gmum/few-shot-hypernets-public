@@ -531,7 +531,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         layers = []
         for i in range(params.hn_tn_depth):
             is_final = i == (params.hn_tn_depth - 1)
-            insize = self.query_relations_size if i == 0 else tn_hidden_size
+            insize = self.n_way * self.n_support if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
             layers.append(nn.Linear(insize, outsize))
             if not is_final:
@@ -558,11 +558,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         support_features = support_feature.reshape(supp_way * n_support, supp_feat)
 
         kernel_values_tensor = self.kernel_function.forward(support_features, feature_to_classify)
-        print("kernel_values_tensor.shape")
-        print(kernel_values_tensor.shape)
         relations = kernel_values_tensor.reshape(n_examples, supp_way * n_support)
-        print("relations.shape")
-        print(relations.shape)
 
         return relations
 
@@ -640,8 +636,6 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         )
 
         relational_query_feature = self.build_relations_features(support_feature, query_feature)
-        print("query_feature.shape")
-        print(query_feature.shape)
         y_pred = classifier(relational_query_feature)
         return y_pred
 
