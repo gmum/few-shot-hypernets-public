@@ -137,11 +137,7 @@ class HyperNetPOC(MetaTemplate):
         features = support_feature.reshape(way * n_support, feat)
         return features.reshape(1, -1)
 
-    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
-        """
-        x_support: [n_way, n_support, hidden_size]
-        """
-
+    def generate_network_params(self, support_feature: torch.Tensor) -> Dict[str, torch.Tensor]:
         embedding = self.build_embedding(support_feature)
 
         root = self.hypernet_neck(embedding)
@@ -149,6 +145,14 @@ class HyperNetPOC(MetaTemplate):
             name.replace("-", "."): param_net(root).reshape(self.target_net_param_shapes[name])
             for name, param_net in self.hypernet_heads.items()
         }
+        return network_params
+
+    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
+        """
+        x_support: [n_way, n_support, hidden_size]
+        """
+        network_params = self.generate_network_params(support_feature)
+
         tn = deepcopy(self.target_net_architecture)
         set_from_param_dict(tn, network_params)
         return tn.cuda()
@@ -182,16 +186,9 @@ class HyperNetPOC(MetaTemplate):
         return self_copy.set_forward(x), metrics
 
 
-    def query_accuracy(self, x: torch.Tensor):
+    def query_accuracy(self, x: torch.Tensor) -> float:
         scores = self.set_forward(x)
-        y_query = np.repeat(range(self.n_way), self.n_query)
-        topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
-        topk_ind = topk_labels.cpu().numpy()
-        top1_correct = np.sum(topk_ind[:, 0] == y_query)
-        correct_this = float(top1_correct)
-        count_this = len(y_query)
-
-        return correct_this / count_this
+        return accuracy_from_scores(scores, n_way=self.n_way, n_query=self.n_query)
 
     def set_forward_loss(
             self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False,
@@ -285,6 +282,47 @@ class HyperNetPOC(MetaTemplate):
         metrics["loss/train"] = np.mean(losses)
         metrics["accuracy/train"] = np.mean(accuracies) * 100
         return metrics
+
+class HNPocAdaptTN(HyperNetPOC):
+    def set_forward_with_adaptation(self, x: torch.Tensor):
+        support_feature, query_feature = self.parse_feature(x, is_feature=False)
+        tn_params  = self.generate_network_params(support_feature)
+        tn_params = {
+            k: v.clone().detach()
+            for (k,v) in tn_params.items()
+        }
+
+        tn = deepcopy(self.target_net_architecture)
+        tn.load_state_dict(tn_params)
+        y_support = self.get_labels(support_feature).reshape(self.n_way, self.n_support)
+        y_support = y_support.reshape(self.n_way * self.n_support)
+        support_feature = support_feature.reshape(
+            -1, support_feature.shape[-1]
+        )
+        query_feature = query_feature.reshape(
+            -1, query_feature.shape[-1]
+        )
+        scores = tn(query_feature)
+
+        metrics = {
+            "accuracy/val@-0": accuracy_from_scores(scores, self.n_way, self.n_query)
+        }
+        val_opt_type = torch.optim.Adam if self.hn_val_optim == "adam" else torch.optim.SGD
+
+        val_opt = val_opt_type(tn.parameters(), lr=self.hn_val_lr)
+        for i in range(1, self.hn_val_epochs + 1):
+            tn.train()
+            val_opt.zero_grad()
+            y_pred = tn(support_feature.detach())
+            loss_val = self.loss_fn(y_pred, y_support)
+            loss_val.backward()
+            val_opt.step()
+            tn.eval()
+            metrics[f"accuracy/val@-{i}"] = accuracy_from_scores(
+                tn(query_feature), self.n_way, self.n_query
+            )
+
+        return tn(query_feature), metrics
 
 
 class HNPocWithUniversalFinal(HyperNetPOC):
@@ -625,10 +663,20 @@ hn_poc_types = {
     "no_hn_sup_kernel": NoHNKernelBetweenSupportAndQuery,
     "hn_uni_final": HNPocWithUniversalFinal,
     "no_hn_cond": NoHNConditioning,
-    "hn_lib": HNLib
+    "hn_lib": HNLib,
+    "hn_poc_adapt_tn_val": HNPocAdaptTN
 }
 
 
 class SinActivation(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return torch.sin(x)
+
+def accuracy_from_scores(scores: torch.Tensor, n_way: int, n_query: int) -> float:
+    y_query = np.repeat(range(n_way), n_query)
+    topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
+    topk_ind = topk_labels.cpu().numpy()
+    top1_correct = np.sum(topk_ind[:, 0] == y_query)
+    correct_this = float(top1_correct)
+    count_this = len(y_query)
+    return correct_this / count_this
