@@ -285,41 +285,46 @@ class HyperNetPOC(MetaTemplate):
 
 class HNPocAdaptTN(HyperNetPOC):
     def set_forward_with_adaptation(self, x: torch.Tensor):
-        support_feature, query_feature = self.parse_feature(x, is_feature=False)
-        tn_params  = self.generate_network_params(support_feature)
+        sc = deepcopy(self)
+        tn = deepcopy(sc.target_net_architecture)
+
+        support_feature, query_feature = sc.parse_feature(x, is_feature=False)
         tn_params = {
             k: v.clone().detach()
-            for (k,v) in tn_params.items()
+            for (k,v) in sc.generate_network_params(support_feature).items()
         }
-
-        tn = deepcopy(self.target_net_architecture)
         tn.load_state_dict(tn_params)
-        y_support = self.get_labels(support_feature).reshape(self.n_way, self.n_support)
-        y_support = y_support.reshape(self.n_way * self.n_support)
-        support_feature = support_feature.reshape(
-            -1, support_feature.shape[-1]
-        )
-        query_feature = query_feature.reshape(
-            -1, query_feature.shape[-1]
-        )
-        scores = tn(query_feature)
 
+        y_support = sc.get_labels(support_feature).reshape(sc.n_way, sc.n_support)
+        y_support = y_support.reshape(sc.n_way * sc.n_support)
+
+        query_feature = query_feature.reshape(-1, query_feature.shape[-1])
         metrics = {
-            "accuracy/val@-0": accuracy_from_scores(scores, self.n_way, self.n_query)
+            "accuracy/val@-0": accuracy_from_scores(tn(query_feature), sc.n_way, sc.n_query)
         }
-        val_opt_type = torch.optim.Adam if self.hn_val_optim == "adam" else torch.optim.SGD
+        val_opt_type = torch.optim.Adam if sc.hn_val_optim == "adam" else torch.optim.SGD
 
-        val_opt = val_opt_type(tn.parameters(), lr=self.hn_val_lr)
-        for i in range(1, self.hn_val_epochs + 1):
+        val_opt = val_opt_type(
+            list(tn.parameters()) + list(sc.parameters()),
+            lr=sc.hn_val_lr
+        )
+        for i in range(1, sc.hn_val_epochs + 1):
+            sc.train()
             tn.train()
+            support_feature, _ = sc.parse_feature(x, is_feature=False)
+            support_feature = support_feature.reshape(-1, support_feature.shape[-1])
             val_opt.zero_grad()
-            y_pred = tn(support_feature.detach())
-            loss_val = self.loss_fn(y_pred, y_support)
+            y_pred = tn(support_feature)
+            loss_val = sc.loss_fn(y_pred, y_support)
             loss_val.backward()
             val_opt.step()
+            sc.eval()
             tn.eval()
+            _, query_feature = sc.parse_feature(x, is_feature=False)
+            query_feature = query_feature.reshape(-1, query_feature.shape[-1])
+
             metrics[f"accuracy/val@-{i}"] = accuracy_from_scores(
-                tn(query_feature), self.n_way, self.n_query
+                tn(query_feature), sc.n_way, sc.n_query
             )
 
         return tn(query_feature), metrics
