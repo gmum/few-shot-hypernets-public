@@ -91,7 +91,6 @@ class MetaTemplate(nn.Module):
                 for (k,v) in acc_at_metrics.items():
                     acc_at[k].append(v)
             except Exception as e:
-                raise
                 scores = self.set_forward(x)
             y_query = np.repeat(range( self.n_way ), self.n_query )
             topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
