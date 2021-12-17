@@ -84,7 +84,6 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                 break
         model.train()
         metrics = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
-        metrics["lr"] = scheduler.get_lr()
         scheduler.step()
         model.eval()
 
@@ -96,6 +95,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Acc at: {acc_at}")
 
             metrics = metrics or dict()
+            metrics["lr"] = scheduler.get_lr()
             metrics["accuracy/val"] = acc
             metrics["accuracy/val_max"] = max_acc
             metrics = {
