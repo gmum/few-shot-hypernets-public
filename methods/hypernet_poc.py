@@ -711,7 +711,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         # TODO - check!!!
         if self.use_support_embeddings:
-            embedding = torch.cat((embedding, torch.unsqueeze(torch.flatten(support_feature), 0)), 1)
+            embedding = torch.cat((embedding, torch.flatten(support_feature)), 0)
 
         root = self.hypernet_neck(embedding)
         network_params = {
