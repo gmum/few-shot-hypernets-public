@@ -91,7 +91,11 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             params.es_epoch - 1,
             stop_epoch - 1
         ]:
-            acc, acc_at = model.test_loop(val_loader)
+            try:
+                acc, acc_at = model.test_loop(val_loader)
+            except:
+                acc = model.test_loop(val_loader)
+                acc_at = dict()
             print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Acc at: {acc_at}")
 
             metrics = metrics or dict()
