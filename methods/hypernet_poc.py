@@ -680,15 +680,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         # Remove self relations by matrix multiplication
         if self.no_self_relations:
-            print("[BEFORE] kernel_values_tensor.shape")
-            print(kernel_values_tensor.shape)
-            print("[BEFORE] kernel_values_tensor")
-            print(kernel_values_tensor)
             kernel_values_tensor = kernel_values_tensor * (torch.ones_like(kernel_values_tensor).cuda() - torch.eye(kernel_values_tensor.shape[0]).cuda())
-            print("[AFTER] kernel_values_tensor.shape")
-            print(kernel_values_tensor.shape)
-            print("[AFTER] kernel_values_tensor")
-            print(kernel_values_tensor)
 
         # TODO - check!!!
         if self.hn_kernel_invariance:
