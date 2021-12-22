@@ -552,6 +552,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         self.use_scalar_product: bool = params.use_scalar_product
         # Use support embeddings - concatenate them with kernel features
         self.use_support_embeddings: bool = params.use_support_embeddings
+        # Remove self relations by matrix K multiplication
+        self.no_self_relations: bool = params.no_self_relations
 
         if not self.use_scalar_product:
             self.kernel_input_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
@@ -675,6 +677,18 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             kernel_values_tensor = torch.matmul(support_features, support_features_copy.T)
         else:
             kernel_values_tensor = self.kernel_function.forward(support_features, support_features_copy)
+
+        # Remove self relations by matrix multiplication
+        if self.no_self_relations:
+            print("[BEFORE] kernel_values_tensor.shape")
+            print(kernel_values_tensor.shape)
+            print("[BEFORE] kernel_values_tensor")
+            print(kernel_values_tensor)
+            kernel_values_tensor = kernel_values_tensor * (torch.ones_like(kernel_values_tensor) - torch.eye(kernel_values_tensor.shape[0]))
+            print("[AFTER] kernel_values_tensor.shape")
+            print(kernel_values_tensor.shape)
+            print("[AFTER] kernel_values_tensor")
+            print(kernel_values_tensor)
 
         # TODO - check!!!
         if self.hn_kernel_invariance:
