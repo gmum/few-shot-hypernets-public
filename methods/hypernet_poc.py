@@ -589,7 +589,10 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             else:
                 self.embedding_size: int = support_embeddings_size + self.hn_kernel_convolution_output_dim
         else:
-            self.embedding_size: int = support_embeddings_size + ((self.n_way * self.n_support) ** 2)
+            if self.no_self_relations:
+                self.embedding_size: int = support_embeddings_size + (((self.n_way * self.n_support) ** 2) - (self.n_way * self.n_support) )
+            else:
+                self.embedding_size: int = support_embeddings_size + ((self.n_way * self.n_support) ** 2)
 
         # invariant operation type
         if self.hn_kernel_invariance:
@@ -680,7 +683,12 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         # Remove self relations by matrix multiplication
         if self.no_self_relations:
-            kernel_values_tensor = kernel_values_tensor * (torch.ones_like(kernel_values_tensor).cuda() - torch.eye(kernel_values_tensor.shape[0]).cuda())
+            zero_diagonal_matrix = torch.ones_like(kernel_values_tensor).cuda() - torch.eye(kernel_values_tensor.shape[0]).cuda()
+            # nonzero_indices = zero_diagonal_matrix.nonzero(as_tuple=True)
+
+            kernel_values_tensor = kernel_values_tensor * zero_diagonal_matrix
+            kernel_values_tensor = kernel_values_tensor[kernel_values_tensor.nonzero(as_tuple=True)]
+            # kernel_values_tensor = kernel_values_tensor[nonzero_indices]
 
         # TODO - check!!!
         if self.hn_kernel_invariance:
