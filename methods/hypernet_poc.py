@@ -683,7 +683,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         # Remove self relations by matrix multiplication
         if self.no_self_relations:
-            return torch.flatten(kernel_values_tensor)[1: ].view(self.n_way * self.n_support - 1, self.n_way * self.n_support + 1)[: ,: -1].reshape(self.n_way * self.n_support, self.n_way * self.n_support - 1)
+            non_diagonal_values_matrix = torch.flatten(kernel_values_tensor)[1: ].view(self.n_way * self.n_support - 1, self.n_way * self.n_support + 1)[: ,: -1].reshape(self.n_way * self.n_support, self.n_way * self.n_support - 1)
+            return torch.flatten(non_diagonal_values_matrix)
             # zero_diagonal_matrix = torch.ones_like(kernel_values_tensor).cuda() - torch.eye(kernel_values_tensor.shape[0]).cuda()
             # nonzero_indices = zero_diagonal_matrix.nonzero(as_tuple=True)
             #
