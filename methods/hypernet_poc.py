@@ -381,9 +381,9 @@ class HyperNetPocWithKernel(HyperNetPOC):
                 kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
 
                 if self.hn_kernel_invariance_pooling == 'min':
-                    invariant_kernel_values = torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
+                    invariant_kernel_values = torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 elif self.hn_kernel_invariance_pooling == 'max':
-                    invariant_kernel_values = torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
+                    invariant_kernel_values = torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 else:
                     invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
 
@@ -579,7 +579,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         if self.use_support_embeddings:
             support_embeddings_size = conv_out_size * self.n_way * self.n_support
         else:
-            support_embeddings_size = 0 
+            support_embeddings_size = 0
 
         if self.hn_kernel_invariance:
             if self.hn_kernel_invariance_type == 'attention':
@@ -608,7 +608,9 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             common_insize = ((self.n_way * self.n_support) + self.feature.final_feat_dim)
         else:
             common_insize = (self.n_way * self.n_support)
-        #common_insize = ((self.n_way * self.n_support) + self.feature.final_feat_dim) if self.use_support_embeddings else (self.n_way * self.n_support)
+        
+        # common_insize = ((self.n_way * self.n_support) + self.feature.final_feat_dim) if self.use_support_embeddings else (self.n_way * self.n_support)
+        
         for i in range(params.hn_tn_depth):
             is_final = i == (params.hn_tn_depth - 1)
             insize = common_insize if i == 0 else tn_hidden_size
@@ -806,7 +808,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         if self.use_support_embeddings:
             relational_feature_to_classify = torch.cat((relational_feature_to_classify, feature_to_classify), 1)
-
+        
         y_pred = classifier(relational_feature_to_classify)
         return self.loss_fn(y_pred, y_to_classify_gt)
 
