@@ -137,9 +137,9 @@ class MetaTemplate(nn.Module):
             for (k,v) in acc_at.items()
         }
         for acc_name, acc_list in [
-            ("acc_single", acc_single),
-            ("acc_max", acc_max),
-            ("acc_mean", acc_mean)
+            ("accuracy/val_ens/single", acc_single),
+            ("accuracy/val_ens/max", acc_max),
+            ("accuracy/val_ens/mean", acc_mean)
         ]:
             metrics[acc_name] = np.mean(np.asarray(acc_list))
         acc_all = acc_single # for backward compatibility
