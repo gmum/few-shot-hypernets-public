@@ -39,6 +39,7 @@ def parse_args(script):
     parser.add_argument("--checkpoint_suffix", type=str,default="", help="Suffix for custom experiment differentiation" )
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--optim", type=str, choices=["adam", "sgd"], help="Optimizer", default="adam")
+    parser.add_argument("--n_val_perms", type=int, default=1, help="Number of task permutations in evaluation.")
     if script == 'train':
         parser.add_argument('--num_classes' , default=200, type=int, help='total number of classes in softmax, only used in baseline') #make it larger than the maximum label value in base class
         parser.add_argument('--save_freq'   , default=50, type=int, help='Save frequency')

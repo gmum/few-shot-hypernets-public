@@ -92,11 +92,11 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             stop_epoch - 1
         ]:
             try:
-                acc, acc_at = model.test_loop(val_loader)
+                acc, test_loop_metrics = model.test_loop(val_loader, n_task_permutations=params.n_val_perms)
             except:
                 acc = model.test_loop(val_loader)
-                acc_at = dict()
-            print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Acc at: {acc_at}")
+                test_loop_metrics = dict()
+            print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Metrics: {test_loop_metrics}")
 
             metrics = metrics or dict()
             metrics["lr"] = scheduler.get_lr()
@@ -104,7 +104,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             metrics["accuracy/val_max"] = max_acc
             metrics = {
                 **metrics,
-                **acc_at
+                **test_loop_metrics
             }
             if acc > max_acc:  # for baseline and baseline++, we don't use validation here so we let acc = -1
                 print("--> Best model! save...")

@@ -72,10 +72,11 @@ class MetaTemplate(nn.Module):
                 #print(optimizer.state_dict()['param_groups'][0]['lr'])
                 print('Epoch {:d} | Batch {:d}/{:d} | Loss {:f}'.format(epoch, i, len(train_loader), avg_loss/float(i+1)))
 
-    def test_loop(self, test_loader, record = None, return_std: bool = False):
+    def test_loop(self, test_loader, record = None, return_std: bool = False, n_task_permutations: int = 1):
         correct =0
         count = 0
-        acc_all = []
+        # acc_all = []
+        acc_single, acc_max, acc_mean = [], [], []
         acc_at = defaultdict(list)
         
         iter_num = len(test_loader) 
@@ -86,32 +87,71 @@ class MetaTemplate(nn.Module):
             #---------------------------                
             #TODO temporally replaced the call to correct() with the code   
             #correct_this, count_this = self.correct(x)
-            try:
-                scores, acc_at_metrics = self.set_forward_with_adaptation(x)
-                for (k,v) in acc_at_metrics.items():
-                    acc_at[k].append(v)
-            except Exception as e:
-                scores = self.set_forward(x)
-            y_query = np.repeat(range( self.n_way ), self.n_query )
-            topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
-            topk_ind = topk_labels.cpu().numpy()
-            top1_correct = np.sum(topk_ind[:,0] == y_query)
-            correct_this = float(top1_correct)
-            count_this = len(y_query)
-            #---------------------------
-            acc_all.append(correct_this/ count_this*100  )
-        acc_at = {
+            scores_total = []
+            for i in range(n_task_permutations):
+                if i == 0:
+                    perm = rev_perm =  torch.arange(0, self.n_way)
+                else:
+                    perm = torch.randperm(self.n_way)
+                    rev_perm = torch.argsort(perm)
+
+                x_perm = x[perm]
+                # x_perm = x
+                try:
+                    scores, acc_at_metrics = self.set_forward_with_adaptation(x_perm)
+                    for (k,v) in acc_at_metrics.items():
+                        acc_at[k].append(v)
+                except Exception as e:
+                    scores = self.set_forward(x_perm)
+
+                scores = scores.reshape((self.n_way, self.n_query, self.n_way))
+
+                scores = scores[rev_perm]
+                scores = scores[:, :, rev_perm]
+                scores = scores.reshape((self.n_way * self.n_query, self.n_way))
+                # assert False, scores.shape
+
+                scores_total.append(scores)
+
+            scores_total = torch.stack(scores_total)
+            scores_mean = scores_total.mean(dim=0)
+            scores_max, _ = scores_total.max(dim=0)
+            scores_single = scores_total[0]
+
+            for scores, acc_all in [
+                (scores_single, acc_single),
+                (scores_max, acc_max),
+                (scores_mean, acc_mean)
+            ]:
+                # print(scores)
+                y_query = np.repeat(range( self.n_way ), self.n_query )
+                topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
+                topk_ind = topk_labels.cpu().numpy()
+                top1_correct = np.sum(topk_ind[:,0] == y_query)
+                correct_this = float(top1_correct)
+                count_this = len(y_query)
+                # print(correct_this, count_this)
+                acc_all.append(correct_this/ count_this*100  )
+        metrics = {
             k: np.mean(v) if len(v) > 0 else 0
             for (k,v) in acc_at.items()
         }
+        for acc_name, acc_list in [
+            ("acc_single", acc_single),
+            ("acc_max", acc_max),
+            ("acc_mean", acc_mean)
+        ]:
+            metrics[acc_name] = np.mean(np.asarray(acc_list))
+        acc_all = acc_single # for backward compatibility
         acc_all  = np.asarray(acc_all)
         acc_mean = np.mean(acc_all)
         acc_std  = np.std(acc_all)
+        print(metrics)
         print('%d Test Acc = %4.2f%% +- %4.2f%%' %(iter_num,  acc_mean, 1.96* acc_std/np.sqrt(iter_num)))
         if return_std:
-            return acc_mean, acc_std, acc_at
+            return acc_mean, acc_std, metrics
         else:
-            return acc_mean, acc_at
+            return acc_mean, metrics
 
     def set_forward_adaptation(self, x, is_feature = True): #further adaptation, default is fixing feature and train a new softmax clasifier
         assert is_feature == True, 'Feature is fixed in further adaptation'
