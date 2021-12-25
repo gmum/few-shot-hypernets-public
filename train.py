@@ -76,7 +76,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
     else:
         metrics_per_epoch = defaultdict(list)
 
-    scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=list(range(0, stop_epoch, stop_epoch // 4))[1:], gamma=0.3)
+    scheduler = get_scheduler(params, optimizer)
     for epoch in range(start_epoch, stop_epoch):
         if epoch >= params.es_epoch:
             if max_acc < params.es_threshold:
@@ -154,6 +154,21 @@ def plot_metrics(metrics_per_epoch: Dict[str, Union[List[float], float]], epoch:
         plt.savefig(fig_dir / f"{m}.png")
         plt.close()
 
+def get_scheduler(params, optimizer) -> lr_scheduler._LRScheduler:
+    if params.lr_scheduler == "multisteplr":
+        return lr_scheduler.MultiStepLR(optimizer, milestones=list(range(0, params.stop_epoch, params.stop_epoch // 4))[1:],
+                                             gamma=0.3)
+    elif params.lr_scheduler == "none":
+        return lr_scheduler.MultiStepLR(optimizer, milestones=list(range(0, params.stop_epoch, params.stop_epoch // 4))[1:],
+                                             gamma=1)
+
+    elif params.lr_scheduler == "cosine":
+        return lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer,
+            T_0=params.stop_epoch // 4
+        )
+
+    raise TypeError(params.lr_scheduler)
 
 if __name__ == '__main__':
     params = parse_args('train')
@@ -333,5 +348,6 @@ if __name__ == '__main__':
 
     neptune_run = setup_neptune(params)
     model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
+
 
 
