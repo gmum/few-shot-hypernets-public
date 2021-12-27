@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 source ~/anaconda3/etc/profile.d/conda.sh
-conda activate few_shot_hypernets
+conda activate uj
 
 set -xe
 
