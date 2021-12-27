@@ -9,6 +9,7 @@ import torch.utils.data.sampler
 import os
 import glob
 import time
+from typing import Type
 
 import configs
 import backbone
@@ -16,7 +17,7 @@ import data.feature_loader as feat_loader
 from data.datamgr import SetDataManager
 from methods.baselinetrain import BaselineTrain
 from methods.baselinefinetune import BaselineFinetune
-from methods.hypernet_poc import HyperNetPOC
+from methods.hypernet_poc import HyperNetPOC, hn_poc_types
 from methods.protonet import ProtoNet
 from methods.DKT import DKT
 from methods.matchingnet import MatchingNet
@@ -102,8 +103,11 @@ def single_test(params):
             model.n_task     = 32
             model.task_update_num = 1
             model.train_lr = 0.1
-    elif params.method == "hn_poc":
-        model = HyperNetPOC(model_dict[params.model], **few_shot_params)
+    elif params.method in list(hn_poc_types.keys()):
+        few_shot_params['n_query'] = 15
+        hn_type: Type[HyperNetPOC] = hn_poc_types[params.method]
+        model = hn_type(model_dict[params.model], params=params, **few_shot_params)
+        # model = HyperNetPOC(model_dict[params.model], **few_shot_params)
 
     else:
        raise ValueError('Unknown method')
@@ -143,7 +147,7 @@ def single_test(params):
         else:
             image_size = 224
 
-        datamgr         = SetDataManager(image_size, n_eposide = iter_num, n_query = 15 , **few_shot_params)
+        datamgr         = SetDataManager(image_size, n_eposide = iter_num, **few_shot_params)
         
         if params.dataset == 'cross':
             if split == 'base':
