@@ -102,6 +102,7 @@ class MetaTemplate(nn.Module):
                     for (k,v) in acc_at_metrics.items():
                         acc_at[k].append(v)
                 except Exception as e:
+                    raise
                     scores = self.set_forward(x_perm)
 
                 scores = scores.reshape((self.n_way, self.n_query, self.n_way))
