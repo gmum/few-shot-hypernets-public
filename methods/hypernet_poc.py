@@ -706,7 +706,11 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         return correct_this / count_this
 
-    def set_forward_loss(self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False):
+    def set_forward_loss(
+            self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False,
+            train_on_support: bool = True,
+            train_on_query: bool = True
+    ):
         nw, ne, c, h, w = x.shape
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
@@ -727,22 +731,27 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         classifier = self.generate_target_net_with_kernel_features(feature_to_hn, query_feature_to_hn)
 
-        feature_to_classify = torch.cat(
-            [
+        feature_to_classify = []
+        y_to_classify_gt = []
+        if train_on_support:
+            feature_to_classify.append(
                 support_feature.reshape(
                     (self.n_way * self.n_support), support_feature.shape[-1]
-                ),
+                )
+            )
+            y_support = self.get_labels(support_feature)
+            y_to_classify_gt.append(y_support.reshape(self.n_way * self.n_support))
+        if train_on_query:
+            feature_to_classify.append(
                 query_feature.reshape(
                     (self.n_way * (ne - self.n_support)), query_feature.shape[-1]
                 )
-            ])
+            )
+            y_query = self.get_labels(query_feature)
+            y_to_classify_gt.append(y_query.reshape(self.n_way * (ne - self.n_support)))
 
-        y_support = self.get_labels(support_feature)
-        y_query = self.get_labels(query_feature)
-        y_to_classify_gt = torch.cat([
-            y_support.reshape(self.n_way * self.n_support),
-            y_query.reshape(self.n_way * (ne - self.n_support))
-        ])
+        feature_to_classify = torch.cat(feature_to_classify)
+        y_to_classify_gt = torch.cat(y_to_classify_gt)
 
         relational_feature_to_classify = self.build_relations_features(support_feature, feature_to_classify)
 
