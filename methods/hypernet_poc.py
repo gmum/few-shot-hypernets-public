@@ -37,7 +37,7 @@ class HyperNetPOC(MetaTemplate):
         else:
             if self.sup_aggregation == "concat":
                 self.embedding_size: int = conv_out_size * self.n_way * self.n_support
-            elif self.sup_aggregation == "sum":
+            elif self.sup_aggregation in ["sum", "mean"]:
                 self.embedding_size: int = conv_out_size * self.n_way
         self.detach_ft_in_hn: int = params.hn_detach_ft_in_hn
         self.detach_ft_in_tn: int = params.hn_detach_ft_in_tn
@@ -166,6 +166,11 @@ class HyperNetPOC(MetaTemplate):
             features = features.reshape(1, -1)
         elif self.sup_aggregation == "sum":
             features = support_feature.sum(dim=1)
+            way, feat = features.shape
+            assert (way, feat) == (self.n_way, self.conv_out_size)
+            features = features.reshape(1, -1)
+        elif self.sup_aggregation == "mean":
+            features = support_feature.mean(dim=1)
             way, feat = features.shape
             assert (way, feat) == (self.n_way, self.conv_out_size)
             features = features.reshape(1, -1)
