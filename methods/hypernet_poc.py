@@ -31,10 +31,14 @@ class HyperNetPOC(MetaTemplate):
         self.hn_hidden_size: int = params.hn_hidden_size
         self.conv_out_size: int = conv_out_size
         self.attention_embedding: bool = params.hn_attention_embedding
+        self.sup_aggregation: str = params.hn_sup_aggregation
         if self.attention_embedding:
             self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support
         else:
-            self.embedding_size: int = conv_out_size * self.n_way * self.n_support
+            if self.sup_aggregation == "concat":
+                self.embedding_size: int = conv_out_size * self.n_way * self.n_support
+            elif self.sup_aggregation == "sum":
+                self.embedding_size: int = conv_out_size * self.n_way
         self.detach_ft_in_hn: int = params.hn_detach_ft_in_hn
         self.detach_ft_in_tn: int = params.hn_detach_ft_in_tn
         self.hn_neck_len: int = params.hn_neck_len
@@ -155,8 +159,18 @@ class HyperNetPOC(MetaTemplate):
             features = support_feature.view(1, -1, *(support_feature.size()[2:]))
             attention_features = torch.flatten(self.transformer_encoder.forward(features))
             return attention_features
-        features = support_feature.reshape(way * n_support, feat)
-        features = features.reshape(1, -1)
+
+
+        if self.sup_aggregation == "concat":
+            features = support_feature.reshape(way * n_support, feat)
+            features = features.reshape(1, -1)
+        elif self.sup_aggregation == "sum":
+            features = support_feature.sum(dim=1)
+            way, feat = features.shape
+            assert (way, feat) == (self.n_way, self.conv_out_size)
+            features = features.reshape(1, -1)
+        else:
+            raise TypeError(self.sup_aggregation)
         return features
 
     def generate_network_params(self, support_feature: torch.Tensor) -> Dict[str, torch.Tensor]:
