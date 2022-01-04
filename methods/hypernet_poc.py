@@ -575,6 +575,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         self.hn_kernel_invariance_type: str = params.hn_kernel_invariance_type
         self.hn_kernel_convolution_output_dim: int = params.hn_kernel_convolution_output_dim
         self.hn_kernel_invariance_pooling: str = params.hn_kernel_invariance_pooling
+        self.hn_kernel_invariance_without_pooling: bool = params.hn_kernel_invariance_without_pooling
 
         # embedding size
         # TODO - add attention based input also
@@ -585,7 +586,10 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         if self.hn_kernel_invariance:
             if self.hn_kernel_invariance_type == 'attention':
-                self.embedding_size: int = support_embeddings_size + (self.n_way * self.n_support)
+                if self.hn_kernel_invariance_without_pooling:
+                    self.embedding_size: int = support_embeddings_size + ((self.n_way * self.n_support) ** 2)
+                else:
+                    self.embedding_size: int = support_embeddings_size + (self.n_way * self.n_support)
             else:
                 self.embedding_size: int = support_embeddings_size + self.hn_kernel_convolution_output_dim
         else:
@@ -698,12 +702,15 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             if self.hn_kernel_invariance_type == 'attention':
                 kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
 
-                if self.hn_kernel_invariance_pooling == 'min':
-                    invariant_kernel_values = torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
-                elif self.hn_kernel_invariance_pooling == 'max':
-                    invariant_kernel_values = torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                if self.hn_kernel_invariance_without_pooling:
+                    invariant_kernel_values = torch.flatten(self.kernel_transformer_encoder.forward(kernel_values_tensor))
                 else:
-                    invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
+                    if self.hn_kernel_invariance_pooling == 'min':
+                        invariant_kernel_values = torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                    elif self.hn_kernel_invariance_pooling == 'max':
+                        invariant_kernel_values = torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                    else:
+                        invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
 
                 return invariant_kernel_values
             else:
