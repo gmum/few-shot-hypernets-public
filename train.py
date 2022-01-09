@@ -349,6 +349,7 @@ if __name__ == '__main__':
 
 
     neptune_run = setup_neptune(params)
+
     model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
 
 
