@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -133,6 +134,7 @@ def setup_neptune(params) -> Run:
             f.write(run._short_id)
             print("Starting neptune run", run._short_id)
         run["params"] = vars(params)
+        run["cmd"] = f"python {' '.join(sys.argv)}"
         return run
 
     except Exception as e:
