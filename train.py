@@ -3,11 +3,13 @@ import sys
 from collections import defaultdict
 from typing import Type, List, Union, Dict, Optional
 
+import hashlib
+import copy
 import numpy as np
 import torch
 import random
 import torch.nn as nn
-from neptune.new import Run
+from neptune.new import Run, run
 from torch.autograd import Variable
 import torch.optim
 import torch.optim.lr_scheduler as lr_scheduler
@@ -27,6 +29,7 @@ from methods.matchingnet import MatchingNet
 from methods.relationnet import RelationNet
 from methods.maml import MAML
 from io_utils import model_dict, parse_args, get_resume_file, setup_neptune
+from grid_search import get_random_parameters
 
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -138,8 +141,7 @@ def plot_metrics(metrics_per_epoch: Dict[str, Union[List[float], float]], epoch:
         plt.close()
 
 
-if __name__ == '__main__':
-    params = parse_args('train')
+def training_run(params):
     _set_seed(parse_args('train').seed)
     if params.dataset == 'cross':
         base_file = configs.data_dir['miniImagenet'] + 'all.json'
@@ -147,6 +149,9 @@ if __name__ == '__main__':
     elif params.dataset == 'cross_char':
         base_file = configs.data_dir['omniglot'] + 'noLatin.json'
         val_file = configs.data_dir['emnist'] + 'val.json'
+    elif params.dataset == 'CUB':
+        base_file = '/home/konradkaranowski/few-shot-hypernets/filelists/CUB/base.json'
+        val_file = '/home/konradkaranowski/few-shot-hypernets/filelists/CUB/val.json'
     else:
         base_file = configs.data_dir[params.dataset] + 'base.json'
         val_file = configs.data_dir[params.dataset] + 'val.json'
@@ -318,3 +323,39 @@ if __name__ == '__main__':
     model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
 
 
+def swap_parameters(params, chosen_parameters):
+    parameters = copy.deepcopy(params)
+    parameters.lr = chosen_parameters.lr
+    parameters.taskset_size = chosen_parameters.taskset_size
+    parameters.taskset_print_every = chosen_parameters.taskset_print_every
+    parameters.hn_hidden_size = chosen_parameters.hn_hidden_size
+    parameters.attention_embedding = chosen_parameters.attention_embedding
+    parameters.detach_ft_in_hn = chosen_parameters.detach_ft_in_hn
+    parameters.detach_ft_in_tn = chosen_parameters.detach_ft_in_tn
+    parameters.hn_neck_len = chosen_parameters.hn_neck_len
+    parameters.hn_head_len = chosen_parameters.hn_head_len
+    parameters.taskset_repeats_config = chosen_parameters.taskset_repeats_config
+    parameters.hn_dropout = chosen_parameters.hn_dropout
+    parameters.hn_attention_embedding = chosen_parameters.hn_attention_embedding
+    return parameters
+
+
+
+def grid_search(params, n_takes: int):
+    for _ in range(n_takes):
+        new_params = get_random_parameters()
+        swap_param = swap_parameters(params, new_params)
+        try:
+            training_run(swap_param)
+        except Exception as e:
+            print(e)
+
+
+def main():
+    params = parse_args('train')
+    # print(params)
+    grid_search(params, n_takes = 10)
+
+
+if __name__ == '__main__':
+    main()

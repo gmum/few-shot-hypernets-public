@@ -36,6 +36,7 @@ class HyperNetPOC(MetaTemplate):
         self.detach_ft_in_tn: int = params.hn_detach_ft_in_tn
         self.hn_neck_len: int = params.hn_neck_len
         self.hn_head_len: int = params.hn_head_len
+        self.hn_dropout: float = params.hn_dropout
         self.taskset_repeats_config: str = params.hn_taskset_repeats
 
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
@@ -84,9 +85,14 @@ class HyperNetPOC(MetaTemplate):
                 nn.ReLU()
             ]
             for _ in range(self.hn_neck_len - 1):
-                neck_modules.extend(
-                    [nn.Linear(self.hn_hidden_size, self.hn_hidden_size), nn.ReLU()]
-                )
+                if self.hn_dropout:
+                    neck_modules.extend(
+                        [nn.Dropout(self.hn_dropout), nn.Linear(self.hn_hidden_size, self.hn_hidden_size), nn.ReLU()]
+                    )
+                else:
+                    neck_modules.extend(
+                        [nn.Linear(self.hn_hidden_size, self.hn_hidden_size), nn.ReLU()]
+                    )
 
             neck_modules = neck_modules[:-1]  # remove the last ReLU
 
@@ -103,7 +109,10 @@ class HyperNetPOC(MetaTemplate):
                 in_size = head_in if i == 0 else self.hn_hidden_size
                 is_final = (i == (self.hn_head_len - 1))
                 out_size = head_out if is_final else self.hn_hidden_size
-                head_modules.append(nn.Linear(in_size, out_size))
+                if self.hn_dropout:
+                    head_modules.append(nn.Linear(in_size, out_size))
+                else:
+                    head_modules.extend([nn.Dropout(self.hn_dropout), nn.Linear(in_size, out_size)])
                 if not is_final:
                     head_modules.append(nn.ReLU())
 

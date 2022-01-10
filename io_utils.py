@@ -6,6 +6,7 @@ import numpy as np
 import os
 import glob
 import argparse
+import time
 
 from neptune.new import Run
 
@@ -39,6 +40,7 @@ def parse_args(script):
     parser.add_argument("--checkpoint_suffix", type=str,default="", help="Suffix for custom experiment differentiation" )
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--optim", type=str, choices=["adam", "sgd"], help="Optimizer", default="adam")
+    parser.add_argument('--hn_dropout', type=float, default=0.01)
     if script == 'train':
         parser.add_argument('--num_classes' , default=200, type=int, help='total number of classes in softmax, only used in baseline') #make it larger than the maximum label value in base class
         parser.add_argument('--save_freq'   , default=50, type=int, help='Save frequency')
@@ -111,6 +113,8 @@ def setup_neptune(params) -> Run:
                 print("Resuming neptune run", run_id)
 
         run = neptune.init(
+            "konrad-karanowski/GMUM-FSHN", 
+            api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOWI3NGE4Ni0wN2JjLTRhZDUtODgzYy1iYzdhOGIyNDQwZGEifQ==",
             name=run_name,
             source_files="**/*.py",
             tags=[params.checkpoint_suffix] if params.checkpoint_suffix != "" else [],
