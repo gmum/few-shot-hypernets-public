@@ -25,7 +25,7 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hn_args.add_argument("--kernel_transformer_feedforward_dim", type=int, default=512, help="Kernel transformer's feedforward dimensionality")
     hn_args.add_argument("--hn_kernel_invariance", action='store_true', help="Should the HyperNet's kernel be sequence invariant")
     hn_args.add_argument("--hn_kernel_invariance_type", default='attention',  choices=['attention', 'convolution'], help="The type of invariance operation for the kernel's output")
-    hn_args.add_argument("--hn_kernel_convolution_output_dim", type=int, default=256, help="Kernel convolution's output dim")
+    hn_args.add_argument("--hn_kernel_convolution_output_dim", type=int, default=625, help="Kernel convolution's output dim")
     hn_args.add_argument("--use_scalar_product", action='store_true', help="Use scalar product instead of a more specific kernel")
     hn_args.add_argument("--hn_kernel_invariance_pooling", default='mean',  choices=['average', 'mean', 'min', 'max'], help="The type of invariance operation for the kernel's output")
     hn_args.add_argument("--hn_kernel_invariance_without_pooling", action='store_true',  help="Remove pooling after invariant operation")

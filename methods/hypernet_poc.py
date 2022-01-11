@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from methods.kernels import NNKernel, MultiNNKernel, NNKernelNoInner
 from methods.meta_template import MetaTemplate
 from methods.transformer import TransformerEncoder
+from methods.kernel_convs import KernelConv
 
 
 class HyperNetPOC(MetaTemplate):
@@ -633,7 +634,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
     def init_kernel_convolution_architecture(self, params):
         # TODO - add convolution-based approach
-        self.kernel_1D_convolution: bool = True
+        self.kernel_2D_convolution: bool = True
+        self.kernel_conv: nn.Module = KernelConv(params.hn_kernel_convolution_output_dim)
 
     def init_kernel_transformer_architecture(self, params):
         self.kernel_transformer_layers_no: int = params.kernel_transformer_layers_no
@@ -717,12 +719,14 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                 # TODO - add convolutional approach
                 kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
 
-                if self.hn_kernel_invariance_pooling == 'min':
-                    invariant_kernel_values = torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
-                elif self.hn_kernel_invariance_pooling == 'max':
-                    invariant_kernel_values = torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
-                else:
-                    invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
+                invariant_kernel_values = torch.flatten(self.kernel_2D_convolution.forward(kernel_values_tensor))
+
+                # if self.hn_kernel_invariance_pooling == 'min':
+                #     invariant_kernel_values = torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                # elif self.hn_kernel_invariance_pooling == 'max':
+                #     invariant_kernel_values = torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                # else:
+                #     invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
 
                 return invariant_kernel_values
 
