@@ -8,3 +8,4 @@ from . import maml
 from . import transformer
 from . import kernels
 from . import kernel_convs
+from . import query_convs

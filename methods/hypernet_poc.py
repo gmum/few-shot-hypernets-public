@@ -13,6 +13,7 @@ from methods.kernels import NNKernel, MultiNNKernel, NNKernelNoInner
 from methods.meta_template import MetaTemplate
 from methods.transformer import TransformerEncoder
 from methods.kernel_convs import KernelConv
+from methods.query_convs import QueryConv
 
 
 class HyperNetPOC(MetaTemplate):
@@ -578,6 +579,9 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         self.hn_kernel_invariance_pooling: str = params.hn_kernel_invariance_pooling
         self.hn_kernel_invariance_without_pooling: bool = params.hn_kernel_invariance_without_pooling
 
+        self.hn_queries_relations: bool = params.hn_queries_relations
+        self.hn_queries_convolution_output_dim: int = params.hn_queries_convolution_output_dim
+
         # embedding size
         # TODO - add attention based input also
         if self.use_support_embeddings:
@@ -596,6 +600,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         else:
             if self.no_self_relations:
                 self.embedding_size: int = support_embeddings_size + (((self.n_way * self.n_support) ** 2) - (self.n_way * self.n_support) )
+            elif self.hn_queries_relations:
+                self.embedding_size: int = support_embeddings_size + ((self.n_way * self.n_support) ** 2) + self.hn_queries_convolution_output_dim
             else:
                 self.embedding_size: int = support_embeddings_size + ((self.n_way * self.n_support) ** 2)
 
@@ -605,6 +611,9 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                 self.init_kernel_transformer_architecture(params)
             else:
                 self.init_kernel_convolution_architecture(params)
+
+        if self.hn_queries_relations:
+            self.init_queries_convolution_architecture(params)
 
         self.query_relations_size = self.n_way * self.n_support
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
@@ -631,6 +640,10 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         res = nn.Sequential(*layers)
         print(res)
         return res
+
+    def init_queries_convolution_architecture(self, params):
+        self.queries_1D_convolution: bool = True
+        self.queries_conv: nn.Module = QueryConv(params.hn_queries_convolution_output_dim)
 
     def init_kernel_convolution_architecture(self, params):
         # TODO - add convolution-based approach
@@ -681,6 +694,16 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         # query_features = query_feature.reshape(query_way * n_query, query_feat)
         support_features_copy = torch.clone(support_features)
 
+        if self.hn_queries_relations:
+            query_way, n_query, query_feat = query_feature.shape
+            query_features = query_feature.reshape(query_way * n_query, query_feat)
+            query_features_copy = torch.clone(query_features)
+
+            query_kernel_values_tensor = self.kernel_function.forward(query_features, query_features_copy)
+            query_kernel_values_tensor = torch.unsqueeze(query_kernel_values_tensor, 0)
+
+            invariant_query_kernel_values = self.queries_conv.forward(query_kernel_values_tensor)
+
         # TODO - check!!!
         if self.use_scalar_product:
             kernel_values_tensor = torch.matmul(support_features, support_features_copy.T)
@@ -717,9 +740,9 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                 return invariant_kernel_values
             else:
                 # TODO - add convolutional approach
-                kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
+                kernel_values_tensor = torch.unsqueeze(torch.unsqueeze(kernel_values_tensor.T, 0), 0)
 
-                invariant_kernel_values = torch.flatten(self.kernel_2D_convolution.forward(kernel_values_tensor))
+                invariant_kernel_values = torch.flatten(self.kernel_conv.forward(kernel_values_tensor))
 
                 # if self.hn_kernel_invariance_pooling == 'min':
                 #     invariant_kernel_values = torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
@@ -729,6 +752,9 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                 #     invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
 
                 return invariant_kernel_values
+
+        if self.hn_queries_relations:
+            return torch.cat((torch.flatten(kernel_values_tensor), torch.flatten(invariant_query_kernel_values)), 1)
 
         return torch.flatten(kernel_values_tensor)
 

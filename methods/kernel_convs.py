@@ -13,7 +13,7 @@ class KernelConv(nn.Module):
             nn.Conv2d(3, 5, kernel_size=(2, 2)),
             nn.ReLU(inplace=True)
         )
-        self.fc = nn.Linear(5 * 15 * 15, hn_kernel_convolution_output_dim)
+        self.fc = nn.Linear(5 * 18 * 18, hn_kernel_convolution_output_dim)
 
     def forward(self, x):
         x = self.conv(x)
