@@ -104,7 +104,7 @@ def single_test(params):
             model.task_update_num = 1
             model.train_lr = 0.1
     elif params.method in list(hn_poc_types.keys()):
-        few_shot_params['n_query'] = 15
+        # few_shot_params['n_query'] = 15
         hn_type: Type[HyperNetPOC] = hn_poc_types[params.method]
         model = hn_type(model_dict[params.model], params=params, **few_shot_params)
         # model = HyperNetPOC(model_dict[params.model], **few_shot_params)
