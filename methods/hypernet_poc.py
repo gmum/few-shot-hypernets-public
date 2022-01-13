@@ -925,7 +925,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                     for task in taskset:
                         if self.change_way:
                             self.n_way = task.size(0)
-                        # self.n_query = task.size(1) - self.n_support
+                        self.n_query = task.size(1) - self.n_support
                         loss = self.set_forward_loss(task)
                         loss_sum = loss_sum + loss
 
