@@ -104,7 +104,7 @@ def single_test(params):
             model.task_update_num = 1
             model.train_lr = 0.1
     elif params.method in list(hn_poc_types.keys()):
-        # few_shot_params['n_query'] = 15
+        few_shot_params['n_query'] = 15
         hn_type: Type[HyperNetPOC] = hn_poc_types[params.method]
         model = hn_type(model_dict[params.model], params=params, **few_shot_params)
         # model = HyperNetPOC(model_dict[params.model], **few_shot_params)
@@ -138,7 +138,7 @@ def single_test(params):
         split_str = split + "_" +str(params.save_iter)
     else:
         split_str = split
-    if params.method in ['maml', 'maml_approx', 'DKT', "hn_poc"]: #maml do not support testing with feature
+    if params.method in ['maml', 'maml_approx', 'DKT'] + list(hn_poc_types.keys()): #maml do not support testing with feature
         if 'Conv' in params.model:
             if params.dataset in ['omniglot', 'cross_char']:
                 image_size = 28
@@ -166,7 +166,8 @@ def single_test(params):
         if params.adaptation:
             model.task_update_num = 100 #We perform adaptation on MAML simply by updating more times.
         model.eval()
-        acc_mean, acc_std = model.test_loop( novel_loader, return_std = True)
+        # print(model.test_loop( novel_loader, return_std = True))
+        acc_mean, acc_std, _ = model.test_loop( novel_loader, return_std = True)
 
     else:
         novel_file = os.path.join( checkpoint_dir.replace("checkpoints","features"), split_str +".hdf5") #defaut split = novel, but you can also test base or val classes

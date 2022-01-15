@@ -613,7 +613,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         )
 
         # TODO - check!!!
-        conv_out_size = self.feature.final_feat_dim
+        # conv_out_size = self.feature.final_feat_dim
+        conv_out_size = 1600
         # Use scalar product instead of a specific kernel
         self.use_scalar_product: bool = params.use_scalar_product
         # Use support embeddings - concatenate them with kernel features
