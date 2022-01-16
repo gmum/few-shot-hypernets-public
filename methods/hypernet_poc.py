@@ -221,14 +221,15 @@ class HyperNetPOC(MetaTemplate):
         }
         val_opt_type = torch.optim.Adam if self.hn_val_optim == "adam" else torch.optim.SGD
         val_opt = val_opt_type(self_copy.parameters(), lr=self.hn_val_lr)
-        for i in range(1, self.hn_val_epochs + 1):
-            self_copy.train()
-            val_opt.zero_grad()
-            loss = self_copy.set_forward_loss(x, train_on_query=False)
-            loss.backward()
-            val_opt.step()
-            self_copy.eval()
-            metrics[f"accuracy/val@-{i}"] = self_copy.query_accuracy(x)
+        if self.hn_val_epochs > 0:
+            for i in range(1, self.hn_val_epochs + 1):
+                self_copy.train()
+                val_opt.zero_grad()
+                loss = self_copy.set_forward_loss(x, train_on_query=False)
+                loss.backward()
+                val_opt.step()
+                self_copy.eval()
+                metrics[f"accuracy/val@-{i}"] = self_copy.query_accuracy(x)
 
         return self_copy.set_forward(x), metrics
 

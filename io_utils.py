@@ -125,7 +125,9 @@ def setup_neptune(params) -> Run:
                 print("Resuming neptune run", run_id)
 
         run = neptune.init(
+            "GMUM/few-shot-hyper", 
             name=run_name,
+            api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJlOWI3NGE4Ni0wN2JjLTRhZDUtODgzYy1iYzdhOGIyNDQwZGEifQ==",
             source_files="**/*.py",
             tags=[params.checkpoint_suffix] if params.checkpoint_suffix != "" else [],
             run=run_id

@@ -2,7 +2,7 @@ import json
 import sys
 from collections import defaultdict
 from typing import Type, List, Union, Dict, Optional
-
+import shutil
 import numpy as np
 import torch
 import random
@@ -14,6 +14,7 @@ import torch.optim.lr_scheduler as lr_scheduler
 import time
 import os
 import glob
+import copy
 
 import configs
 import backbone
@@ -156,10 +157,16 @@ def plot_metrics(metrics_per_epoch: Dict[str, Union[List[float], float]], epoch:
 
 def get_scheduler(params, optimizer) -> lr_scheduler._LRScheduler:
     if params.lr_scheduler == "multisteplr":
-        return lr_scheduler.MultiStepLR(optimizer, milestones=list(range(0, params.stop_epoch, params.stop_epoch // 4))[1:],
+        return lr_scheduler.MultiStepLR(optimizer, milestones=list(
+            range(0, params.stop_epoch, params.stop_epoch // 4
+            )
+            )[1:],
                                              gamma=0.3)
     elif params.lr_scheduler == "none":
-        return lr_scheduler.MultiStepLR(optimizer, milestones=list(range(0, params.stop_epoch, params.stop_epoch // 4))[1:],
+        return lr_scheduler.MultiStepLR(optimizer, milestones=list(
+            range(0, params.stop_epoch, params.stop_epoch  // 4
+            )
+        )[1:],
                                              gamma=1)
 
     elif params.lr_scheduler == "cosine":
@@ -170,8 +177,8 @@ def get_scheduler(params, optimizer) -> lr_scheduler._LRScheduler:
 
     raise TypeError(params.lr_scheduler)
 
-if __name__ == '__main__':
-    params = parse_args('train')
+
+def train_run(params):
     _set_seed(parse_args('train').seed)
     if params.dataset == 'cross':
         base_file = configs.data_dir['miniImagenet'] + 'all.json'
@@ -179,6 +186,9 @@ if __name__ == '__main__':
     elif params.dataset == 'cross_char':
         base_file = configs.data_dir['omniglot'] + 'noLatin.json'
         val_file = configs.data_dir['emnist'] + 'val.json'
+    elif params.dataset == 'CUB':
+        base_file = '/home/konradkaranowski/few-shot-hypernets/filelists/CUB/base.json'
+        val_file = '/home/konradkaranowski/few-shot-hypernets/filelists/CUB/val.json'
     else:
         base_file = configs.data_dir[params.dataset] + 'base.json'
         val_file = configs.data_dir[params.dataset] + 'val.json'
@@ -288,7 +298,6 @@ if __name__ == '__main__':
 
     model = model.cuda()
 
-    params.checkpoint_dir = '%s/checkpoints/%s/%s_%s' % (configs.save_dir, params.dataset, params.model, params.method)
 
     if params.train_aug:
         params.checkpoint_dir += '_aug'
@@ -351,6 +360,26 @@ if __name__ == '__main__':
     neptune_run = setup_neptune(params)
 
     model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
+    neptune_run.stop()
+    return params.checkpoint_dir
 
 
-
+if __name__ == '__main__':
+    parsed = parse_args('train')
+    for HN_HIDDEN_SIZE in [2048, 4096]:
+        for HN_TN_HIDDEN_SIZE in [1024]:
+            for HN_TN_DEPTH in [3]:
+                for HN_NECK_LEN in [0]:
+                    params = copy.deepcopy(parsed)
+                    params.hn_hidden_size = HN_HIDDEN_SIZE
+                    params.hn_tn_hidden_size = HN_TN_HIDDEN_SIZE
+                    params.hn_tn_depth = HN_TN_DEPTH
+                    params.hn_neck_len = HN_NECK_LEN
+                    params.checkpoint_dir = f'{configs.save_dir}/checkpoints/{params.hn_kernel_hidden_dim}/{params.dataset}/{params.model}_{params.method}' + f'kernels_no{params.hn_kernel_hidden_dim}'
+                    # os.path()
+                    try:
+                        torch.cuda.empty_cache()
+                        dirn = train_run(params)
+                        shutil.rmtree(f'save/checkpoints{params.hn_kernel_hidden_dim}/CUB/')
+                    except Exception as e:
+                        print(e)
