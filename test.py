@@ -120,7 +120,7 @@ def single_test(params):
     if not params.method in ['baseline', 'baseline++'] :
         checkpoint_dir += '_%dway_%dshot' %( params.train_n_way, params.n_shot)
     if params.checkpoint_suffix != "":
-        params.checkpoint_dir = params.checkpoint_dir + "_" + params.checkpoint_suffix
+        checkpoint_dir = checkpoint_dir + "_" + params.checkpoint_suffix
 
     #modelfile   = get_resume_file(checkpoint_dir)
 
