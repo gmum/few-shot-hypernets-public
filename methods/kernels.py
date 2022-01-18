@@ -15,14 +15,17 @@ class NNKernel(nn.Module):
 
     def create_model(self):
 
-        assert self.num_layers >= 1, "Number of hidden layers must be at least 1"
-        modules = [nn.Linear(self.input_dim, self.hidden_dim), nn.ReLU()]
-        if self.flatten:
-            modules = [nn.Flatten()] + modules
-        for i in range(self.num_layers - 1):
-            modules.append(nn.Linear(self.hidden_dim, self.hidden_dim))
-            modules.append(nn.ReLU())
-        modules.append(nn.Linear(self.hidden_dim, self.output_dim))
+        if self.num_layers == 0:
+            modules = [nn.Linear(self.input_dim, self.output_dim)]
+        else:
+            assert self.num_layers >= 1, "Number of hidden layers must be at least 1"
+            modules = [nn.Linear(self.input_dim, self.hidden_dim), nn.ReLU()]
+            if self.flatten:
+                modules = [nn.Flatten()] + modules
+            for i in range(self.num_layers - 1):
+                modules.append(nn.Linear(self.hidden_dim, self.hidden_dim))
+                modules.append(nn.ReLU())
+            modules.append(nn.Linear(self.hidden_dim, self.output_dim))
 
         model = nn.Sequential(*modules)
         return model

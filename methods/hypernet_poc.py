@@ -616,6 +616,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         # TODO - check!!!
         # conv_out_size = self.feature.final_feat_dim
         conv_out_size = 1600
+        self.kernel_out_size: int = params.kernel_out_size
         # Use scalar product instead of a specific kernel
         self.use_scalar_product: bool = params.use_scalar_product
         # Use cosine distance instead of a specific kernel
@@ -627,7 +628,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         if (not self.use_scalar_product) and (not self.use_cosine_distance):
             self.kernel_input_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
-            self.kernel_output_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
+            self.kernel_output_dim = self.kernel_out_size + self.n_way if self.attention_embedding else self.kernel_out_size
             self.kernel_layers_no = params.hn_kernel_layers_no
             self.kernel_hidden_dim = params.hn_kernel_hidden_dim
             self.kernel_function = NNKernel(self.kernel_input_dim, self.kernel_output_dim,
