@@ -119,6 +119,8 @@ def single_test(params):
         checkpoint_dir += '_aug'
     if not params.method in ['baseline', 'baseline++'] :
         checkpoint_dir += '_%dway_%dshot' %( params.train_n_way, params.n_shot)
+    if params.checkpoint_suffix != "":
+        checkpoint_dir = checkpoint_dir + "_" + params.checkpoint_suffix
 
     #modelfile   = get_resume_file(checkpoint_dir)
 
@@ -193,18 +195,34 @@ def single_test(params):
         f.write( 'Time: %s, Setting: %s, Acc: %s \n' %(timestamp,exp_setting,acc_str)  )
     return acc_mean
 
-def main():        
-    params = parse_args('test')
+def perform_test(params):
     seed = params.seed
     repeat = params.repeat
-    #repeat the test N times changing the seed in range [seed, seed+repeat]
+    # repeat the test N times changing the seed in range [seed, seed+repeat]
     accuracy_list = list()
-    for i in range(seed, seed+repeat):
-        if(seed!=0): _set_seed(i)
-        else: _set_seed(0)
-        accuracy_list.append(single_test(parse_args('test')))
+    for i in range(seed, seed + repeat):
+        if (seed != 0):
+            _set_seed(i)
+        else:
+            _set_seed(0)
+        accuracy_list.append(single_test(params))
+
+    mean_acc = np.mean(accuracy_list)
+    std_acc = np.std(accuracy_list)
     print("-----------------------------")
-    print('Seeds = %d | Overall Test Acc = %4.2f%% +- %4.2f%%' %(repeat, np.mean(accuracy_list), np.std(accuracy_list)))
-    print("-----------------------------")        
+    print(
+        'Seeds = %d | Overall Test Acc = %4.2f%% +- %4.2f%%' % (repeat, mean_acc, std_acc ))
+    print("-----------------------------")
+    return {
+        "accuracy_mean": mean_acc,
+        "accuracy_std": std_acc,
+        "n_seeds": repeat
+    }
+
+def main():        
+    params = parse_args('test')
+    perform_test(params)
+
+
 if __name__ == '__main__':
     main()

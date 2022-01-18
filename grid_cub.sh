@@ -8,7 +8,7 @@ set -ex
 
 which python
 
-CMD="python train.py --dataset CUB --num_classes 200 --method hn_poc --train_n_way 5 --seed 1 --resume --save_freq 1000 --stop_epoch 1001 --eval_freq 1 --es_threshold 20 --n_val_perms 1 --model ResNet10"
+CMD="python train.py --dataset CUB --num_classes 200 --method hn_poc --train_n_way 5 --seed 1 --resume --save_freq 1000 --stop_epoch 1001 --eval_freq 1 --es_threshold 20 --n_val_perms 1 --model Conv4"
 
 for HN_TASKSET_SIZE in 1;
 do

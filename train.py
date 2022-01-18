@@ -31,6 +31,8 @@ from io_utils import model_dict, parse_args, get_resume_file, setup_neptune
 import matplotlib.pyplot as plt
 from pathlib import Path
 import neptune
+from test import single_test, perform_test
+
 
 def _set_seed(seed, verbose=True):
     if (seed != 0):
@@ -352,6 +354,14 @@ if __name__ == '__main__':
     neptune_run = setup_neptune(params)
 
     model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
+
+    # add default test params
+    params.split = "novel"
+    params.save_iter = -1
+    params.adaptation = False
+    params.repeat = 5
+    neptune_run["full_test"] = perform_test(params)
+
 
 
 
