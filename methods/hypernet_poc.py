@@ -7,6 +7,7 @@ import torch
 import gpytorch
 from torch import nn
 from torch.utils.data import DataLoader
+# from torch.nn import functional
 
 from methods.kernels import NNKernel, MultiNNKernel, NNKernelNoInner
 from methods.hypnettorch_utils import build_hypnettorch
@@ -617,12 +618,14 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         conv_out_size = 1600
         # Use scalar product instead of a specific kernel
         self.use_scalar_product: bool = params.use_scalar_product
+        # Use cosine distance instead of a specific kernel
+        self.use_cosine_distance: bool = params.use_cosine_distance
         # Use support embeddings - concatenate them with kernel features
         self.use_support_embeddings: bool = params.use_support_embeddings
         # Remove self relations by matrix K multiplication
         self.no_self_relations: bool = params.no_self_relations
 
-        if not self.use_scalar_product:
+        if (not self.use_scalar_product) and (not self.use_cosine_distance):
             self.kernel_input_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
             self.kernel_output_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
             self.kernel_layers_no = params.hn_kernel_layers_no
@@ -672,6 +675,14 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.init_hypernet_modules()
 
+    def pw_cosine_distance(input_a, input_b):
+        normalized_input_a = torch.nn.functional.normalize(input_a)
+        normalized_input_b = torch.nn.functional.normalize(input_b)
+        res = torch.mm(normalized_input_a, normalized_input_b.T)
+        res *= -1 # 1-res without copy
+        res += 1
+        return res
+
     def build_target_net_architecture(self, params) -> nn.Module:
         tn_hidden_size = params.hn_tn_hidden_size
         layers = []
@@ -714,6 +725,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         # TODO - check!!!
         if self.use_scalar_product:
             kernel_values_tensor = torch.matmul(support_features, feature_to_classify.T)
+        elif self.use_cosine_distance:
+            kernel_values_tensor = self.pw_cosine_distance(support_features, feature_to_classify)
         else:
             kernel_values_tensor = self.kernel_function.forward(support_features, feature_to_classify)
 
@@ -745,6 +758,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         # TODO - check!!!
         if self.use_scalar_product:
             kernel_values_tensor = torch.matmul(support_features, support_features_copy.T)
+        elif self.use_cosine_distance:
+            kernel_values_tensor = self.pw_cosine_distance(support_features, support_features_copy)
         else:
             kernel_values_tensor = self.kernel_function.forward(support_features, support_features_copy)
 
