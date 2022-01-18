@@ -470,10 +470,9 @@ class ConvNet4WithKernel(nn.Module):
         self.Conv4 = ConvNet(4)
         self.nn_kernel = BackboneKernel(self.input_dim, self.output_dim,
                                         self.num_layers, self.hidden_dim)
-
+        self.final_feat_dim = self.output_dim
     def forward(self, x):
         x = self.Conv4(x)
-        x = torch.unsqueeze(torch.flatten(x), 0)
         out = self.nn_kernel(x)
         return out
 
