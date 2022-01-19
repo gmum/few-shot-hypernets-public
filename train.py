@@ -366,20 +366,21 @@ def train_run(params):
 
 if __name__ == '__main__':
     parsed = parse_args('train')
-    for HN_HIDDEN_SIZE in [2048, 4096]:
-        for HN_TN_HIDDEN_SIZE in [1024]:
-            for HN_TN_DEPTH in [3]:
-                for HN_NECK_LEN in [0]:
-                    params = copy.deepcopy(parsed)
-                    params.hn_hidden_size = HN_HIDDEN_SIZE
-                    params.hn_tn_hidden_size = HN_TN_HIDDEN_SIZE
-                    params.hn_tn_depth = HN_TN_DEPTH
-                    params.hn_neck_len = HN_NECK_LEN
-                    params.checkpoint_dir = f'{configs.save_dir}/checkpoints/{params.hn_kernel_hidden_dim}/{params.dataset}/{params.model}_{params.method}' + f'kernels_no{params.hn_kernel_hidden_dim}'
-                    # os.path()
-                    try:
-                        torch.cuda.empty_cache()
-                        dirn = train_run(params)
-                        shutil.rmtree(f'save/checkpoints{params.hn_kernel_hidden_dim}/CUB/')
-                    except Exception as e:
-                        print(e)
+    for HN_KERNEL_LAYERS_NO in [2, 4, 8]:
+        for HN_TN_HIDDEN_SIZE in [256, 512, 1024]:
+            for HN_HIDDEN_SIZE in [512, 1024, 2048, 4096]:
+                for HN_TN_DEPTH in [1, 2, 3, 5]:
+                    for HN_NECK_LEN in [0, 1]:
+                        params = copy.deepcopy(parsed)
+                        params.hn_kernel_layers_no = HN_KERNEL_LAYERS_NO
+                        params.hn_tn_hidden_size = HN_TN_HIDDEN_SIZE
+                        params.hn_hidden_size = HN_HIDDEN_SIZE
+                        params.hn_tn_depth = HN_TN_DEPTH
+                        params.hn_neck_len = HN_NECK_LEN
+                        params.checkpoint_dir = f'{configs.save_dir}/checkpoints/{params.hn_kernel_hidden_dim}/{params.dataset}/{params.model}_{params.method}' + f'kernels_no{params.hn_kernel_hidden_dim}'
+                        try:
+                            torch.cuda.empty_cache()
+                            dirn = train_run(params)
+                            shutil.rmtree(f'save/checkpoints{params.hn_kernel_hidden_dim}/CUB/')
+                        except Exception as e:
+                            print(e)

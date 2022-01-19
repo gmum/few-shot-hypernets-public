@@ -1,0 +1,5 @@
+Time: 20220119-094900, Setting: CUB-novel-ResNet10-hn_poc_sup_sup_kernel-aug 1shot 5way_train 5way_test, Acc: 600 Test Acc = 77.82% +- 0.98% 
+Time: 20220119-095038, Setting: CUB-novel-ResNet10-hn_poc_sup_sup_kernel-aug 1shot 5way_train 5way_test, Acc: 600 Test Acc = 78.84% +- 0.96% 
+Time: 20220119-095220, Setting: CUB-novel-ResNet10-hn_poc_sup_sup_kernel-aug 1shot 5way_train 5way_test, Acc: 600 Test Acc = 79.10% +- 0.93% 
+Time: 20220119-095400, Setting: CUB-novel-ResNet10-hn_poc_sup_sup_kernel-aug 1shot 5way_train 5way_test, Acc: 600 Test Acc = 78.20% +- 0.99% 
+Time: 20220119-095545, Setting: CUB-novel-ResNet10-hn_poc_sup_sup_kernel-aug 1shot 5way_train 5way_test, Acc: 600 Test Acc = 78.18% +- 0.95% 

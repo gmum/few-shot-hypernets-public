@@ -104,7 +104,7 @@ def single_test(params):
             model.task_update_num = 1
             model.train_lr = 0.1
     elif params.method in list(hn_poc_types.keys()):
-        # few_shot_params['n_query'] = 15
+        few_shot_params['n_query'] = 15
         hn_type: Type[HyperNetPOC] = hn_poc_types[params.method]
         model = hn_type(model_dict[params.model], params=params, **few_shot_params)
         # model = HyperNetPOC(model_dict[params.model], **few_shot_params)
@@ -114,11 +114,14 @@ def single_test(params):
 
     model = model.cuda()
 
-    checkpoint_dir = '%s/checkpoints/%s/%s_%s' %(configs.save_dir, params.dataset, params.model, params.method)
+    #checkpoint_dir = '%s/checkpoints1024/%s/%s_%s' %(configs.save_dir, params.dataset, params.model, params.method)
+    checkpoint_dir = '/home/konradkaranowski/kernel-few-shot-hypernets/save/checkpoints/1024/CUB/ResNet10_hn_poc_sup_sup_kernelkernels_no1024_aug_5way_1shot_512-1024--0-1_2_1e-4-64-4_sup_sup_kernel_rerun_v6_fixed_query'
     if params.train_aug:
         checkpoint_dir += '_aug'
     if not params.method in ['baseline', 'baseline++'] :
         checkpoint_dir += '_%dway_%dshot' %( params.train_n_way, params.n_shot)
+    if params.checkpoint_suffix != "":
+        checkpoint_dir = checkpoint_dir + "_" + params.checkpoint_suffix
 
     #modelfile   = get_resume_file(checkpoint_dir)
 
@@ -127,6 +130,7 @@ def single_test(params):
             modelfile   = get_assigned_file(checkpoint_dir,params.save_iter)
         else:
             modelfile   = get_best_file(checkpoint_dir)
+            print(modelfile)
         if modelfile is not None:
             tmp = torch.load(modelfile)
             model.load_state_dict(tmp['state'])
@@ -138,7 +142,7 @@ def single_test(params):
         split_str = split + "_" +str(params.save_iter)
     else:
         split_str = split
-    if params.method in ['maml', 'maml_approx', 'DKT', "hn_poc"]: #maml do not support testing with feature
+    if params.method in ['maml', 'maml_approx', 'DKT'] + list(hn_poc_types.keys()): #maml do not support testing with feature
         if 'Conv' in params.model:
             if params.dataset in ['omniglot', 'cross_char']:
                 image_size = 28
@@ -153,12 +157,14 @@ def single_test(params):
             if split == 'base':
                 loadfile = configs.data_dir['miniImagenet'] + 'all.json' 
             else:
-                loadfile   = configs.data_dir['CUB'] + split +'.json'
+                loadfile   = configs.data_dir['CUB'] + split +'.json'        
         elif params.dataset == 'cross_char':
             if split == 'base':
                 loadfile = configs.data_dir['omniglot'] + 'noLatin.json' 
             else:
-                loadfile  = configs.data_dir['emnist'] + split +'.json' 
+                loadfile  = configs.data_dir['emnist'] + split +'.json'
+        elif params.dataset == 'CUB':
+            loadfile = "/home/konradkaranowski/few-shot-hypernets/filelists/CUB/" + split + ".json" 
         else: 
             loadfile    = configs.data_dir[params.dataset] + split + '.json'
 
@@ -166,10 +172,11 @@ def single_test(params):
         if params.adaptation:
             model.task_update_num = 100 #We perform adaptation on MAML simply by updating more times.
         model.eval()
-        acc_mean, acc_std = model.test_loop( novel_loader, return_std = True)
+        # print(model.test_loop( novel_loader, return_std = True))
+        acc_mean, acc_std, _ = model.test_loop( novel_loader, return_std = True)
 
     else:
-        novel_file = os.path.join( checkpoint_dir.replace("checkpoints","features"), split_str +".hdf5") #defaut split = novel, but you can also test base or val classes
+        novel_file = os.path.join( checkpoint_dir.replace("checkpoints","checkpoints"), split_str +".hdf5") #defaut split = novel, but you can also test base or val classes
         cl_data_file = feat_loader.init_loader(novel_file)
 
         for i in range(iter_num):
@@ -192,18 +199,34 @@ def single_test(params):
         f.write( 'Time: %s, Setting: %s, Acc: %s \n' %(timestamp,exp_setting,acc_str)  )
     return acc_mean
 
-def main():        
-    params = parse_args('test')
+def perform_test(params):
     seed = params.seed
     repeat = params.repeat
-    #repeat the test N times changing the seed in range [seed, seed+repeat]
+    # repeat the test N times changing the seed in range [seed, seed+repeat]
     accuracy_list = list()
-    for i in range(seed, seed+repeat):
-        if(seed!=0): _set_seed(i)
-        else: _set_seed(0)
-        accuracy_list.append(single_test(parse_args('test')))
+    for i in range(seed, seed + repeat):
+        if (seed != 0):
+            _set_seed(i)
+        else:
+            _set_seed(0)
+        accuracy_list.append(single_test(params))
+
+    mean_acc = np.mean(accuracy_list)
+    std_acc = np.std(accuracy_list)
     print("-----------------------------")
-    print('Seeds = %d | Overall Test Acc = %4.2f%% +- %4.2f%%' %(repeat, np.mean(accuracy_list), np.std(accuracy_list)))
-    print("-----------------------------")        
+    print(
+        'Seeds = %d | Overall Test Acc = %4.2f%% +- %4.2f%%' % (repeat, mean_acc, std_acc ))
+    print("-----------------------------")
+    return {
+        "accuracy_mean": mean_acc,
+        "accuracy_std": std_acc,
+        "n_seeds": repeat
+    }
+
+def main():        
+    params = parse_args('test')
+    perform_test(params)
+
+
 if __name__ == '__main__':
     main()

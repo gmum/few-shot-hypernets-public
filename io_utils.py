@@ -93,8 +93,12 @@ def get_assigned_file(checkpoint_dir,num):
     return assign_file
 
 def get_resume_file(checkpoint_dir):
-    filelist = glob.glob(os.path.join(checkpoint_dir, '*.tar'))
+    print(checkpoint_dir)
+    #filelist = glob.glob(os.path.join(checkpoint_dir, '*.tar'))
+    filelist = glob.glob('/home/konradkaranowski/kernel-few-shot-hypernets/save/checkpoints/1024/CUB/ResNet10_hn_poc_sup_sup_kernelkernels_no1024_aug_5way_1shot_512-1024--0-1_2_1e-4-64-4_sup_sup_kernel_rerun_v6_fixed_query/*.tar')
+    print(filelist)
     if len(filelist) == 0:
+        print('x')
         return None
     last_model_files = [x  for x in filelist if os.path.basename(x) == 'last_model.tar' ]
     if len(last_model_files) == 1:
@@ -108,7 +112,9 @@ def get_resume_file(checkpoint_dir):
 
 def get_best_file(checkpoint_dir):
     best_file = os.path.join(checkpoint_dir, 'best_model.tar')
+    print(best_file)
     if os.path.isfile(best_file):
+        print('a')
         return best_file
     else:
         return get_resume_file(checkpoint_dir)
