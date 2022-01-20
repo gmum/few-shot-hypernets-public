@@ -1,5 +1,6 @@
 from collections import defaultdict
 from copy import deepcopy
+from pathlib import Path
 from typing import Dict, Optional
 
 import numpy as np
@@ -198,7 +199,7 @@ class HyperNetPOC(MetaTemplate):
         set_from_param_dict(tn, network_params)
         return tn.cuda()
 
-    def set_forward(self, x: torch.Tensor, is_feature: bool = False):
+    def set_forward(self, x: torch.Tensor, is_feature: bool = False, save_path: Optional[Path] = None):
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
         if self.attention_embedding:
@@ -208,13 +209,27 @@ class HyperNetPOC(MetaTemplate):
             support_feature = support_feature_with_classes_one_hot
 
         classifier = self.generate_target_net(support_feature)
+
+
+
         query_feature = query_feature.reshape(
             -1, query_feature.shape[-1]
         )
         y_pred = classifier(query_feature)
+
+        if save_path is not None:
+            task_dict = {
+                "x": x,
+                "support": support_feature,
+                "query": query_feature,
+                "classifier": classifier.state_dict(),
+                "y_pred": y_pred
+            }
+            torch.save(task_dict, save_path)
+
         return y_pred
 
-    def set_forward_with_adaptation(self, x: torch.Tensor):
+    def set_forward_with_adaptation(self, x: torch.Tensor, save_path: Optional[Path] = None):
         self_copy = deepcopy(self)
         metrics = {
             "accuracy/val@-0": self_copy.query_accuracy(x)
@@ -230,7 +245,7 @@ class HyperNetPOC(MetaTemplate):
             self_copy.eval()
             metrics[f"accuracy/val@-{i}"] = self_copy.query_accuracy(x)
 
-        return self_copy.set_forward(x), metrics
+        return self_copy.set_forward(x, save_path=save_path), metrics
 
 
     def query_accuracy(self, x: torch.Tensor) -> float:
@@ -808,7 +823,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         set_from_param_dict(tn, network_params)
         return tn.cuda()
 
-    def set_forward(self, x: torch.Tensor, is_feature: bool = False):
+    def set_forward(self, x: torch.Tensor, is_feature: bool = False, save_path: Optional[Path] = None):
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
         #TODO: add/check changes for attention-like input
@@ -825,6 +840,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         #     query_feature = query_feature_with_zeros
 
         classifier = self.generate_target_net_with_kernel_features(support_feature, query_feature)
+
+
         query_feature = query_feature.reshape(
             -1, query_feature.shape[-1]
         )
@@ -834,6 +851,18 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         if self.use_support_embeddings:
             relational_query_feature = torch.cat((relational_query_feature, query_feature), 1)
         y_pred = classifier(relational_query_feature)
+
+        if save_path is not None:
+            task_dict = {
+                "x": x,
+                "support": support_feature,
+                "query": query_feature,
+                "classifier": classifier.state_dict(),
+                "relational_query_feature": relational_query_feature,
+                "y_pred": y_pred
+            }
+            torch.save(task_dict, save_path)
+
         return y_pred
 
     def query_accuracy(self, x: torch.Tensor):

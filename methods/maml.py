@@ -1,4 +1,6 @@
-# This code is modified from https://github.com/dragen1860/MAML-Pytorch and https://github.com/katerakelly/pytorch-maml 
+# This code is modified from https://github.com/dragen1860/MAML-Pytorch and https://github.com/katerakelly/pytorch-maml
+from pathlib import Path
+from typing import Optional
 
 import backbone
 import torch
@@ -26,7 +28,7 @@ class MAML(MetaTemplate):
         scores  = self.classifier.forward(out)
         return scores
 
-    def set_forward(self,x, is_feature = False):
+    def set_forward(self,x, is_feature = False, save_path: Optional[Path] = None):
         assert is_feature == False, 'MAML do not support fixed feature' 
         x = x.cuda()
         x_var = Variable(x)
@@ -55,6 +57,20 @@ class MAML(MetaTemplate):
                 fast_parameters.append(weight.fast) #gradients calculated in line 45 are based on newest fast weight, but the graph will retain the link to old weight.fasts
 
         scores = self.forward(x_b_i)
+
+        if save_path is not None:
+            task_dict = {
+                "x": x,
+                "support": x_a_i,
+                "query": x_b_i,
+                "self": self.state_dict(),
+                "fast_params": {
+                    p_name: p.fast
+                    for (p_name, p ) in self.named_parameters()
+                },
+                "y_pred": scores
+            }
+            torch.save(task_dict, save_path)
         return scores
 
     def set_forward_adaptation(self,x, is_feature = False): #overwrite parrent function
@@ -97,7 +113,7 @@ class MAML(MetaTemplate):
             if i % print_freq==0:
                 print('Epoch {:d} | Batch {:d}/{:d} | Loss {:f}'.format(epoch, i, len(train_loader), avg_loss/float(i+1)))
                       
-    def test_loop(self, test_loader, return_std = False): #overwrite parrent function
+    def test_loop(self, test_loader, return_std = False, save_path:Optional[Path] = None): #overwrite parrent function
         correct =0
         count = 0
         acc_all = []
@@ -106,7 +122,7 @@ class MAML(MetaTemplate):
         for i, (x,_) in enumerate(test_loader):
             self.n_query = x.size(1) - self.n_support
             assert self.n_way  ==  x.size(0), "MAML do not support way change"
-            correct_this, count_this = self.correct(x)
+            correct_this, count_this = self.correct(x, save_path=save_path)
             acc_all.append(correct_this/ count_this *100 )
 
         acc_all  = np.asarray(acc_all)

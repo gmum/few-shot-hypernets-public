@@ -1,5 +1,6 @@
 from collections import defaultdict
-from typing import Tuple
+from pathlib import Path
+from typing import Tuple, Optional
 
 import backbone
 import torch
@@ -45,8 +46,8 @@ class MetaTemplate(nn.Module):
 
         return z_support, z_query
 
-    def correct(self, x):       
-        scores = self.set_forward(x)
+    def correct(self, x, save_path: Optional[Path] = None):
+        scores = self.set_forward(x, save_path=save_path)
         y_query = np.repeat(range( self.n_way ), self.n_query )
 
         topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
@@ -72,7 +73,11 @@ class MetaTemplate(nn.Module):
                 #print(optimizer.state_dict()['param_groups'][0]['lr'])
                 print('Epoch {:d} | Batch {:d}/{:d} | Loss {:f}'.format(epoch, i, len(train_loader), avg_loss/float(i+1)))
 
-    def test_loop(self, test_loader, record = None, return_std: bool = False, n_task_permutations: int = 1):
+    def test_loop(
+            self, test_loader, record = None, return_std: bool = False,
+            n_task_permutations: int = 1,
+            save_path: Optional[Path] = None
+    ):
         correct =0
         count = 0
         # acc_all = []
@@ -88,21 +93,23 @@ class MetaTemplate(nn.Module):
             #TODO temporally replaced the call to correct() with the code   
             #correct_this, count_this = self.correct(x)
             scores_total = []
-            for i in range(n_task_permutations):
-                if i == 0:
+            for p in range(n_task_permutations):
+                if p == 0:
                     perm = rev_perm =  torch.arange(0, self.n_way)
                 else:
                     perm = torch.randperm(self.n_way)
                     rev_perm = torch.argsort(perm)
 
                 x_perm = x[perm]
-                # x_perm = x
                 try:
-                    scores, acc_at_metrics = self.set_forward_with_adaptation(x_perm)
+                    if save_path is not None:
+                        task_save_path = save_path / f"{i}_{p}.pth"
+                    else:
+                        task_save_path = None
+                    scores, acc_at_metrics = self.set_forward_with_adaptation(x_perm, save_path=task_save_path)
                     for (k,v) in acc_at_metrics.items():
                         acc_at[k].append(v)
                 except Exception as e:
-                    raise
                     scores = self.set_forward(x_perm)
 
                 scores = scores.reshape((self.n_way, self.n_query, self.n_way))

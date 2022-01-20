@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 import numpy as np
 import random
@@ -169,7 +171,13 @@ def single_test(params):
             model.task_update_num = 100 #We perform adaptation on MAML simply by updating more times.
         model.eval()
         # print(model.test_loop( novel_loader, return_std = True))
-        acc_mean, acc_std, _ = model.test_loop( novel_loader, return_std = True)
+
+        save_path = None
+        if isinstance(model, (HyperNetPOC, MAML)):
+            save_path = Path(checkpoint_dir) / "test_loop_saves"
+            save_path.mkdir(exist_ok=True, parents=True)
+
+        acc_mean, acc_std, _ = model.test_loop( novel_loader, return_std = True, save_path=save_path)
 
     else:
         novel_file = os.path.join( checkpoint_dir.replace("checkpoints","features"), split_str +".hdf5") #defaut split = novel, but you can also test base or val classes
