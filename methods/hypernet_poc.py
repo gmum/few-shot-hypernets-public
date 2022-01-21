@@ -189,14 +189,18 @@ class HyperNetPOC(MetaTemplate):
         }
         return network_params
 
-    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
+    def generate_target_net(self, support_feature: torch.Tensor, set_as_params: bool = False) -> nn.Module:
         """
         x_support: [n_way, n_support, hidden_size]
         """
         network_params = self.generate_network_params(support_feature)
 
         tn = deepcopy(self.target_net_architecture)
-        set_from_param_dict(tn, network_params)
+
+        if set_as_params:
+            tn.load_state_dict(network_params)
+        else:
+            set_from_param_dict(tn, network_params)
         return tn.cuda()
 
     def set_forward(self, x: torch.Tensor, is_feature: bool = False, save_path: Optional[Path] = None):
@@ -803,7 +807,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         return torch.flatten(kernel_values_tensor)
 
-    def generate_target_net_with_kernel_features(self, support_feature: torch.Tensor, query_feature: torch.Tensor) -> nn.Module:
+    def generate_target_net_with_kernel_features(self, support_feature: torch.Tensor, query_feature: torch.Tensor, set_as_params: bool = False) -> nn.Module:
         """
         x_support: [n_way, n_support, hidden_size]
         """
@@ -820,7 +824,11 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             for name, param_net in self.hypernet_heads.items()
         }
         tn = deepcopy(self.target_net_architecture)
-        set_from_param_dict(tn, network_params)
+
+        if set_as_params:
+            tn.load_state_dict(network_params)
+        else:
+            set_from_param_dict(tn, network_params)
         return tn.cuda()
 
     def set_forward(self, x: torch.Tensor, is_feature: bool = False, save_path: Optional[Path] = None):
@@ -839,7 +847,10 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         #     query_feature_with_zeros = torch.cat((query_feature, y_query_zeros), 2)
         #     query_feature = query_feature_with_zeros
 
-        classifier = self.generate_target_net_with_kernel_features(support_feature, query_feature)
+        classifier = self.generate_target_net_with_kernel_features(
+            support_feature, query_feature,
+            set_as_params=(save_path is not None)
+        )
 
 
         query_feature = query_feature.reshape(
@@ -852,6 +863,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             relational_query_feature = torch.cat((relational_query_feature, query_feature), 1)
         y_pred = classifier(relational_query_feature)
 
+        # print(classifier)
         if save_path is not None:
             task_dict = {
                 "x": x,
