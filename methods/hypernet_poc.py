@@ -30,7 +30,7 @@ class HyperNetPOC(MetaTemplate):
         - mean of relations in kernels
         '''
         self.few_shot_strategy = params.few_shot_strategy # ['embeddings_mean', 'relations_mean']
-        self.n_support_size_context = 1 if self.few_shot_strategy == 'embeddings_mean' else  self.n_support
+        self.n_support_size_context = 1 if self.few_shot_strategy == 'embeddings_mean' else  n_support
 
 
         conv_out_size = self.feature.final_feat_dim
@@ -317,7 +317,7 @@ class HyperNetPOC(MetaTemplate):
                     for task in taskset:
                         if self.change_way:
                             self.n_way = task.size(0)
-                        self.n_query = task.size(1) - self.n_support_size_context
+                        self.n_query = task.size(1) - self.n_support
                         loss = self.set_forward_loss(task)
                         loss_sum = loss_sum + loss
 
@@ -540,18 +540,18 @@ class HyperNetPocWithKernel(HyperNetPOC):
         feature_to_classify = torch.cat(
             [
                 support_feature.reshape(
-                    (self.n_way * self.n_support_size_context), support_feature.shape[-1]
+                    (self.n_way * self.n_support), support_feature.shape[-1]
                 ),
                 query_feature.reshape(
-                    (self.n_way * (ne - self.n_support_size_context)), query_feature.shape[-1]
+                    (self.n_way * (ne - self.n_support)), query_feature.shape[-1]
                 )
             ])
 
         y_support = self.get_labels(support_feature)
         y_query = self.get_labels(query_feature)
         y_to_classify_gt = torch.cat([
-            y_support.reshape(self.n_way * self.n_support_size_context),
-            y_query.reshape(self.n_way * (ne - self.n_sn_support_size_contextupport))
+            y_support.reshape(self.n_way * self.n_support),
+            y_query.reshape(self.n_way * (ne - self.n_support))
         ])
 
         if detach_ft_tn:
@@ -680,32 +680,6 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         self.query_relations_size = self.n_way * self.n_support_size_context
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.init_hypernet_modules()
-    
-    def process_few_shots(self, support_feature: torch.Tensor) -> torch.Tensor:
-        """
-        Process embeddings for few shot learning
-        """
-        if self.n_support > 1:
-            if self.few_shot_strategy == 'embeddings_mean':
-                return torch.mean(support_feature, axis=1).reshape(self.n_way, 1, -1)
-            elif self.few_shot_strategy == 'relations_mean':
-                return support_feature
-        return support_feature
-
-    def process_relations(self, relations: torch.Tensor) -> torch.Tensor:
-        if self.n_support > 1:
-            if self.few_shot_strategy == 'relations_mean':
-                relations = torch.mean(relations, axis=2).reshape(relations.shape[0], relations.shape[1])
-                return relations
-            return relations
-        return relations
-
-    # create mean of embeddings
-    # override
-    def parse_feature(self, x, is_feature) -> Tuple[torch.Tensor, torch.Tensor]:
-        support_feature, query_feature = super().parse_feature(x, is_feature=is_feature)
-        support_feature = self.process_few_shots(support_feature)
-        return support_feature, query_feature
 
     def build_target_net_architecture(self, params) -> nn.Module:
         tn_hidden_size = params.hn_tn_hidden_size
@@ -728,6 +702,33 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         res = nn.Sequential(*layers)
         print(res)
         return res
+
+
+    def process_few_shots(self, support_feature: torch.Tensor) -> torch.Tensor:
+        """
+        Process embeddings for few shot learning
+        """
+        if self.n_support > 1:
+            if self.few_shot_strategy == 'embeddings_mean':
+                return torch.mean(support_feature, axis=1).reshape(self.n_way, 1, -1)
+            elif self.few_shot_strategy == 'relations_mean':
+                return support_feature
+        return support_feature
+
+    def process_relations(self, relations: torch.Tensor) -> torch.Tensor:
+        if self.n_support > 1:
+            if self.few_shot_strategy == 'relations_mean':
+                relations = torch.mean(relations, axis=2).reshape(relations.shape[0], relations.shape[1])
+                return relations
+            return relations
+        return relations
+
+    # create mean of embeddings
+    # override
+    def parse_feature(self, x, is_feature) -> Tuple[torch.Tensor, torch.Tensor]:
+        support_feature, query_feature = super().parse_feature(x, is_feature)
+        support_feature = self.process_few_shots(support_feature)
+        return support_feature, query_feature
 
     def init_kernel_convolution_architecture(self, params):
         # TODO - add convolution-based approach
@@ -752,9 +753,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         else:
             kernel_values_tensor = self.kernel_function.forward(support_features, feature_to_classify)
 
-        relations = kernel_values_tensor.reshape(n_examples, supp_way, n_support)
+        relations = kernel_values_tensor.reshape(n_examples, supp_way * n_support)
 
-        relations = self.process_relations(relations)
         return relations
 
     def build_kernel_features_embedding(self, support_feature: torch.Tensor, query_feature: torch.Tensor) -> torch.Tensor:
@@ -921,11 +921,11 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         if train_on_query:
             feature_to_classify.append(
                 query_feature.reshape(
-                    (self.n_way * (ne - self.n_support_size_context)), query_feature.shape[-1]
+                    (self.n_way * (ne - self.n_support)), query_feature.shape[-1]
                 )
             )
             y_query = self.get_labels(query_feature)
-            y_to_classify_gt.append(y_query.reshape(self.n_way * (ne - self.n_support_size_context)))
+            y_to_classify_gt.append(y_query.reshape(self.n_way * (ne - self.n_support)))
 
         feature_to_classify = torch.cat(feature_to_classify)
         y_to_classify_gt = torch.cat(y_to_classify_gt)
@@ -962,7 +962,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                     for task in taskset:
                         if self.change_way:
                             self.n_way = task.size(0)
-                        self.n_query = task.size(1) - self.n_support_size_context
+                        self.n_query = task.size(1) - self.n_support
                         loss = self.set_forward_loss(task)
                         loss_sum = loss_sum + loss
 

@@ -30,8 +30,8 @@ class MetaTemplate(nn.Module):
         return out
 
     def parse_feature(self,x,is_feature):
-        print(x.shape)
-        print(f'Nway: {self.n_way}, n support {self.n_support}, n query: {self.n_query}')
+        # print(x.shape)
+        # print(f'Nway: {self.n_way}, n support {self.n_support}, n query: {self.n_query}')
         x    = Variable(x.cuda())
         if is_feature:
             z_all = x
@@ -42,7 +42,7 @@ class MetaTemplate(nn.Module):
         z_support   = z_all[:, :self.n_support]
         z_query     = z_all[:, self.n_support:]
 
-        print(f'SUpport: {z_support.shape} query: {z_query.shape}')
+        # print(f'SUpport: {z_support.shape} query: {z_query.shape}')
 
         return z_support, z_query
 
