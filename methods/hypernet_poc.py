@@ -30,7 +30,7 @@ class HyperNetPOC(MetaTemplate):
         - mean of relations in kernels
         '''
         self.few_shot_strategy = params.few_shot_strategy # ['embeddings_mean', 'relations_mean']
-        self.n_support_size_context = 1 if self.few_shot_strategy == 'embeddings_mean' else  n_support
+        self.n_support_size_context = 1 if self.few_shot_strategy in ['embeddings_mean', 'max_pooling', 'min_pooling'] else  n_support
 
 
         conv_out_size = self.feature.final_feat_dim
@@ -713,6 +713,14 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                 return torch.mean(support_feature, axis=1).reshape(self.n_way, 1, -1)
             elif self.few_shot_strategy == 'relations_mean':
                 return support_feature
+            elif self.few_shot_strategy == 'max_pooling':
+                pooled, _ = torch.max(support_feature, axis=1)
+                pooled = pooled.reshape(self.n_way, 1, -1)
+                return pooled
+            elif self.few_shot_strategy == 'min_pooling':
+                pooled, _ = torch.min(support_feature, axis=1)
+                pooled = pooled.reshape(self.n_way, 1, -1)
+                return pooled
         return support_feature
 
     def process_relations(self, relations: torch.Tensor) -> torch.Tensor:
