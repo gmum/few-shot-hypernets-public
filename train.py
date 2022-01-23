@@ -33,6 +33,8 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import neptune
 
+grid_search = False
+
 def _set_seed(seed, verbose=True):
     if (seed != 0):
         random.seed(seed)
@@ -57,6 +59,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         raise ValueError(f'Unknown optimization {optimization}, please define by yourself')
 
     max_acc = 0
+    patience = 5
 
 
 
@@ -97,6 +100,10 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             except:
                 acc = model.test_loop(val_loader)
                 test_loop_metrics = dict()
+            if acc < max_acc:
+                patience -=1
+            else:
+                patience = 5
             print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Metrics: {test_loop_metrics}")
 
             metrics = metrics or dict()
@@ -126,6 +133,10 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
             with (Path(params.checkpoint_dir) / "metrics.json").open("w") as f:
                 json.dump(metrics_per_epoch, f, indent=2)
+            
+            if patience <=0 and grid_search:
+                print("Nie uczy się")
+                break
 
             if neptune_run is not None:
                 for m, v in metrics.items():
@@ -366,21 +377,24 @@ def train_run(params):
 
 if __name__ == '__main__':
     parsed = parse_args('train')
-    for HN_KERNEL_LAYERS_NO in [2, 4, 8]:
-        for HN_TN_HIDDEN_SIZE in [256, 512, 1024]:
-            for HN_HIDDEN_SIZE in [512, 1024, 2048, 4096]:
-                for HN_TN_DEPTH in [1, 2, 3, 5]:
-                    for HN_NECK_LEN in [0, 1]:
+    if grid_search:
+        for hn_tn_hidden_size in [256, 512, 1024, 2048]:
+            for kernel_transformer_feedforward_dim in [256, 512, 1024]:
+                for hn_tn_depth in [2, 3]:
+                    for hn_hidden_size in [1024, 2048, 5096]:
                         params = copy.deepcopy(parsed)
-                        params.hn_kernel_layers_no = HN_KERNEL_LAYERS_NO
-                        params.hn_tn_hidden_size = HN_TN_HIDDEN_SIZE
-                        params.hn_hidden_size = HN_HIDDEN_SIZE
-                        params.hn_tn_depth = HN_TN_DEPTH
-                        params.hn_neck_len = HN_NECK_LEN
-                        params.checkpoint_dir = f'{configs.save_dir}/checkpoints/{params.hn_kernel_hidden_dim}/{params.dataset}/{params.model}_{params.method}' + f'kernels_no{params.hn_kernel_hidden_dim}'
+                        params.hn_tn_hidden_size = hn_tn_hidden_size
+                        params.kernel_transformer_feedforward_dim = kernel_transformer_feedforward_dim
+                        params.hn_tn_depth = hn_tn_depth
+                        params.hn_hidden_size = hn_hidden_size
+                        params.checkpoint_dir = f'{configs.save_dir}/checkpoints/{params.checkpoint_suffix}/{params.dataset}/{params.model}_{params.method}'
                         try:
                             torch.cuda.empty_cache()
                             dirn = train_run(params)
-                            shutil.rmtree(f'save/checkpoints{params.hn_kernel_hidden_dim}/CUB/')
+                            shutil.rmtree(f'save/checkpoints{params.checkpoint_suffix}/CUB/')
                         except Exception as e:
                             print(e)
+    else:
+        params = copy.deepcopy(parsed)
+        params.checkpoint_dir = f'{configs.save_dir}/checkpoints/{params.checkpoint_suffix}/{params.dataset}/{params.model}_{params.method}'
+        train_run(params)

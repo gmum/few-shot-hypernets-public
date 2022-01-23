@@ -15,6 +15,8 @@ import configs
 import hn_args
 from methods.hypernet_poc import hn_poc_types
 
+PATH = '/home/konradkaranowski/kernel-few-shot-hypernets/save/checkpoints/CUB_CONV4_SEED3/CUB/Conv4_hn_poc_sup_sup_kernel_aug_5way_1shot_CUB_CONV4_SEED3'
+
 model_dict = dict(
             Conv4 = backbone.Conv4,
             Conv4S = backbone.Conv4S,
@@ -95,7 +97,7 @@ def get_assigned_file(checkpoint_dir,num):
 def get_resume_file(checkpoint_dir):
     print(checkpoint_dir)
     #filelist = glob.glob(os.path.join(checkpoint_dir, '*.tar'))
-    filelist = glob.glob('/home/konradkaranowski/kernel-few-shot-hypernets/save/checkpoints/1024/CUB/ResNet10_hn_poc_sup_sup_kernelkernels_no1024_aug_5way_1shot_512-1024--0-1_2_1e-4-64-4_sup_sup_kernel_rerun_v6_fixed_query/*.tar')
+    filelist = glob.glob(f'{PATH}*.tar')
     print(filelist)
     if len(filelist) == 0:
         print('x')
@@ -111,7 +113,7 @@ def get_resume_file(checkpoint_dir):
     return resume_file
 
 def get_best_file(checkpoint_dir):
-    best_file = os.path.join(checkpoint_dir, 'best_model.tar')
+    best_file = os.path.join(PATH, 'best_model.tar')
     print(best_file)
     if os.path.isfile(best_file):
         print('a')
