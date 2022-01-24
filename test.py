@@ -154,30 +154,43 @@ def single_test(params):
         datamgr         = SetDataManager(image_size, n_eposide = iter_num, **few_shot_params)
         
         if params.dataset == 'cross':
+            train_file = configs.data_dir['miniImagenet'] + 'all.json'
             if split == 'base':
-                loadfile = configs.data_dir['miniImagenet'] + 'all.json' 
+                loadfile = configs.data_dir['miniImagenet'] + 'all.json'
             else:
                 loadfile   = configs.data_dir['CUB'] + split +'.json'
         elif params.dataset == 'cross_char':
+            train_file = configs.data_dir['omniglot'] + 'noLatin.json'
             if split == 'base':
                 loadfile = configs.data_dir['omniglot'] + 'noLatin.json' 
             else:
                 loadfile  = configs.data_dir['emnist'] + split +'.json' 
-        else: 
+        else:
+            train_file = configs.data_dir[params.dataset] + 'base.json'
             loadfile    = configs.data_dir[params.dataset] + split + '.json'
 
+        train_loader = datamgr.get_data_loader(train_file, aug=False)
         novel_loader     = datamgr.get_data_loader( loadfile, aug = False)
         if params.adaptation:
             model.task_update_num = 100 #We perform adaptation on MAML simply by updating more times.
         model.eval()
         # print(model.test_loop( novel_loader, return_std = True))
 
-        save_path = None
+        train_save_path = test_save_path = None
         if isinstance(model, (HyperNetPOC, MAML)):
-            save_path = Path(checkpoint_dir) / "test_loop_saves"
-            save_path.mkdir(exist_ok=True, parents=True)
+            base_save_path = Path(checkpoint_dir) / "test_save_weights"
 
-        acc_mean, acc_std, _ = model.test_loop( novel_loader, return_std = True, save_path=save_path)
+            train_save_path = base_save_path / "train"
+            test_save_path = base_save_path / "test"
+
+            train_save_path.mkdir(exist_ok=True, parents=True)
+            test_save_path.mkdir(exist_ok=True, parents=True)
+
+        print("#### TRAIN ####", train_file)
+        model.test_loop(train_loader, return_std=True, save_path=train_save_path)
+
+        print("#### TEST ####", loadfile)
+        acc_mean, acc_std, _ = model.test_loop( novel_loader, return_std = True, save_path=test_save_path)
 
     else:
         novel_file = os.path.join( checkpoint_dir.replace("checkpoints","features"), split_str +".hdf5") #defaut split = novel, but you can also test base or val classes
