@@ -712,8 +712,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         if self.n_support > 1:
             if self.few_shot_strategy == 'embeddings_mean':
                 return torch.mean(support_feature, axis=1).reshape(self.n_way, 1, -1)
-            elif self.few_shot_strategy == 'relations_mean':
-                return support_feature
+            # elif self.few_shot_strategy == 'relations_mean':
+            #     return support_feature
             elif self.few_shot_strategy == 'max_pooling':
                 pooled, _ = torch.max(support_feature, axis=1)
                 pooled = pooled.reshape(self.n_way, 1, -1)
@@ -724,13 +724,13 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                 return pooled
         return support_feature
 
-    def process_relations(self, relations: torch.Tensor) -> torch.Tensor:
-        if self.n_support > 1:
-            if self.few_shot_strategy == 'relations_mean':
-                relations = torch.mean(relations, axis=2).reshape(relations.shape[0], relations.shape[1])
-                return relations
-            return relations
-        return relations
+    # def process_relations(self, relations: torch.Tensor) -> torch.Tensor:
+    #     if self.n_support > 1:
+    #         if self.few_shot_strategy == 'relations_mean':
+    #             relations = torch.mean(relations, axis=2).reshape(relations.shape[0], relations.shape[1])
+    #             return relations
+    #         return relations
+    #     return relations
 
     # create mean of embeddings
     # override
