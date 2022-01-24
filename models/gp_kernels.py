@@ -1,11 +1,13 @@
 import gpytorch
 import torch
 import torch.nn as nn
+import numpy as np
 
 
-class NNKernel(nn.Module):
-    def __init__(self, input_dim: int, output_dim: int, num_layers: int, hidden_dim: int, flatten: bool =False, **kwargs):
-        super().__init__()
+class NNKernel(gpytorch.kernels.Kernel):
+    def __init__(self, input_dim, output_dim, num_layers, hidden_dim, flatten=False, **kwargs):
+        super(NNKernel, self).__init__(**kwargs)
+
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.num_layers = num_layers
@@ -15,17 +17,14 @@ class NNKernel(nn.Module):
 
     def create_model(self):
 
-        if self.num_layers == 0:
-            modules = [nn.Linear(self.input_dim, self.output_dim)]
-        else:
-            assert self.num_layers >= 1, "Number of hidden layers must be at least 1"
-            modules = [nn.Linear(self.input_dim, self.hidden_dim), nn.ReLU()]
-            if self.flatten:
-                modules = [nn.Flatten()] + modules
-            for i in range(self.num_layers - 1):
-                modules.append(nn.Linear(self.hidden_dim, self.hidden_dim))
-                modules.append(nn.ReLU())
-            modules.append(nn.Linear(self.hidden_dim, self.output_dim))
+        assert self.num_layers >= 1, "Number of hidden layers must be at least 1"
+        modules = [nn.Linear(self.input_dim, self.hidden_dim), nn.ReLU()]
+        if self.flatten:
+            modules = [nn.Flatten()] + modules
+        for i in range(self.num_layers - 1):
+            modules.append(nn.Linear(self.hidden_dim, self.hidden_dim))
+            modules.append(nn.ReLU())
+        modules.append(nn.Linear(self.hidden_dim, self.output_dim))
 
         model = nn.Sequential(*modules)
         return model
@@ -34,7 +33,6 @@ class NNKernel(nn.Module):
         r"""
         Computes the covariance between x1 and x2.
         This method should be imlemented by all Kernel subclasses.
-
         Args:
             :attr:`x1` (Tensor `n x d` or `b x n x d`):
                 First set of data
@@ -45,11 +43,9 @@ class NNKernel(nn.Module):
             :attr:`last_dim_is_batch` (tuple, optional):
                 If this is true, it treats the last dimension of the data as another batch dimension.
                 (Useful for additive structure over the dimensions). Default: False
-
         Returns:
             :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
                 The exact size depends on the kernel's evaluation mode:
-
                 * `full_covar`: `n x m` or `b x n x m`
                 * `full_covar` with `last_dim_is_batch=True`: `k x n x m` or `b x k x n x m`
                 * `diag`: `n` or `b x n`
@@ -116,7 +112,6 @@ class NNKernelNoInner(gpytorch.kernels.Kernel):
         r"""
         Computes the covariance between x1 and x2.
         This method should be imlemented by all Kernel subclasses.
-
         Args:
             :attr:`x1` (Tensor `n x d` or `b x n x d`):
                 First set of data
@@ -127,11 +122,9 @@ class NNKernelNoInner(gpytorch.kernels.Kernel):
             :attr:`last_dim_is_batch` (tuple, optional):
                 If this is true, it treats the last dimension of the data as another batch dimension.
                 (Useful for additive structure over the dimensions). Default: False
-
         Returns:
             :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
                 The exact size depends on the kernel's evaluation mode:
-
                 * `full_covar`: `n x m` or `b x n x m`
                 * `full_covar` with `last_dim_is_batch=True`: `k x n x m` or `b x k x n x m`
                 * `diag`: `n` or `b x n`
@@ -177,7 +170,6 @@ class MultiNNKernel(gpytorch.kernels.Kernel):
         r"""
         Computes the covariance between x1 and x2.
         This method should be imlemented by all Kernel subclasses.
-
         Args:
             :attr:`x1` (Tensor `n x d` or `b x n x d`):
                 First set of data
@@ -188,11 +180,9 @@ class MultiNNKernel(gpytorch.kernels.Kernel):
             :attr:`last_dim_is_batch` (tuple, optional):
                 If this is true, it treats the last dimension of the data as another batch dimension.
                 (Useful for additive structure over the dimensions). Default: False
-
         Returns:
             :class:`Tensor` or :class:`gpytorch.lazy.LazyTensor`.
                 The exact size depends on the kernel's evaluation mode:
-
                 * `full_covar`: `n x m` or `b x n x m`
                 * `full_covar` with `last_dim_is_batch=True`: `k x n x m` or `b x k x n x m`
                 * `diag`: `n` or `b x n`

@@ -252,7 +252,8 @@ if __name__ == '__main__':
         # a batch for SetDataManager: a [n_way, n_support + n_query, dim, w, h] tensor
 
         if (params.method == 'DKT'):
-            model = DKT(model_dict[params.model], **train_few_shot_params)
+            dkt_train_few_shot_params = dict(n_way=params.train_n_way, n_support=params.n_shot)
+            model = DKT(model_dict[params.model], **dkt_train_few_shot_params)
             model.init_summary()
         elif params.method == 'protonet':
             model = ProtoNet(model_dict[params.model], **train_few_shot_params)

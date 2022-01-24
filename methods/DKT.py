@@ -12,6 +12,7 @@ import gpytorch
 from time import gmtime, strftime
 import random
 from configs import kernel_type
+from models import gp_kernels
 #Check if tensorboardx is installed
 try:
     from tensorboardX import SummaryWriter
@@ -368,6 +369,16 @@ class ExactGPLayer(gpytorch.models.ExactGP):
             self.covar_module = gpytorch.kernels.ScaleKernel(gpytorch.kernels.LinearKernel())
             self.covar_module.base_kernel.variance = 1.0
             self.covar_module.base_kernel.raw_variance.requires_grad = False
+        elif(kernel=='nn'):
+            self.input_dim = 1600
+            self.output_dim = 1600
+            self.num_layers = 4
+            self.hidden_dim = 64
+            kernel = gp_kernels.NNKernel(input_dim=self.input_dim,
+                              output_dim=self.output_dim,
+                              num_layers=self.num_layers,
+                              hidden_dim=self.hidden_dim)
+            self.covar_module = gpytorch.kernels.ScaleKernel(kernel)
         else:
             raise ValueError("[ERROR] the kernel '" + str(kernel) + "' is not supported!")
 

@@ -1,6 +1,6 @@
 from collections import defaultdict
 from copy import deepcopy
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import torch
@@ -24,6 +24,15 @@ class HyperNetPOC(MetaTemplate):
     ):
         super().__init__(model_func, n_way, n_support)
 
+        '''
+        Methods of handling few:
+        - mean of embeddings in support set
+        - mean of relations in kernels
+        '''
+        self.few_shot_strategy = params.few_shot_strategy # ['embeddings_mean', 'relations_mean']
+        self.n_support_size_context = 1 if self.few_shot_strategy in ['embeddings_mean', 'max_pooling', 'min_pooling'] else  n_support
+
+
         conv_out_size = self.feature.final_feat_dim
         self.n_query = n_query
         self.taskset_size: int = params.hn_taskset_size
@@ -33,10 +42,10 @@ class HyperNetPOC(MetaTemplate):
         self.attention_embedding: bool = params.hn_attention_embedding
         self.sup_aggregation: str = params.hn_sup_aggregation
         if self.attention_embedding:
-            self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support
+            self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support_size_context
         else:
             if self.sup_aggregation == "concat":
-                self.embedding_size: int = conv_out_size * self.n_way * self.n_support
+                self.embedding_size: int = conv_out_size * self.n_way * self.n_support_size_context
             elif self.sup_aggregation in ["sum", "mean"]:
                 self.embedding_size: int = conv_out_size * self.n_way
         self.detach_ft_in_hn: int = params.hn_detach_ft_in_hn
@@ -221,14 +230,15 @@ class HyperNetPOC(MetaTemplate):
         }
         val_opt_type = torch.optim.Adam if self.hn_val_optim == "adam" else torch.optim.SGD
         val_opt = val_opt_type(self_copy.parameters(), lr=self.hn_val_lr)
-        for i in range(1, self.hn_val_epochs + 1):
-            self_copy.train()
-            val_opt.zero_grad()
-            loss = self_copy.set_forward_loss(x, train_on_query=False)
-            loss.backward()
-            val_opt.step()
-            self_copy.eval()
-            metrics[f"accuracy/val@-{i}"] = self_copy.query_accuracy(x)
+        if self.hn_val_epochs > 0:
+            for i in range(1, self.hn_val_epochs + 1):
+                self_copy.train()
+                val_opt.zero_grad()
+                loss = self_copy.set_forward_loss(x, train_on_query=False)
+                loss.backward()
+                val_opt.step()
+                self_copy.eval()
+                metrics[f"accuracy/val@-{i}"] = self_copy.query_accuracy(x)
 
         return self_copy.set_forward(x), metrics
 
@@ -263,19 +273,19 @@ class HyperNetPOC(MetaTemplate):
         if train_on_support:
             feature_to_classify.append(
                 support_feature.reshape(
-                    (self.n_way * self.n_support), support_feature.shape[-1]
+                    (self.n_way * self.n_support_size_context), support_feature.shape[-1]
                 )
             )
             y_support = self.get_labels(support_feature)
-            y_to_classify_gt.append(y_support.reshape(self.n_way * self.n_support))
+            y_to_classify_gt.append(y_support.reshape(self.n_way * self.n_support_size_context))
         if train_on_query:
             feature_to_classify.append(
                 query_feature.reshape(
-                    (self.n_way * (ne - self.n_support)), query_feature.shape[-1]
+                    (self.n_way * (ne - self.n_support_size_context)), query_feature.shape[-1]
                 )
             )
             y_query = self.get_labels(query_feature)
-            y_to_classify_gt.append(y_query.reshape(self.n_way * (ne - self.n_support)))
+            y_to_classify_gt.append(y_query.reshape(self.n_way * (ne - self.n_support_size_context)))
 
         feature_to_classify = torch.cat(feature_to_classify)
         y_to_classify_gt = torch.cat(y_to_classify_gt)
@@ -373,11 +383,11 @@ class HyperNetPocWithKernel(HyperNetPOC):
         # TODO - add attention based input also
         if self.hn_kernel_invariance:
             if self.hn_kernel_invariance_type == 'attention':
-                self.embedding_size: int = conv_out_size * self.n_way * self.n_support + (self.n_way * self.n_support)
+                self.embedding_size: int = conv_out_size * self.n_way * self.n_support_size_context + (self.n_way * self.n_support_size_context)
             else:
-                self.embedding_size: int = conv_out_size * self.n_way * self.n_support + self.hn_kernel_convolution_output_dim
+                self.embedding_size: int = conv_out_size * self.n_way * self.n_support_size_context + self.hn_kernel_convolution_output_dim
         else:
-            self.embedding_size: int = conv_out_size * self.n_way * self.n_support + ((self.n_way * self.n_support) * (self.n_way * self.n_query))
+            self.embedding_size: int = conv_out_size * self.n_way * self.n_support_size_context + ((self.n_way * self.n_support_size_context) * (self.n_way * self.n_query))
 
         # invariant operation type
         if self.hn_kernel_invariance:
@@ -396,7 +406,7 @@ class HyperNetPocWithKernel(HyperNetPOC):
 
     def init_kernel_transformer_architecture(self, params):
         self.kernel_transformer_layers_no: int = params.kernel_transformer_layers_no
-        self.kernel_transformer_input_dim: int = self.n_way * self.n_support
+        self.kernel_transformer_input_dim: int = self.n_way * self.n_support_size_context
         self.kernel_transformer_heads: int = params.kernel_transformer_heads_no
         self.kernel_transformer_dim_feedforward: int = params.kernel_transformer_feedforward_dim
         self.kernel_transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.kernel_transformer_layers_no, input_dim=self.kernel_transformer_input_dim, num_heads=self.kernel_transformer_heads, dim_feedforward=self.kernel_transformer_dim_feedforward)
@@ -613,8 +623,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         )
 
         # TODO - check!!!
-        # conv_out_size = self.feature.final_feat_dim
         conv_out_size = 1600
+        # conv_out_size = self.feature.final_feat_dim
         # Use scalar product instead of a specific kernel
         self.use_scalar_product: bool = params.use_scalar_product
         # Use support embeddings - concatenate them with kernel features
@@ -646,20 +656,20 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         # embedding size
         # TODO - add attention based input also
         if self.use_support_embeddings:
-            support_embeddings_size = conv_out_size * self.n_way * self.n_support
+            support_embeddings_size = conv_out_size * self.n_way * self.n_support_size_context
         else:
             support_embeddings_size = 0
 
         if self.hn_kernel_invariance:
             if self.hn_kernel_invariance_type == 'attention':
-                self.embedding_size: int = support_embeddings_size + (self.n_way * self.n_support)
+                self.embedding_size: int = support_embeddings_size + (self.n_way * self.n_support_size_context)
             else:
                 self.embedding_size: int = support_embeddings_size + self.hn_kernel_convolution_output_dim
         else:
             if self.no_self_relations:
-                self.embedding_size: int = support_embeddings_size + (((self.n_way * self.n_support) ** 2) - (self.n_way * self.n_support) )
+                self.embedding_size: int = support_embeddings_size + (((self.n_way * self.n_support_size_context) ** 2) - (self.n_way * self.n_support_size_context) )
             else:
-                self.embedding_size: int = support_embeddings_size + ((self.n_way * self.n_support) ** 2)
+                self.embedding_size: int = support_embeddings_size + ((self.n_way * self.n_support_size_context) ** 2)
 
         # invariant operation type
         if self.hn_kernel_invariance:
@@ -668,7 +678,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             else:
                 self.init_kernel_convolution_architecture(params)
 
-        self.query_relations_size = self.n_way * self.n_support
+        self.query_relations_size = self.n_way * self.n_support_size_context
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.init_hypernet_modules()
 
@@ -677,9 +687,9 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         layers = []
         # TODO - check!!!
         if params.use_support_embeddings:
-            common_insize = ((self.n_way * self.n_support) + self.feature.final_feat_dim)
+            common_insize = ((self.n_way * self.n_support_size_context) + self.feature.final_feat_dim)
         else:
-            common_insize = (self.n_way * self.n_support)
+            common_insize = (self.n_way * self.n_support_size_context)
 
         # common_insize = ((self.n_way * self.n_support) + self.feature.final_feat_dim) if self.use_support_embeddings else (self.n_way * self.n_support)
 
@@ -694,13 +704,48 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         print(res)
         return res
 
+
+    def process_few_shots(self, support_feature: torch.Tensor) -> torch.Tensor:
+        """
+        Process embeddings for few shot learning
+        """
+        if self.n_support > 1:
+            if self.few_shot_strategy == 'embeddings_mean':
+                return torch.mean(support_feature, axis=1).reshape(self.n_way, 1, -1)
+            elif self.few_shot_strategy == 'relations_mean':
+                return support_feature
+            elif self.few_shot_strategy == 'max_pooling':
+                pooled, _ = torch.max(support_feature, axis=1)
+                pooled = pooled.reshape(self.n_way, 1, -1)
+                return pooled
+            elif self.few_shot_strategy == 'min_pooling':
+                pooled, _ = torch.min(support_feature, axis=1)
+                pooled = pooled.reshape(self.n_way, 1, -1)
+                return pooled
+        return support_feature
+
+    def process_relations(self, relations: torch.Tensor) -> torch.Tensor:
+        if self.n_support > 1:
+            if self.few_shot_strategy == 'relations_mean':
+                relations = torch.mean(relations, axis=2).reshape(relations.shape[0], relations.shape[1])
+                return relations
+            return relations
+        return relations
+
+    # create mean of embeddings
+    # override
+    def parse_feature(self, x, is_feature) -> Tuple[torch.Tensor, torch.Tensor]:
+        support_feature, query_feature = super().parse_feature(x, is_feature)
+        support_feature = self.process_few_shots(support_feature)
+        return support_feature, query_feature
+
     def init_kernel_convolution_architecture(self, params):
         # TODO - add convolution-based approach
         self.kernel_1D_convolution: bool = True
 
     def init_kernel_transformer_architecture(self, params):
         self.kernel_transformer_layers_no: int = params.kernel_transformer_layers_no
-        self.kernel_transformer_input_dim: int = self.n_way * self.n_support
+        self.kernel_transformer_input_dim: int = self.n_way * self.n_support_size_context
         self.kernel_transformer_heads: int = params.kernel_transformer_heads_no
         self.kernel_transformer_dim_feedforward: int = params.kernel_transformer_feedforward_dim
         self.kernel_transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.kernel_transformer_layers_no, input_dim=self.kernel_transformer_input_dim, num_heads=self.kernel_transformer_heads, dim_feedforward=self.kernel_transformer_dim_feedforward)
@@ -877,11 +922,11 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         if train_on_support:
             feature_to_classify.append(
                 support_feature.reshape(
-                    (self.n_way * self.n_support), support_feature.shape[-1]
+                    (self.n_way * self.n_support_size_context), support_feature.shape[-1]
                 )
             )
             y_support = self.get_labels(support_feature)
-            y_to_classify_gt.append(y_support.reshape(self.n_way * self.n_support))
+            y_to_classify_gt.append(y_support.reshape(self.n_way * self.n_support_size_context))
         if train_on_query:
             feature_to_classify.append(
                 query_feature.reshape(
