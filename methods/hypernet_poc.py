@@ -870,7 +870,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         accs = []
 
-        for sc, yq in [(scores, y_query), (y_pred_perm, y_query_perm)]
+        for sc, yq in [(scores, y_query), (y_pred_perm, y_query_perm)]:
             topk_scores, topk_labels = sc.data.topk(1, 1, True, True)
             topk_ind = topk_labels.cpu().numpy()
             top1_correct = np.sum(topk_ind[:, 0] == yq)
