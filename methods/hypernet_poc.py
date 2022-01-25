@@ -766,25 +766,13 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         return relations
 
-    def build_kernel_features_embedding(self, support_feature: torch.Tensor, query_feature: torch.Tensor) -> torch.Tensor:
+    def build_kernel_features_embedding(self, support_feature: torch.Tensor) -> torch.Tensor:
         """
         x_support: [n_way, n_support, hidden_size]
         """
 
         supp_way, n_support, supp_feat = support_feature.shape
-        # query_way, n_query, query_feat = query_feature.shape
-
-        #TODO: add/check changes for attention-like input
-
-
-        # if self.attention_embedding:
-        #     attention_support_features = support_feature.view(1, -1, *(support_feature.size()[2:]))
-        #     support_feature = torch.flatten(self.transformer_encoder.forward(attention_support_features))
-        #     attention_query_features = support_feature.view(1, -1, *(query_feature.size()[2:]))
-        #     query_feature = torch.flatten(self.transformer_encoder.forward(attention_query_features))
-
         support_features = support_feature.reshape(supp_way * n_support, supp_feat)
-        # query_features = query_feature.reshape(query_way * n_query, query_feat)
         support_features_copy = torch.clone(support_features)
 
         # TODO - check!!!
@@ -795,15 +783,11 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         # Remove self relations by matrix multiplication
         if self.no_self_relations:
-            # non_diagonal_values_matrix = torch.flatten(kernel_values_tensor)[1: ].view(self.n_way * self.n_support - 1, self.n_way * self.n_support + 1)[: ,: -1].reshape(self.n_way * self.n_support, self.n_way * self.n_support - 1)
-            # return torch.flatten(non_diagonal_values_matrix)
             zero_diagonal_matrix = torch.ones_like(kernel_values_tensor).cuda() - torch.eye(kernel_values_tensor.shape[0]).cuda()
-            # nonzero_indices = zero_diagonal_matrix.nonzero(as_tuple=True)
-            #
+
             kernel_values_tensor = kernel_values_tensor * zero_diagonal_matrix
             return torch.flatten(kernel_values_tensor[kernel_values_tensor != 0.0])
-            # kernel_values_tensor = kernel_values_tensor[kernel_values_tensor.nonzero(as_tuple=True)]
-            # kernel_values_tensor = kernel_values_tensor[nonzero_indices]
+
 
         # TODO - check!!!
         if self.hn_kernel_invariance:
@@ -838,7 +822,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         x_support: [n_way, n_support, hidden_size]
         """
 
-        embedding = self.build_kernel_features_embedding(support_feature, query_feature)
+        embedding = self.build_kernel_features_embedding(support_feature)
 
         # TODO - check!!!
         if self.use_support_embeddings:
@@ -856,19 +840,6 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
     def set_forward(self, x: torch.Tensor, is_feature: bool = False):
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
-        #TODO: add/check changes for attention-like input
-
-
-        # if self.attention_embedding:
-        #     y_support = self.get_labels(support_feature)
-        #     y_query = self.get_labels(query_feature)
-        #     y_support_one_hot = torch.nn.functional.one_hot(y_support)
-        #     support_feature_with_classes_one_hot = torch.cat((support_feature, y_support_one_hot), 2)
-        #     support_feature = support_feature_with_classes_one_hot
-        #     y_query_zeros = torch.zeros((y_query.shape[0], y_query.shape[1], y_support_one_hot.shape[2]))
-        #     query_feature_with_zeros = torch.cat((query_feature, y_query_zeros), 2)
-        #     query_feature = query_feature_with_zeros
-
         classifier = self.generate_target_net_with_kernel_features(support_feature, query_feature)
         query_feature = query_feature.reshape(
             -1, query_feature.shape[-1]
@@ -879,6 +850,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         if self.use_support_embeddings:
             relational_query_feature = torch.cat((relational_query_feature, query_feature), 1)
         y_pred = classifier(relational_query_feature)
+
         return y_pred
 
     def query_accuracy(self, x: torch.Tensor):
