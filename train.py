@@ -361,8 +361,9 @@ if __name__ == '__main__':
     params.adaptation = False
     params.repeat = 5
 
+    test_results =  perform_test(params)
     if neptune_run is not None:
-        neptune_run["full_test"] = perform_test(params)
+        neptune_run["full_test"] = test_results
 
 
 
