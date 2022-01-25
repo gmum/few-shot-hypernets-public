@@ -855,7 +855,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             perm = torch.randperm(len(query_feature))
             rev_perm = torch.argsort(perm)
             qp = query_feature[perm]
-            y_pred_perm = classifier(qp)
+            y_pred_perm = classifier(self.build_relations_features(support_feature, qp))
             assert torch.equal(
                 y_pred_perm[rev_perm], y_pred
             )
