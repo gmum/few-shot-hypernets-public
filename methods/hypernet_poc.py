@@ -879,6 +879,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             accs.append(correct_this / count_this)
 
         assert accs[0] == accs[1], accs
+        print("Accuracies are", accs, "when y queries are", y_query, y_query_perm)
         return accs[0]
 
     def set_forward_loss(
