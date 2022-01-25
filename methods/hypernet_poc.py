@@ -837,7 +837,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         set_from_param_dict(tn, network_params)
         return tn.cuda()
 
-    def set_forward(self, x: torch.Tensor, is_feature: bool = False):
+    def set_forward(self, x: torch.Tensor, is_feature: bool = False, return_perm: bool = False):
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
         classifier = self.generate_target_net_with_kernel_features(support_feature)
@@ -851,18 +851,35 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             relational_query_feature = torch.cat((relational_query_feature, query_feature), 1)
         y_pred = classifier(relational_query_feature)
 
+        if return_perm:
+            perm = torch.randperm(len(query_feature))
+            rev_perm = torch.argsort(perm)
+            qp = query_feature[perm]
+            y_pred_perm = classifier(qp)
+            assert torch.equal(
+                y_pred_perm[rev_perm], y_pred
+            )
+            return y_pred, (perm, rev_perm, y_pred_perm)
+
         return y_pred
 
     def query_accuracy(self, x: torch.Tensor):
-        scores = self.set_forward(x)
+        scores,  (perm, rev_perm, y_pred_perm) = self.set_forward(x, return_perm=True)
         y_query = np.repeat(range(self.n_way), self.n_query)
-        topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
-        topk_ind = topk_labels.cpu().numpy()
-        top1_correct = np.sum(topk_ind[:, 0] == y_query)
-        correct_this = float(top1_correct)
-        count_this = len(y_query)
+        y_query_perm = y_query[perm]
 
-        return correct_this / count_this
+        accs = []
+
+        for sc, yq in [(scores, y_query), (y_pred_perm, y_query_perm)]
+            topk_scores, topk_labels = sc.data.topk(1, 1, True, True)
+            topk_ind = topk_labels.cpu().numpy()
+            top1_correct = np.sum(topk_ind[:, 0] == yq)
+            correct_this = float(top1_correct)
+            count_this = len(yq)
+            accs.append(correct_this / count_this)
+
+        assert accs[0] == accs[1], accs
+        return accs[0]
 
     def set_forward_loss(
             self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False,
