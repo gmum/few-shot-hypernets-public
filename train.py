@@ -94,7 +94,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             stop_epoch - 1
         ]:
             try:
-                acc, test_loop_metrics = model.test_loop(val_loader, n_task_permutations=params.n_val_perms)
+                acc, test_loop_metrics = model.test_loop(val_loader)
             except:
                 acc = model.test_loop(val_loader)
                 test_loop_metrics = dict()
