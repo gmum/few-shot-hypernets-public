@@ -83,6 +83,8 @@ class MetaTemplate(nn.Module):
             self.n_query = x.size(1) - self.n_support
             if self.change_way:
                 self.n_way  = x.size(0)
+            y_query = np.repeat(range( self.n_way ), self.n_query )
+
             try:
                 scores, acc_at_metrics = self.set_forward_with_adaptation(x)
                 for (k,v) in acc_at_metrics.items():
@@ -92,7 +94,6 @@ class MetaTemplate(nn.Module):
 
             scores = scores.reshape((self.n_way * self.n_query, self.n_way))
 
-            y_query = np.repeat(range( self.n_way ), self.n_query )
             topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
             topk_ind = topk_labels.cpu().numpy()
             top1_correct = np.sum(topk_ind[:,0] == y_query)

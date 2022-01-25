@@ -360,7 +360,9 @@ if __name__ == '__main__':
     params.save_iter = -1
     params.adaptation = False
     params.repeat = 5
-    neptune_run["full_test"] = perform_test(params)
+
+    if neptune_run is not None:
+        neptune_run["full_test"] = perform_test(params)
 
 
 
