@@ -104,7 +104,6 @@ class MetaTemplate(nn.Module):
             acc = correct_this / count_this
             q_acc = self.query_accuracy(x)
             assert acc == q_acc
-            print(i, q_acc, acc, "ok")
 
         metrics = {
             k: np.mean(v) if len(v) > 0 else 0

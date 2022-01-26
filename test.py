@@ -66,7 +66,7 @@ def single_test(params):
 
     iter_num = 600
 
-    few_shot_params = dict(n_way = params.test_n_way , n_support = params.n_shot) 
+    few_shot_params = dict(n_way = params.test_n_way , n_support = params.n_shot, n_query=15) 
 
     if params.dataset in ['omniglot', 'cross_char']:
         assert params.model == 'Conv4' and not params.train_aug ,'omniglot only support Conv4 without augmentation'
@@ -169,7 +169,7 @@ def single_test(params):
             model.task_update_num = 100 #We perform adaptation on MAML simply by updating more times.
         model.eval()
         # print(model.test_loop( novel_loader, return_std = True))
-        acc_mean, acc_std, _ = model.test_loop( novel_loader, return_std = True)
+        acc_mean, acc_std, *_ = model.test_loop( novel_loader, return_std = True)
 
     else:
         novel_file = os.path.join( checkpoint_dir.replace("checkpoints","features"), split_str +".hdf5") #defaut split = novel, but you can also test base or val classes

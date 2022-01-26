@@ -31,7 +31,7 @@ except ImportError:
 #python3 train.py --dataset="CUB" --method="DKT" --train_n_way=5 --test_n_way=5 --n_shot=5 --train_aug
 
 class DKT(MetaTemplate):
-    def __init__(self, model_func, n_way, n_support):
+    def __init__(self, model_func, n_way, n_support, n_query=None):
         super(DKT, self).__init__(model_func, n_way, n_support)
         ## GP parameters
         self.leghtscale_list = None

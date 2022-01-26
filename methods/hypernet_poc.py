@@ -684,7 +684,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.init_hypernet_modules()
 
-    def pw_cosine_distance(input_a, input_b):
+    def pw_cosine_distance(self, input_a, input_b):
         normalized_input_a = torch.nn.functional.normalize(input_a)
         normalized_input_b = torch.nn.functional.normalize(input_b)
         res = torch.mm(normalized_input_a, normalized_input_b.T)
@@ -761,7 +761,6 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         self.kernel_transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.kernel_transformer_layers_no, input_dim=self.kernel_transformer_input_dim, num_heads=self.kernel_transformer_heads, dim_feedforward=self.kernel_transformer_dim_feedforward)
 
     def build_relations_features(self, support_feature: torch.Tensor, feature_to_classify: torch.Tensor) -> torch.Tensor:
-
         supp_way, n_support, supp_feat = support_feature.shape
         n_examples, feat_dim = feature_to_classify.shape
         support_features = support_feature.reshape(supp_way * n_support, supp_feat)
@@ -774,8 +773,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         else:
             kernel_values_tensor = self.kernel_function.forward(support_features, feature_to_classify)
 
-        relations = kernel_values_tensor.reshape(n_examples, supp_way * n_support)
-
+        relations = kernel_values_tensor.T
         return relations
 
     def build_kernel_features_embedding(self, support_feature: torch.Tensor) -> torch.Tensor:
@@ -866,9 +864,16 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         if return_perm:
             perm = torch.randperm(len(query_feature))
+            # perm = torch.tensor(list(range(len(query_feature))))
             rev_perm = torch.argsort(perm)
             qp = query_feature[perm]
-            y_pred_perm = classifier(self.build_relations_features(support_feature, qp))
+            rels = self.build_relations_features(support_feature, qp)
+
+            # print("rn", rels[:3, :5], rels.shape)
+            # print("rgt", relational_query_feature[:3, :5], relational_query_feature.shape)
+            # assert False
+
+            y_pred_perm = classifier(rels)
             assert torch.equal(
                 y_pred_perm[rev_perm], y_pred
             )
@@ -878,6 +883,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
     def query_accuracy(self, x: torch.Tensor):
         scores,  (perm, rev_perm, y_pred_perm) = self.set_forward(x, return_perm=True)
+        scores = self.set_forward(x)
         y_query = np.repeat(range(self.n_way), self.n_query)
         y_query_perm = y_query[perm]
 
@@ -892,7 +898,6 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             accs.append(correct_this / count_this)
 
         assert accs[0] == accs[1], accs
-        print("Accuracies are", accs, "when y queries are", y_query, y_query_perm)
         return accs[0]
 
     def set_forward_loss(
