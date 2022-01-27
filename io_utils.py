@@ -26,6 +26,24 @@ model_dict = dict(
             Conv4WithKernel = backbone.Conv4WithKernel,
             ResNetWithKernel = backbone.ResNetWithKernel)
 
+class ParamHolder:
+    """A class for checking which script arguments were actually used at any time"""
+    def __init__(self, params):
+        self.params = params
+        self.history = []
+
+    def __getattr__(self, item):
+        it = getattr(self.params, item)
+        if item not in self.history:
+            print("Getting", item, "=", it)
+            self.history.append(item)
+        return it
+
+    def get_ignored_args(self):
+        return sorted([
+            k for k in vars(self.params).keys() if k not  in self.history
+        ])
+
 def parse_args(script):
     parser = argparse.ArgumentParser(description= 'few-shot script %s' %(script), formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      )
@@ -70,7 +88,7 @@ def parse_args(script):
        raise ValueError('Unknown script')
 
     parser = hn_args.add_hn_args_to_parser(parser)
-    return parser.parse_args()
+    return ParamHolder(parser.parse_args())
 
 def parse_args_regression(script):
         parser = argparse.ArgumentParser(description= 'few-shot script %s' %(script))

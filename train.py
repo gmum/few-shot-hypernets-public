@@ -74,6 +74,13 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         metrics_per_epoch = defaultdict(list)
 
     scheduler = get_scheduler(params, optimizer)
+
+    print("Starting training")
+    print("Params accessed until this point:")
+    print("\n\t".join(sorted(params.history)))
+    print("Params ignored until this point:")
+    print("\n\t".join(params.get_ignored_args()))
+
     for epoch in range(start_epoch, stop_epoch):
         if epoch >= params.es_epoch:
             if max_acc < params.es_threshold:
