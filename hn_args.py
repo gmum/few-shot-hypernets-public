@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from methods.hypernets.hypnettorch_utils import hn_types
+from methods.hypernets.hypnettorch_wrapper import hn_types
 
 
 def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
