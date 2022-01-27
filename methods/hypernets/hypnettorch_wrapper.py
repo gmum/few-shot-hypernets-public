@@ -1,9 +1,14 @@
+from copy import deepcopy
 from math import ceil
 from typing import List, Union, Tuple, Callable
 
 import numpy as np
 import torch
 from hypnettorch.hnets import StructuredHMLP, HyperNetInterface, HMLP, ChunkedHMLP
+from hypnettorch.mnets import MLP
+from torch import nn
+
+from methods.hypernets import HyperNetPOC
 
 hn_types = ["hmlp", "chmlp", "shmlp"]
 
@@ -120,7 +125,7 @@ def shmlp_args(target_shapes: List[Union[torch.Size, List[int]]], max_chunk_size
         i = 0
         for nc in num_per_chunk:
             gathered_chunks.append([c[0] for c in chunks[i:(i+nc)]])
-            i+=nc
+            i += nc
         assert len(gathered_chunks) == len(target_shapes), ([[c.shape for c in cs] for cs in chunks], target_shapes)
 
         targets = []
@@ -136,12 +141,46 @@ def shmlp_args(target_shapes: List[Union[torch.Size, List[int]]], max_chunk_size
     return chunk_shapes, num_per_chunk, assembly_fn
 
 
-# shmlp_args(
-#     [
-#         [128, 128],
-#         [1024],
-#         [128, 30],
-#     ],
-#
-#     1024
-# )
+class HNLibClassifier(nn.Module):
+    def __init__(self, mlp: MLP):
+        super().__init__()
+        self.mlp = mlp
+        self.weights = None
+
+    def forward(self, x):
+        return self.mlp.forward(
+            x, weights=self.weights
+        )
+
+
+class HypnettorchWrapper(HyperNetPOC):
+    """A wrpper for hypernets built with hypnettorch"""
+    def __init__(self, model_func: nn.Module, n_way: int, n_support: int, params: "ArgparseHNParams"):
+        super().__init__(model_func, n_way, n_support, params)
+
+        self.target_net_architecture = HNLibClassifier(
+            mlp=MLP(
+                n_in=self.feature.final_feat_dim,
+                n_out=n_way,
+                hidden_layers=[params.hn_tn_hidden_size] * (params.hn_tn_depth - 1)
+            )
+        )
+        self.hypernet_heads = None
+        self.hypernet_neck = None
+
+        self.hn = build_hypnettorch(
+            target_shapes=self.target_net_architecture.mlp.param_shapes,
+            uncond_in_size=self.embedding_size,
+            params=params,
+        )
+
+        print(self.hn)
+        print(self.target_net_architecture)
+
+    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
+        support_feature = support_feature.reshape(1, self.embedding_size)
+
+        weights = self.hn(support_feature)
+        tn = deepcopy(self.target_net_architecture)
+        tn.weights = weights
+        return tn

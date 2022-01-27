@@ -1,13 +1,9 @@
 import torch
 import numpy as np
 import random
-from torch.autograd import Variable
-import torch.nn as nn
 import torch.optim
-import json
 import torch.utils.data.sampler
 import os
-import glob
 import time
 from typing import Type
 
@@ -15,15 +11,15 @@ import configs
 import backbone
 import data.feature_loader as feat_loader
 from data.datamgr import SetDataManager
-from methods.baselinetrain import BaselineTrain
 from methods.baselinefinetune import BaselineFinetune
-from methods.hypernet_poc import HyperNetPOC, hn_poc_types
+from methods.hypernets.hypernet_poc import HyperNetPOC
+from methods.hypernets import hypernet_types
 from methods.protonet import ProtoNet
 from methods.DKT import DKT
 from methods.matchingnet import MatchingNet
 from methods.relationnet import RelationNet
 from methods.maml import MAML
-from io_utils import model_dict, get_resume_file, parse_args, get_best_file , get_assigned_file
+from io_utils import model_dict, parse_args, get_best_file , get_assigned_file
 
 def _set_seed(seed, verbose=True):
     if(seed!=0):
@@ -103,9 +99,9 @@ def single_test(params):
             model.n_task     = 32
             model.task_update_num = 1
             model.train_lr = 0.1
-    elif params.method in list(hn_poc_types.keys()):
+    elif params.method in list(hypernet_types.keys()):
         few_shot_params['n_query'] = 15
-        hn_type: Type[HyperNetPOC] = hn_poc_types[params.method]
+        hn_type: Type[HyperNetPOC] = hypernet_types[params.method]
         model = hn_type(model_dict[params.model], params=params, **few_shot_params)
         # model = HyperNetPOC(model_dict[params.model], **few_shot_params)
 
@@ -140,7 +136,7 @@ def single_test(params):
         split_str = split + "_" +str(params.save_iter)
     else:
         split_str = split
-    if params.method in ['maml', 'maml_approx', 'DKT'] + list(hn_poc_types.keys()): #maml do not support testing with feature
+    if params.method in ['maml', 'maml_approx', 'DKT'] + list(hypernet_types.keys()): #maml do not support testing with feature
         if 'Conv' in params.model:
             if params.dataset in ['omniglot', 'cross_char']:
                 image_size = 28
