@@ -84,7 +84,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.init_hypernet_modules()
 
-    def pw_cosine_distance(input_a, input_b):
+    def pw_cosine_distance(self, input_a, input_b):
         normalized_input_a = torch.nn.functional.normalize(input_a)
         normalized_input_b = torch.nn.functional.normalize(input_b)
         res = torch.mm(normalized_input_a, normalized_input_b.T)
