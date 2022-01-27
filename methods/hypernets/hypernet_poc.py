@@ -19,9 +19,6 @@ class HyperNetPOC(MetaTemplate):
     ):
         super().__init__(model_func, n_way, n_support)
 
-        self.few_shot_strategy = params.few_shot_strategy # ['embeddings_mean', 'relations_mean']
-        self.n_support_size_context = 1 if self.few_shot_strategy in ['embeddings_mean', 'max_pooling', 'min_pooling'] else  n_support
-
 
         conv_out_size = self.feature.final_feat_dim
         self.n_query = n_query
@@ -32,11 +29,11 @@ class HyperNetPOC(MetaTemplate):
         self.attention_embedding: bool = params.hn_attention_embedding
         self.sup_aggregation: str = params.hn_sup_aggregation
         if self.attention_embedding:
-            self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support_size_context
+            self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support
         else:
             if self.sup_aggregation == "concat":
-                self.embedding_size: int = conv_out_size * self.n_way * self.n_support_size_context
-            elif self.sup_aggregation in ["sum", "mean"]:
+                self.embedding_size: int = conv_out_size * self.n_way * self.n_support
+            elif self.sup_aggregation in ["sum", "mean", "max_pooling", "min_pooling"]:
                 self.embedding_size: int = conv_out_size * self.n_way
         self.detach_ft_in_hn: int = params.hn_detach_ft_in_hn
         self.detach_ft_in_tn: int = params.hn_detach_ft_in_tn
@@ -241,7 +238,7 @@ class HyperNetPOC(MetaTemplate):
             train_on_support: bool = True,
             train_on_query: bool = True
     ):
-        nw, ne, c, h, w = x.shape
+        n_way, n_examples, c, h, w = x.shape
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
@@ -270,11 +267,11 @@ class HyperNetPOC(MetaTemplate):
         if train_on_query:
             feature_to_classify.append(
                 query_feature.reshape(
-                    (self.n_way * (ne - self.n_support_size_context)), query_feature.shape[-1]
+                    (self.n_way * (n_examples - self.n_support_size_context)), query_feature.shape[-1]
                 )
             )
             y_query = self.get_labels(query_feature)
-            y_to_classify_gt.append(y_query.reshape(self.n_way * (ne - self.n_support_size_context)))
+            y_to_classify_gt.append(y_query.reshape(self.n_way * (n_examples - self.n_support_size_context)))
 
         feature_to_classify = torch.cat(feature_to_classify)
         y_to_classify_gt = torch.cat(y_to_classify_gt)

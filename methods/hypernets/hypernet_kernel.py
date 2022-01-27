@@ -120,8 +120,6 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         if self.n_support > 1:
             if self.few_shot_strategy == 'embeddings_mean':
                 return torch.mean(support_feature, axis=1).reshape(self.n_way, 1, -1)
-            # elif self.few_shot_strategy == 'relations_mean':
-            #     return support_feature
             elif self.few_shot_strategy == 'max_pooling':
                 pooled, _ = torch.max(support_feature, axis=1)
                 pooled = pooled.reshape(self.n_way, 1, -1)
@@ -234,7 +232,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             name.replace("-", "."): param_net(root).reshape(self.target_net_param_shapes[name])
             for name, param_net in self.hypernet_heads.items()
         }
-        tn: deepcopy(self.target_net_architecture)
+        tn = deepcopy(self.target_net_architecture)
         set_from_param_dict(tn, network_params)
         tn.support_feature = support_feature
         return tn.cuda()
@@ -259,25 +257,12 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         qp = query_feature[perm]
         y_pred_perm = classifier(self.build_relations_features(support_feature, qp))
         assert torch.equal(y_pred_perm[rev_perm], y_pred)
-        print("perm test ok")
+        # print("perm test ok")
         ###
         if return_perm:
             return y_pred, (perm, rev_perm, y_pred_perm)
 
         return y_pred
-
-    # def query_accuracy(self, x: torch.Tensor):
-    #     # we test if accuracy on examples sorted by class is the same as accuracy on randomly shuffled examples.
-    #     scores = self.set_forward(x)
-    #     y_query = np.repeat(range(self.n_way), self.n_query)
-    #
-    #
-    #     topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
-    #     topk_ind = topk_labels.cpu().numpy()
-    #     top1_correct = np.sum(topk_ind[:, 0] == y_query)
-    #     correct_this = float(top1_correct)
-    #     count_this = len(y_query)
-    #     return correct_this / count_this
 
 
     def set_forward_loss(
