@@ -34,7 +34,6 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         # Remove self relations by matrix K multiplication
         self.no_self_relations: bool = params.no_self_relations
 
-        self.n_support_size_context = 1 if self.sup_aggregation in ["mean", "min_pooling", "max_pooling"] else self.n_support
 
         if (not self.use_scalar_product) and (not self.use_cosine_distance):
             self.kernel_input_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
@@ -85,6 +84,10 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         self.query_relations_size = self.n_way * self.n_support_size_context
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.init_hypernet_modules()
+
+    @property
+    def n_support_size_context(self) -> int:
+        return 1 if self.sup_aggregation in ["mean", "min_pooling", "max_pooling"] else self.n_support
 
     def pw_cosine_distance(self, input_a, input_b):
         normalized_input_a = torch.nn.functional.normalize(input_a)
