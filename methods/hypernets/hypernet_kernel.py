@@ -34,6 +34,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         # Remove self relations by matrix K multiplication
         self.no_self_relations: bool = params.no_self_relations
 
+        self.n_support_size_context = 1 if self.sup_aggregation in ["mean", "min_pooling", "max_pooling"] else self.n_support
+
         if (not self.use_scalar_product) and (not self.use_cosine_distance):
             self.kernel_input_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
             self.kernel_output_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
@@ -118,16 +120,17 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         Process embeddings for few shot learning
         """
         if self.n_support > 1:
-            if self.few_shot_strategy == 'embeddings_mean':
+            if self.sup_aggregation == 'mean':
                 return torch.mean(support_feature, axis=1).reshape(self.n_way, 1, -1)
-            elif self.few_shot_strategy == 'max_pooling':
+            elif self.sup_aggregation == 'max_pooling':
                 pooled, _ = torch.max(support_feature, axis=1)
                 pooled = pooled.reshape(self.n_way, 1, -1)
                 return pooled
-            elif self.few_shot_strategy == 'min_pooling':
+            elif self.sup_aggregation == 'min_pooling':
                 pooled, _ = torch.min(support_feature, axis=1)
                 pooled = pooled.reshape(self.n_way, 1, -1)
                 return pooled
+
         return support_feature
 
 

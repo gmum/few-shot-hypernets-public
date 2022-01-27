@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from methods.hypernets.hypnettorch_wrapper import hn_types
+from methods.hypernets.hypernet_poc import ALLOWED_AGGREGATIONS
 
 
 def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
@@ -22,7 +23,7 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hn_args.add_argument("--hn_tn_depth", type=int, default=2, help="Depth of target network")
     hn_args.add_argument("--hn_ln", action="store_true", default=False, help="Add BatchNorm to hypernet")
     hn_args.add_argument("--hn_dropout", type=float, default=0, help="Dropout probability in hypernet")
-    hn_args.add_argument("--hn_sup_aggregation", type=str, default="concat", choices=["concat", "sum", "mean"], help="How to aggregate supports from the same class")
+    hn_args.add_argument("--hn_sup_aggregation", type=str, default="concat", choices=ALLOWED_AGGREGATIONS, help="How to aggregate supports from the same class")
     hn_args.add_argument("--hn_tn_activation", type=str, default="relu", choices=["relu", "sin", "tanh"], help="Activation in the target network")
     hn_args.add_argument("--hn_lib_type", type=str, default="hmlp", choices =hn_types, help="Hypernet type from hypnettorch package")
     hn_args.add_argument("--hn_lib_chunk_size", type=int, default=1024, help="Hypnettorch chunk size")
