@@ -6,11 +6,6 @@ from methods.hypernets.hypernet_poc import ALLOWED_AGGREGATIONS
 def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
 
     hn_args = parser.add_argument_group("Hypernet-related arguments")
-    hn_args.add_argument("--few_shot_strategy", type=str,
-                         default='embeddings_mean',
-                         help="Stategy of handling few shot learning (n_shot > 1)",
-                         choices=["embeddings_mean", "max_pooling", "min_pooling"]
-                         )
     hn_args.add_argument("--hn_hidden_size", type=int, default=256, help="HN hidden size")
     hn_args.add_argument("--hn_tn_hidden_size", type=int, default=128, help="TN hidden size")
     hn_args.add_argument("--hn_taskset_size", type=int, default=1, help="Taskset size")
