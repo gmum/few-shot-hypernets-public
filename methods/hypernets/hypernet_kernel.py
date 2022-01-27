@@ -34,7 +34,6 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         # Remove self relations by matrix K multiplication
         self.no_self_relations: bool = params.no_self_relations
 
-
         if (not self.use_scalar_product) and (not self.use_cosine_distance):
             self.kernel_input_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
             self.kernel_output_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
@@ -43,13 +42,12 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             self.kernel_function = NNKernel(self.kernel_input_dim, self.kernel_output_dim,
                                             self.kernel_layers_no, self.kernel_hidden_dim)
         # I will be adding the kernel vector to the stacked images embeddings
-        #TODO: add/check changes for attention-like input
+        # TODO: add/check changes for attention-like input
 
         # if self.attention_embedding:
         #     self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support + (self.n_way * self.n_support)
         # else:
         #     self.embedding_size: int = conv_out_size * self.n_way * self.n_support + (self.n_way * self.n_support)
-
 
         self.hn_kernel_invariance: bool = params.hn_kernel_invariance
         self.hn_kernel_invariance_type: str = params.hn_kernel_invariance_type
@@ -70,7 +68,9 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                 self.embedding_size: int = support_embeddings_size + self.hn_kernel_convolution_output_dim
         else:
             if self.no_self_relations:
-                self.embedding_size: int = support_embeddings_size + (((self.n_way * self.n_support_size_context) ** 2) - (self.n_way * self.n_support_size_context) )
+                self.embedding_size: int = support_embeddings_size + (
+                            ((self.n_way * self.n_support_size_context) ** 2) - (
+                                self.n_way * self.n_support_size_context))
             else:
                 self.embedding_size: int = support_embeddings_size + ((self.n_way * self.n_support_size_context) ** 2)
 
@@ -93,7 +93,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         normalized_input_a = torch.nn.functional.normalize(input_a)
         normalized_input_b = torch.nn.functional.normalize(input_b)
         res = torch.mm(normalized_input_a, normalized_input_b.T)
-        res *= -1 # 1-res without copy
+        res *= -1  # 1-res without copy
         res += 1
         return res
 
@@ -113,12 +113,11 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             if not is_final:
                 layers.append(nn.ReLU())
 
-        res =  nn.Sequential(*layers)
+        res = nn.Sequential(*layers)
         print(res)
         return res
 
-
-    def process_few_shots(self, support_feature: torch.Tensor) -> torch.Tensor:
+    def maybe_aggregate_support_feature(self, support_feature: torch.Tensor) -> torch.Tensor:
         """
         Process embeddings for few shot learning
         """
@@ -136,10 +135,9 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         return support_feature
 
-
     def parse_feature(self, x, is_feature) -> Tuple[torch.Tensor, torch.Tensor]:
         support_feature, query_feature = super().parse_feature(x, is_feature)
-        support_feature = self.process_few_shots(support_feature)
+        support_feature = self.maybe_aggregate_support_feature(support_feature)
         return support_feature, query_feature
 
     def init_kernel_convolution_architecture(self, params):
@@ -151,9 +149,13 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         self.kernel_transformer_input_dim: int = self.n_way * self.n_support_size_context
         self.kernel_transformer_heads: int = params.kernel_transformer_heads_no
         self.kernel_transformer_dim_feedforward: int = params.kernel_transformer_feedforward_dim
-        self.kernel_transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.kernel_transformer_layers_no, input_dim=self.kernel_transformer_input_dim, num_heads=self.kernel_transformer_heads, dim_feedforward=self.kernel_transformer_dim_feedforward)
+        self.kernel_transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.kernel_transformer_layers_no,
+                                                                        input_dim=self.kernel_transformer_input_dim,
+                                                                        num_heads=self.kernel_transformer_heads,
+                                                                        dim_feedforward=self.kernel_transformer_dim_feedforward)
 
-    def build_relations_features(self, support_feature: torch.Tensor, feature_to_classify: torch.Tensor) -> torch.Tensor:
+    def build_relations_features(self, support_feature: torch.Tensor,
+                                 feature_to_classify: torch.Tensor) -> torch.Tensor:
 
         supp_way, n_support, supp_feat = support_feature.shape
         n_examples, feat_dim = feature_to_classify.shape
@@ -190,10 +192,10 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         # Remove self relations by matrix multiplication
         if self.no_self_relations:
-            zero_diagonal_matrix = torch.ones_like(kernel_values_tensor).cuda() - torch.eye(kernel_values_tensor.shape[0]).cuda()
+            zero_diagonal_matrix = torch.ones_like(kernel_values_tensor).cuda() - torch.eye(
+                kernel_values_tensor.shape[0]).cuda()
             kernel_values_tensor = kernel_values_tensor * zero_diagonal_matrix
             return torch.flatten(kernel_values_tensor[kernel_values_tensor != 0.0])
-
 
         # TODO - check!!!
         if self.hn_kernel_invariance:
@@ -201,11 +203,14 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                 kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
 
                 if self.hn_kernel_invariance_pooling == 'min':
-                    invariant_kernel_values = torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                    invariant_kernel_values = \
+                    torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 elif self.hn_kernel_invariance_pooling == 'max':
-                    invariant_kernel_values = torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                    invariant_kernel_values = \
+                    torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 else:
-                    invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
+                    invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor),
+                                                         1)
 
                 return invariant_kernel_values
             else:
@@ -213,11 +218,14 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                 kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
 
                 if self.hn_kernel_invariance_pooling == 'min':
-                    invariant_kernel_values = torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                    invariant_kernel_values = \
+                    torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 elif self.hn_kernel_invariance_pooling == 'max':
-                    invariant_kernel_values = torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                    invariant_kernel_values = \
+                    torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 else:
-                    invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
+                    invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor),
+                                                         1)
 
                 return invariant_kernel_values
 
@@ -243,7 +251,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         tn.support_feature = support_feature
         return tn.cuda()
 
-    def set_forward(self, x: torch.Tensor, is_feature: bool = False, return_perm: bool = False):
+    def set_forward(self, x: torch.Tensor, is_feature: bool = False, permutation_sanity_check: bool = False):
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
         classifier = self.generate_target_net(support_feature)
@@ -257,19 +265,17 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             relational_query_feature = torch.cat((relational_query_feature, query_feature), 1)
         y_pred = classifier(relational_query_feature)
 
-        ### random permutation test
-        perm = torch.randperm(len(query_feature))
-        rev_perm = torch.argsort(perm)
-        qp = query_feature[perm]
-        y_pred_perm = classifier(self.build_relations_features(support_feature, qp))
-        assert torch.equal(y_pred_perm[rev_perm], y_pred)
-        # print("perm test ok")
-        ###
-        if return_perm:
-            return y_pred, (perm, rev_perm, y_pred_perm)
+        if permutation_sanity_check:
+            ### random permutation test
+            perm = torch.randperm(len(query_feature))
+            rev_perm = torch.argsort(perm)
+            query_perm = query_feature[perm]
+            relation_perm = self.build_relations_features(support_feature, query_perm)
+            assert torch.equal(relation_perm[rev_perm], relational_query_feature)
+            y_pred_perm = classifier(relation_perm)
+            assert torch.equal(y_pred_perm[rev_perm], y_pred)
 
         return y_pred
-
 
     def set_forward_loss(
             self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False,
@@ -280,7 +286,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
-        #TODO: add/check changes for attention-like input
+        # TODO: add/check changes for attention-like input
         if self.attention_embedding:
             y_support = self.get_labels(support_feature)
             y_query = self.get_labels(query_feature)
@@ -382,7 +388,6 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         return metrics
 
 
-
 class HyperNetPocWithKernel(HyperNetPOC):
     def __init__(
             self, model_func: nn.Module, n_way: int, n_support: int, n_query: int,
@@ -403,9 +408,9 @@ class HyperNetPocWithKernel(HyperNetPOC):
             self.kernel_layers_no = params.hn_kernel_layers_no
             self.kernel_hidden_dim = params.hn_kernel_hidden_dim
             self.kernel_function = NNKernel(self.kernel_input_dim, self.kernel_output_dim,
-                                        self.kernel_layers_no, self.kernel_hidden_dim)
+                                            self.kernel_layers_no, self.kernel_hidden_dim)
         # I will be adding the kernel vector to the stacked images embeddings
-        #TODO: add/check changes for attention-like input
+        # TODO: add/check changes for attention-like input
         # TODO - check!!!
         self.hn_kernel_invariance: bool = params.hn_kernel_invariance
         self.hn_kernel_invariance_type: str = params.hn_kernel_invariance_type
@@ -417,11 +422,13 @@ class HyperNetPocWithKernel(HyperNetPOC):
         # TODO - add attention based input also
         if self.hn_kernel_invariance:
             if self.hn_kernel_invariance_type == 'attention':
-                self.embedding_size: int = conv_out_size * self.n_way * self.n_support_size_context + (self.n_way * self.n_support_size_context)
+                self.embedding_size: int = conv_out_size * self.n_way * self.n_support_size_context + (
+                            self.n_way * self.n_support_size_context)
             else:
                 self.embedding_size: int = conv_out_size * self.n_way * self.n_support_size_context + self.hn_kernel_convolution_output_dim
         else:
-            self.embedding_size: int = conv_out_size * self.n_way * self.n_support_size_context + ((self.n_way * self.n_support_size_context) * (self.n_way * self.n_query))
+            self.embedding_size: int = conv_out_size * self.n_way * self.n_support_size_context + (
+                        (self.n_way * self.n_support_size_context) * (self.n_way * self.n_query))
 
         # invariant operation type
         if self.hn_kernel_invariance:
@@ -443,13 +450,17 @@ class HyperNetPocWithKernel(HyperNetPOC):
         self.kernel_transformer_input_dim: int = self.n_way * self.n_support_size_context
         self.kernel_transformer_heads: int = params.kernel_transformer_heads_no
         self.kernel_transformer_dim_feedforward: int = params.kernel_transformer_feedforward_dim
-        self.kernel_transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.kernel_transformer_layers_no, input_dim=self.kernel_transformer_input_dim, num_heads=self.kernel_transformer_heads, dim_feedforward=self.kernel_transformer_dim_feedforward)
+        self.kernel_transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.kernel_transformer_layers_no,
+                                                                        input_dim=self.kernel_transformer_input_dim,
+                                                                        num_heads=self.kernel_transformer_heads,
+                                                                        dim_feedforward=self.kernel_transformer_dim_feedforward)
 
     def init_kernel_convolution_architecture(self, params):
         # TODO - add convolution-based approach
         self.kernel_1D_convolution: bool = True
 
-    def build_kernel_features_embedding(self, support_feature: torch.Tensor, query_feature: torch.Tensor) -> torch.Tensor:
+    def build_kernel_features_embedding(self, support_feature: torch.Tensor,
+                                        query_feature: torch.Tensor) -> torch.Tensor:
         """
         x_support: [n_way, n_support, hidden_size]
         """
@@ -457,7 +468,7 @@ class HyperNetPocWithKernel(HyperNetPOC):
         supp_way, n_support, supp_feat = support_feature.shape
         query_way, n_query, query_feat = query_feature.shape
 
-        #TODO: add/check changes for attention-like input
+        # TODO: add/check changes for attention-like input
         if self.attention_embedding:
             attention_support_features = support_feature.view(1, -1, *(support_feature.size()[2:]))
             support_feature = torch.flatten(self.transformer_encoder.forward(attention_support_features))
@@ -479,11 +490,14 @@ class HyperNetPocWithKernel(HyperNetPOC):
                 kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
 
                 if self.hn_kernel_invariance_pooling == 'min':
-                    invariant_kernel_values = torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                    invariant_kernel_values = \
+                    torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 elif self.hn_kernel_invariance_pooling == 'max':
-                    invariant_kernel_values = torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                    invariant_kernel_values = \
+                    torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 else:
-                    invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
+                    invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor),
+                                                         1)
 
                 return invariant_kernel_values
             else:
@@ -491,11 +505,14 @@ class HyperNetPocWithKernel(HyperNetPOC):
                 kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
 
                 if self.hn_kernel_invariance_pooling == 'min':
-                    invariant_kernel_values = torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                    invariant_kernel_values = \
+                    torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 elif self.hn_kernel_invariance_pooling == 'max':
-                    invariant_kernel_values = torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                    invariant_kernel_values = \
+                    torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 else:
-                    invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
+                    invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor),
+                                                         1)
 
                 return invariant_kernel_values
         # invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)
@@ -507,7 +524,8 @@ class HyperNetPocWithKernel(HyperNetPOC):
         x_support: [n_way, n_support, hidden_size]
         """
 
-        embedding = torch.cat((self.build_embedding(support_feature), self.build_kernel_features_embedding(support_feature, query_feature)), 1)
+        embedding = torch.cat((self.build_embedding(support_feature),
+                               self.build_kernel_features_embedding(support_feature, query_feature)), 1)
 
         root = self.hypernet_neck(embedding)
         network_params = {
@@ -521,7 +539,7 @@ class HyperNetPocWithKernel(HyperNetPOC):
     def set_forward(self, x: torch.Tensor, is_feature: bool = False):
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
-        #TODO: add/check changes for attention-like input
+        # TODO: add/check changes for attention-like input
         if self.attention_embedding:
             y_support = self.get_labels(support_feature)
             y_query = self.get_labels(query_feature)
@@ -555,7 +573,7 @@ class HyperNetPocWithKernel(HyperNetPOC):
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
-        #TODO: add/check changes for attention-like input
+        # TODO: add/check changes for attention-like input
         if self.attention_embedding:
             y_support = self.get_labels(support_feature)
             y_query = self.get_labels(query_feature)
@@ -650,6 +668,7 @@ class HyperNetPocWithKernel(HyperNetPOC):
 class ClassifierSupportQueryKernel(nn.Module):
     """A classifier (to be generated by hypernet) which calculates a kernel between support and query
     and treats that as logits."""
+
     def __init__(self, kernel: NNKernel, support: Optional[torch.Tensor] = None):
         super().__init__()
         self.kernel = kernel
@@ -672,6 +691,7 @@ class ClassifierSupportQueryKernel(nn.Module):
 
 class HNKernelBetweenSupportAndQuery(HyperNetPOC):
     """A hypernet which generates a `ClassifierSupportQueryKernel`"""
+
     def __init__(self, model_func, n_way: int, n_support: int, n_query: int):
         target_net_architecture = ClassifierSupportQueryKernel(NNKernel(64, 16, 1, 128))
         super().__init__(
