@@ -159,7 +159,6 @@ class HyperNetPOC(MetaTemplate):
             attention_features = torch.flatten(self.transformer_encoder.forward(features))
             return attention_features
 
-
         if self.sup_aggregation == "concat":
             features = support_feature.reshape(way * n_support, feat)
             features = features.reshape(1, -1)

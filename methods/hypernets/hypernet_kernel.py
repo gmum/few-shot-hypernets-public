@@ -264,14 +264,15 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             relational_query_feature = torch.cat((relational_query_feature, query_feature), 1)
         y_pred = classifier(relational_query_feature)
 
+        ### random permutation test
+        perm = torch.randperm(len(query_feature))
+        rev_perm = torch.argsort(perm)
+        qp = query_feature[perm]
+        y_pred_perm = classifier(self.build_relations_features(support_feature, qp))
+        assert torch.equal(y_pred_perm[rev_perm], y_pred)
+        print("perm test ok")
+        ###
         if return_perm:
-            perm = torch.randperm(len(query_feature))
-            rev_perm = torch.argsort(perm)
-            qp = query_feature[perm]
-            y_pred_perm = classifier(self.build_relations_features(support_feature, qp))
-            assert torch.equal(
-                y_pred_perm[rev_perm], y_pred
-            )
             return y_pred, (perm, rev_perm, y_pred_perm)
 
         return y_pred

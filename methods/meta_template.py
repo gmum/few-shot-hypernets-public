@@ -101,11 +101,6 @@ class MetaTemplate(nn.Module):
             count_this = len(y_query)
             acc_all.append(correct_this/ count_this*100  )
 
-            acc = correct_this / count_this
-            q_acc = self.query_accuracy(x)
-            assert acc == q_acc
-            print(i, q_acc, acc, "ok")
-
         metrics = {
             k: np.mean(v) if len(v) > 0 else 0
             for (k,v) in acc_at.items()
