@@ -8,7 +8,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from methods.hypernets import HyperNetPOC
-from methods.hypernets.utils import get_param_dict, set_from_param_dict
+from methods.hypernets.utils import get_param_dict, set_from_param_dict, accuracy_from_scores
 from methods.kernels import NNKernel
 from methods.transformer import TransformerEncoder
 
@@ -95,13 +95,10 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
     def build_target_net_architecture(self, params) -> nn.Module:
         tn_hidden_size = params.hn_tn_hidden_size
         layers = []
-        # TODO - check!!!
         if params.use_support_embeddings:
             common_insize = ((self.n_way * self.n_support_size_context) + self.feature.final_feat_dim)
         else:
             common_insize = (self.n_way * self.n_support_size_context)
-
-        # common_insize = ((self.n_way * self.n_support) + self.feature.final_feat_dim) if self.use_support_embeddings else (self.n_way * self.n_support)
 
         for i in range(params.hn_tn_depth):
             is_final = i == (params.hn_tn_depth - 1)
@@ -110,7 +107,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             layers.append(nn.Linear(insize, outsize))
             if not is_final:
                 layers.append(nn.ReLU())
-        res = nn.Sequential(*layers)
+
+        res =  nn.Sequential(*layers)
         print(res)
         return res
 
@@ -134,16 +132,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                 return pooled
         return support_feature
 
-    # def process_relations(self, relations: torch.Tensor) -> torch.Tensor:
-    #     if self.n_support > 1:
-    #         if self.few_shot_strategy == 'relations_mean':
-    #             relations = torch.mean(relations, axis=2).reshape(relations.shape[0], relations.shape[1])
-    #             return relations
-    #         return relations
-    #     return relations
 
-    # create mean of embeddings
-    # override
     def parse_feature(self, x, is_feature) -> Tuple[torch.Tensor, torch.Tensor]:
         support_feature, query_feature = super().parse_feature(x, is_feature)
         support_feature = self.process_few_shots(support_feature)
@@ -230,13 +219,12 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         return torch.flatten(kernel_values_tensor)
 
-    def generate_target_net_with_kernel_features(self, support_feature: torch.Tensor) -> nn.Module:
+    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
         """
         x_support: [n_way, n_support, hidden_size]
         """
 
         embedding = self.build_kernel_features_embedding(support_feature)
-
         # TODO - check!!!
         if self.use_support_embeddings:
             embedding = torch.cat((embedding, torch.flatten(support_feature)), 0)
@@ -246,14 +234,15 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             name.replace("-", "."): param_net(root).reshape(self.target_net_param_shapes[name])
             for name, param_net in self.hypernet_heads.items()
         }
-        tn = deepcopy(self.target_net_architecture)
+        tn: deepcopy(self.target_net_architecture)
         set_from_param_dict(tn, network_params)
+        tn.support_feature = support_feature
         return tn.cuda()
 
     def set_forward(self, x: torch.Tensor, is_feature: bool = False, return_perm: bool = False):
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
-        classifier = self.generate_target_net_with_kernel_features(support_feature)
+        classifier = self.generate_target_net(support_feature)
         query_feature = query_feature.reshape(
             -1, query_feature.shape[-1]
         )
@@ -277,24 +266,19 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         return y_pred
 
-    def query_accuracy(self, x: torch.Tensor):
-        # we test if accuracy on examples sorted by class is the same as accuracy on randomly shuffled examples.
-        scores,  (perm, rev_perm, y_pred_perm) = self.set_forward(x, return_perm=True)
-        y_query = np.repeat(range(self.n_way), self.n_query)
-        y_query_perm = y_query[perm]
+    # def query_accuracy(self, x: torch.Tensor):
+    #     # we test if accuracy on examples sorted by class is the same as accuracy on randomly shuffled examples.
+    #     scores = self.set_forward(x)
+    #     y_query = np.repeat(range(self.n_way), self.n_query)
+    #
+    #
+    #     topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
+    #     topk_ind = topk_labels.cpu().numpy()
+    #     top1_correct = np.sum(topk_ind[:, 0] == y_query)
+    #     correct_this = float(top1_correct)
+    #     count_this = len(y_query)
+    #     return correct_this / count_this
 
-        accs = []
-
-        for sc, yq in [(scores, y_query), (y_pred_perm, y_query_perm)]:
-            topk_scores, topk_labels = sc.data.topk(1, 1, True, True)
-            topk_ind = topk_labels.cpu().numpy()
-            top1_correct = np.sum(topk_ind[:, 0] == yq)
-            correct_this = float(top1_correct)
-            count_this = len(yq)
-            accs.append(correct_this / count_this)
-
-        assert accs[0] == accs[1], accs
-        return accs[0]
 
     def set_forward_loss(
             self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False,
@@ -319,7 +303,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             feature_to_hn = support_feature.detach() if detach_ft_hn else support_feature
             query_feature_to_hn = query_feature
 
-        classifier = self.generate_target_net_with_kernel_features(feature_to_hn)
+        classifier = self.generate_target_net(feature_to_hn)
 
         feature_to_classify = []
         y_to_classify_gt = []
@@ -527,7 +511,7 @@ class HyperNetPocWithKernel(HyperNetPOC):
 
         return torch.unsqueeze(torch.flatten(kernel_values_tensor), 0)
 
-    def generate_target_net_with_kernel_features(self, support_feature: torch.Tensor, query_feature: torch.Tensor) -> nn.Module:
+    def generate_target_net(self, support_feature: torch.Tensor, query_feature: torch.Tensor) -> nn.Module:
         """
         x_support: [n_way, n_support, hidden_size]
         """
@@ -557,7 +541,7 @@ class HyperNetPocWithKernel(HyperNetPOC):
             query_feature_with_zeros = torch.cat((query_feature, y_query_zeros), 2)
             query_feature = query_feature_with_zeros
 
-        classifier = self.generate_target_net_with_kernel_features(support_feature, query_feature)
+        classifier = self.generate_target_net(support_feature, query_feature)
         query_feature = query_feature.reshape(
             -1, query_feature.shape[-1]
         )
@@ -594,7 +578,7 @@ class HyperNetPocWithKernel(HyperNetPOC):
             feature_to_hn = support_feature.detach() if detach_ft_hn else support_feature
             query_feature_to_hn = query_feature
 
-        classifier = self.generate_target_net_with_kernel_features(feature_to_hn, query_feature_to_hn)
+        classifier = self.generate_target_net(feature_to_hn, query_feature_to_hn)
 
         feature_to_classify = torch.cat(
             [
