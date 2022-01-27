@@ -174,7 +174,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         else:
             kernel_values_tensor = self.kernel_function.forward(support_features, feature_to_classify)
 
-        relations = kernel_values_tensor.reshape(n_examples, supp_way * n_support)
+        relations = kernel_values_tensor.T
 
         return relations
 
@@ -277,6 +277,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         return y_pred
 
     def query_accuracy(self, x: torch.Tensor):
+        # we test if accuracy on examples sorted by class is the same as accuracy on randomly shuffled examples.
         scores,  (perm, rev_perm, y_pred_perm) = self.set_forward(x, return_perm=True)
         y_query = np.repeat(range(self.n_way), self.n_query)
         y_query_perm = y_query[perm]
@@ -292,7 +293,6 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             accs.append(correct_this / count_this)
 
         assert accs[0] == accs[1], accs
-        print("Accuracies are", accs, "when y queries are", y_query, y_query_perm)
         return accs[0]
 
     def set_forward_loss(
