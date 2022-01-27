@@ -19,23 +19,22 @@ class HyperNetPOC(MetaTemplate):
     ):
         super().__init__(model_func, n_way, n_support)
 
+        self.feat_dim = self.feature.final_feat_dim = 64 if params.dataset == "cross_char" else 1600
 
-        conv_out_size = self.feature.final_feat_dim
         self.n_query = n_query
         self.taskset_size: int = params.hn_taskset_size
         self.taskset_print_every: int = params.hn_taskset_print_every
         self.hn_hidden_size: int = params.hn_hidden_size
-        self.conv_out_size: int = conv_out_size
         self.attention_embedding: bool = params.hn_attention_embedding
         self.sup_aggregation: str = params.hn_sup_aggregation
         if self.attention_embedding:
-            self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support
+            self.embedding_size: int = (self.feat_dim + self.n_way) * self.n_way * self.n_support
         else:
             assert self.sup_aggregation in ALLOWED_AGGREGATIONS
             if self.sup_aggregation == "concat":
-                self.embedding_size: int = conv_out_size * self.n_way * self.n_support
+                self.embedding_size: int = self.feat_dim * self.n_way * self.n_support
             elif self.sup_aggregation in ["mean", "max_pooling", "min_pooling"]:
-                self.embedding_size: int = conv_out_size * self.n_way
+                self.embedding_size: int = self.feat_dim * self.n_way
         self.detach_ft_in_hn: int = params.hn_detach_ft_in_hn
         self.detach_ft_in_tn: int = params.hn_detach_ft_in_tn
         self.hn_neck_len: int = params.hn_neck_len
@@ -65,7 +64,7 @@ class HyperNetPOC(MetaTemplate):
 
         for i in range(params.hn_tn_depth):
             is_final = i == (params.hn_tn_depth - 1)
-            insize = self.feature.final_feat_dim if i == 0 else tn_hidden_size
+            insize = self.feat_dim if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
             layers.append(nn.Linear(insize, outsize))
             if not is_final:
@@ -76,7 +75,7 @@ class HyperNetPOC(MetaTemplate):
 
     def init_transformer_architecture(self, params):
         self.transformer_layers_no: int = params.hn_transformer_layers_no
-        self.transformer_input_dim: int = self.conv_out_size + self.n_way
+        self.transformer_input_dim: int = self.feat_dim + self.n_way
         self.transformer_heads: int = params.hn_transformer_heads_no
         self.transformer_dim_feedforward: int = params.hn_transformer_feedforward_dim
         self.transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.transformer_layers_no, input_dim=self.transformer_input_dim, num_heads=self.transformer_heads, dim_feedforward=self.transformer_dim_feedforward)
@@ -163,12 +162,12 @@ class HyperNetPOC(MetaTemplate):
         elif self.sup_aggregation == "sum":
             features = support_feature.sum(dim=1)
             way, feat = features.shape
-            assert (way, feat) == (self.n_way, self.conv_out_size)
+            assert (way, feat) == (self.n_way, self.feat_dim)
             features = features.reshape(1, -1)
         elif self.sup_aggregation == "mean":
             features = support_feature.mean(dim=1)
             way, feat = features.shape
-            assert (way, feat) == (self.n_way, self.conv_out_size)
+            assert (way, feat) == (self.n_way, self.feat_dim)
             features = features.reshape(1, -1)
         else:
             raise TypeError(self.sup_aggregation)

@@ -23,8 +23,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         )
 
         # TODO - check!!!
-        conv_out_size = 1600
-        # conv_out_size = self.feature.final_feat_dim
+
         # Use scalar product instead of a specific kernel
         self.use_scalar_product: bool = params.use_scalar_product
         # Use cosine distance instead of a specific kernel
@@ -35,8 +34,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         self.no_self_relations: bool = params.no_self_relations
 
         if (not self.use_scalar_product) and (not self.use_cosine_distance):
-            self.kernel_input_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
-            self.kernel_output_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
+            self.kernel_input_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
+            self.kernel_output_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
             self.kernel_layers_no = params.hn_kernel_layers_no
             self.kernel_hidden_dim = params.hn_kernel_hidden_dim
             self.kernel_function = NNKernel(self.kernel_input_dim, self.kernel_output_dim,
@@ -45,9 +44,9 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         # TODO: add/check changes for attention-like input
 
         # if self.attention_embedding:
-        #     self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support + (self.n_way * self.n_support)
+        #     self.embedding_size: int = (self.feat_dim + self.n_way) * self.n_way * self.n_support + (self.n_way * self.n_support)
         # else:
-        #     self.embedding_size: int = conv_out_size * self.n_way * self.n_support + (self.n_way * self.n_support)
+        #     self.embedding_size: int = self.feat_dim * self.n_way * self.n_support + (self.n_way * self.n_support)
 
         self.hn_kernel_invariance: bool = params.hn_kernel_invariance
         self.hn_kernel_invariance_type: str = params.hn_kernel_invariance_type
@@ -57,7 +56,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         # embedding size
         # TODO - add attention based input also
         if self.use_support_embeddings:
-            support_embeddings_size = conv_out_size * self.n_way * self.n_support_size_context
+            support_embeddings_size = self.feat_dim * self.n_way * self.n_support_size_context
         else:
             support_embeddings_size = 0
 
@@ -101,7 +100,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         tn_hidden_size = params.hn_tn_hidden_size
         layers = []
         if params.use_support_embeddings:
-            common_insize = ((self.n_way * self.n_support_size_context) + self.feature.final_feat_dim)
+            common_insize = ((self.n_way * self.n_support_size_context) + self.feat_dim)
         else:
             common_insize = (self.n_way * self.n_support_size_context)
 
@@ -398,13 +397,12 @@ class HyperNetPocWithKernel(HyperNetPOC):
         )
 
         # TODO - check!!!
-        conv_out_size = self.feature.final_feat_dim
         # Use scalar product instead of a specific kernel
         self.use_scalar_product: bool = params.use_scalar_product
 
         if not self.use_scalar_product:
-            self.kernel_input_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
-            self.kernel_output_dim = conv_out_size + self.n_way if self.attention_embedding else conv_out_size
+            self.kernel_input_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
+            self.kernel_output_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
             self.kernel_layers_no = params.hn_kernel_layers_no
             self.kernel_hidden_dim = params.hn_kernel_hidden_dim
             self.kernel_function = NNKernel(self.kernel_input_dim, self.kernel_output_dim,
@@ -422,12 +420,12 @@ class HyperNetPocWithKernel(HyperNetPOC):
         # TODO - add attention based input also
         if self.hn_kernel_invariance:
             if self.hn_kernel_invariance_type == 'attention':
-                self.embedding_size: int = conv_out_size * self.n_way * self.n_support_size_context + (
+                self.embedding_size: int = self.feat_dim * self.n_way * self.n_support_size_context + (
                             self.n_way * self.n_support_size_context)
             else:
-                self.embedding_size: int = conv_out_size * self.n_way * self.n_support_size_context + self.hn_kernel_convolution_output_dim
+                self.embedding_size: int = self.feat_dim * self.n_way * self.n_support_size_context + self.hn_kernel_convolution_output_dim
         else:
-            self.embedding_size: int = conv_out_size * self.n_way * self.n_support_size_context + (
+            self.embedding_size: int = self.feat_dim * self.n_way * self.n_support_size_context + (
                         (self.n_way * self.n_support_size_context) * (self.n_way * self.n_query))
 
         # invariant operation type
@@ -438,9 +436,9 @@ class HyperNetPocWithKernel(HyperNetPOC):
                 self.init_kernel_convolution_architecture(params)
 
         # if self.attention_embedding:
-        #     self.embedding_size: int = (conv_out_size + self.n_way) * self.n_way * self.n_support + (self.n_way * self.n_support)
+        #     self.embedding_size: int = (self.feat_dim + self.n_way) * self.n_way * self.n_support + (self.n_way * self.n_support)
         # else:
-        #     self.embedding_size: int = conv_out_size * self.n_way * self.n_support + (self.n_way * self.n_support)
+        #     self.embedding_size: int = self.feat_dim * self.n_way * self.n_support + (self.n_way * self.n_support)
 
         # self.init_kernel_transformer_architecture(params)
         self.init_hypernet_modules()
