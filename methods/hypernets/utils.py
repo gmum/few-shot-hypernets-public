@@ -51,7 +51,6 @@ class SinActivation(nn.Module):
 
 def accuracy_from_scores(scores: torch.Tensor, n_way: int, n_query: int) -> float:
     """Assumes that scores are for examples sorted by class!"""
-    print("afs", scores.shape, n_way, n_query)
     y_query = np.repeat(range(n_way), n_query)
     topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
     topk_ind = topk_labels.cpu().numpy()
