@@ -194,7 +194,7 @@ class HyperNetPOC(MetaTemplate):
         set_from_param_dict(tn, network_params)
         return tn.cuda()
 
-    def set_forward(self, x: torch.Tensor, is_feature: bool = False):
+    def set_forward(self, x: torch.Tensor, is_feature: bool = False, permutation_sanity_check: bool = False):
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
         if self.attention_embedding:
@@ -208,6 +208,16 @@ class HyperNetPOC(MetaTemplate):
             -1, query_feature.shape[-1]
         )
         y_pred = classifier(query_feature)
+
+        if permutation_sanity_check:
+            ### random permutation test
+            perm = torch.randperm(len(query_feature))
+            rev_perm = torch.argsort(perm)
+            query_perm = query_feature[perm]
+            assert torch.equal(query_perm[rev_perm], query_feature)
+            y_pred_perm = classifier(query_perm)
+            assert torch.equal(y_pred_perm[rev_perm], y_pred)
+
         return y_pred
 
     def set_forward_with_adaptation(self, x: torch.Tensor):
@@ -227,8 +237,7 @@ class HyperNetPOC(MetaTemplate):
                 self_copy.eval()
                 metrics[f"accuracy/val@-{i}"] = self_copy.query_accuracy(x)
 
-        return self_copy.set_forward(x), metrics
-
+        return self_copy.set_forward(x, permutation_sanity_check=True), metrics
 
     def query_accuracy(self, x: torch.Tensor) -> float:
         scores = self.set_forward(x)
