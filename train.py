@@ -351,8 +351,7 @@ if __name__ == '__main__':
         print("python", " ".join(sys.argv), file=f)
 
 
-    # neptune_run = setup_neptune(params)
-    neptune_run = None #setup_neptune(params)
+    neptune_run = setup_neptune(params)
 
     model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
 
