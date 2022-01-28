@@ -336,7 +336,7 @@ if __name__ == '__main__':
         else:
             raise ValueError('No warm_up file')
 
-    args_dict = vars(params)
+    args_dict = vars(params.params)
     with (Path(params.checkpoint_dir) / "args.json").open("w") as f:
         json.dump(
             {

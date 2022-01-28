@@ -152,7 +152,7 @@ def setup_neptune(params) -> Run:
         with run_file.open("w") as f:
             f.write(run._short_id)
             print("Starting neptune run", run._short_id)
-        run["params"] = vars(params)
+        run["params"] = vars(params.params)
         run["cmd"] = f"python {' '.join(sys.argv)}"
         return run
 
