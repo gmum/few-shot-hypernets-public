@@ -176,7 +176,7 @@ def get_scheduler(params, optimizer) -> lr_scheduler._LRScheduler:
 
 if __name__ == '__main__':
     params = parse_args('train')
-    _set_seed(parse_args('train').seed)
+    _set_seed(params.seed)
     if params.dataset == 'cross':
         base_file = configs.data_dir['miniImagenet'] + 'all.json'
         val_file = configs.data_dir['CUB'] + 'val.json'
@@ -241,8 +241,6 @@ if __name__ == '__main__':
                            'maml_approx'] + list(hypernet_types.keys()):
         n_query = max(1, int(
             16 * params.test_n_way / params.train_n_way))  # if test_n_way is smaller than train_n_way, reduce n_query to keep batch size small
-        # if params.method in list(hn_poc_types.keys()):
-        #     n_query = 15
         print("n_query", n_query)
         train_few_shot_params = dict(n_way=params.train_n_way, n_support=params.n_shot, n_query=n_query)
         base_datamgr = SetDataManager(image_size, **train_few_shot_params)  # n_eposide=100
@@ -353,7 +351,8 @@ if __name__ == '__main__':
         print("python", " ".join(sys.argv), file=f)
 
 
-    neptune_run = setup_neptune(params)
+    # neptune_run = setup_neptune(params)
+    neptune_run = None #setup_neptune(params)
 
     model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
 

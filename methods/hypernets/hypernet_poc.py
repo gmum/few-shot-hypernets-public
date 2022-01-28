@@ -74,11 +74,9 @@ class HyperNetPOC(MetaTemplate):
         return res
 
     def init_transformer_architecture(self, params):
-        self.transformer_layers_no: int = params.hn_transformer_layers_no
-        self.transformer_input_dim: int = self.feat_dim + self.n_way
-        self.transformer_heads: int = params.hn_transformer_heads_no
-        self.transformer_dim_feedforward: int = params.hn_transformer_feedforward_dim
-        self.transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.transformer_layers_no, input_dim=self.transformer_input_dim, num_heads=self.transformer_heads, dim_feedforward=self.transformer_dim_feedforward)
+        transformer_input_dim: int = self.feat_dim + self.n_way
+        self.transformer_encoder: nn.Module = TransformerEncoder(
+            num_layers= params.hn_transformer_layers_no, input_dim=transformer_input_dim, num_heads=params.hn_transformer_heads_no, dim_feedforward=params.hn_transformer_feedforward_dim)
 
     def init_hypernet_modules(self):
         target_net_param_dict = get_param_dict(self.target_net_architecture)
