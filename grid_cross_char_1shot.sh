@@ -13,7 +13,7 @@ CMD="python train.py --dataset cross_char --hn_detach_ft_in_hn 100000 --hn_detac
   --hn_taskset_repeats 10:10-20:5-30:2 --hn_taskset_size 1 --hn_tn_depth 2  \
   --lr 0.001 --method hn_poc_sup_sup_kernel \
   --model Conv4 --num_classes 4112 \
-  --optim adam --resume --save_freq 500 --start_epoch 0 --stop_epoch 1000 \
+  --optim adam --resume --save_freq 500 --start_epoch 0 --stop_epoch 2000 \
   --test_n_way 5 --train_n_way 5 --hn_val_epochs 0 --n_shot 1 --es_threshold 60 --seed 1 --use_cosine_distance"
 
 

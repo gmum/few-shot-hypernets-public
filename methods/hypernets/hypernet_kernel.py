@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from methods.hypernets import HyperNetPOC
 from methods.hypernets.utils import get_param_dict, set_from_param_dict, accuracy_from_scores
-from methods.kernels import NNKernel
+from methods.kernels import NNKernel, ScalarProductKernel, CosineDistanceKernel
 from methods.transformer import TransformerEncoder
 
 
@@ -24,34 +24,12 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         # TODO - check!!!
 
-        # Use scalar product instead of a specific kernel
-        self.use_scalar_product: bool = params.use_scalar_product
-        # Use cosine distance instead of a specific kernel
-        self.use_cosine_distance: bool = params.use_cosine_distance
         # Use support embeddings - concatenate them with kernel features
         self.use_support_embeddings: bool = params.use_support_embeddings
         # Remove self relations by matrix K multiplication
         self.no_self_relations: bool = params.no_self_relations
 
-        if (not self.use_scalar_product) and (not self.use_cosine_distance):
-            self.kernel_input_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
-            self.kernel_output_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
-            self.kernel_layers_no = params.hn_kernel_layers_no
-            self.kernel_hidden_dim = params.hn_kernel_hidden_dim
-            self.kernel_function = NNKernel(self.kernel_input_dim, self.kernel_output_dim,
-                                            self.kernel_layers_no, self.kernel_hidden_dim)
-        # I will be adding the kernel vector to the stacked images embeddings
-        # TODO: add/check changes for attention-like input
-
-        # if self.attention_embedding:
-        #     self.embedding_size: int = (self.feat_dim + self.n_way) * self.n_way * self.n_support + (self.n_way * self.n_support)
-        # else:
-        #     self.embedding_size: int = self.feat_dim * self.n_way * self.n_support + (self.n_way * self.n_support)
-
-        self.hn_kernel_invariance: bool = params.hn_kernel_invariance
-        self.hn_kernel_invariance_type: str = params.hn_kernel_invariance_type
-        self.hn_kernel_convolution_output_dim: int = params.hn_kernel_convolution_output_dim
-        self.hn_kernel_invariance_pooling: str = params.hn_kernel_invariance_pooling
+        self.kernel_function = self.init_kernel_function(params)
 
         # embedding size
         # TODO - add attention based input also
@@ -60,11 +38,20 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         else:
             support_embeddings_size = 0
 
+        # I will be adding the kernel vector to the stacked images embeddings
+        # TODO: add/check changes for attention-like input
+        self.hn_kernel_invariance: bool = params.hn_kernel_invariance
         if self.hn_kernel_invariance:
+            self.hn_kernel_invariance_type: str = params.hn_kernel_invariance_type
+            self.hn_kernel_invariance_pooling: str = params.hn_kernel_invariance_pooling
+
             if self.hn_kernel_invariance_type == 'attention':
                 self.embedding_size: int = support_embeddings_size + (self.n_way * self.n_support_size_context)
+                self.init_kernel_transformer_architecture(params)
             else:
-                self.embedding_size: int = support_embeddings_size + self.hn_kernel_convolution_output_dim
+                self.embedding_size: int = support_embeddings_size + params.hn_kernel_convolution_output_dim
+                self.init_kernel_convolution_architecture(params)
+
         else:
             if self.no_self_relations:
                 self.embedding_size: int = support_embeddings_size + (
@@ -73,28 +60,27 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             else:
                 self.embedding_size: int = support_embeddings_size + ((self.n_way * self.n_support_size_context) ** 2)
 
-        # invariant operation type
-        if self.hn_kernel_invariance:
-            if self.hn_kernel_invariance_type == 'attention':
-                self.init_kernel_transformer_architecture(params)
-            else:
-                self.init_kernel_convolution_architecture(params)
-
         self.query_relations_size = self.n_way * self.n_support_size_context
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.init_hypernet_modules()
 
+
+    def init_kernel_function(self, params):
+        if params.use_scalar_product:
+            return ScalarProductKernel()
+        elif params.use_cosine_distance:
+            return CosineDistanceKernel()
+        else:
+            # if (not self.use_scalar_product) and (not self.use_cosine_distance):
+            kernel_input_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
+            kernel_output_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
+            kernel_layers_no = params.hn_kernel_layers_no
+            kernel_hidden_dim = params.hn_kernel_hidden_dim
+            return NNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
+
     @property
     def n_support_size_context(self) -> int:
         return 1 if self.sup_aggregation in ["mean", "min_pooling", "max_pooling"] else self.n_support
-
-    def pw_cosine_distance(self, input_a, input_b):
-        normalized_input_a = torch.nn.functional.normalize(input_a)
-        normalized_input_b = torch.nn.functional.normalize(input_b)
-        res = torch.mm(normalized_input_a, normalized_input_b.T)
-        res *= -1  # 1-res without copy
-        res += 1
-        return res
 
     def build_target_net_architecture(self, params) -> nn.Module:
         tn_hidden_size = params.hn_tn_hidden_size
@@ -144,14 +130,13 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         self.kernel_1D_convolution: bool = True
 
     def init_kernel_transformer_architecture(self, params):
-        self.kernel_transformer_layers_no: int = params.kernel_transformer_layers_no
-        self.kernel_transformer_input_dim: int = self.n_way * self.n_support_size_context
-        self.kernel_transformer_heads: int = params.kernel_transformer_heads_no
-        self.kernel_transformer_dim_feedforward: int = params.kernel_transformer_feedforward_dim
-        self.kernel_transformer_encoder: nn.Module = TransformerEncoder(num_layers=self.kernel_transformer_layers_no,
-                                                                        input_dim=self.kernel_transformer_input_dim,
-                                                                        num_heads=self.kernel_transformer_heads,
-                                                                        dim_feedforward=self.kernel_transformer_dim_feedforward)
+        kernel_transformer_input_dim: int = self.n_way * self.n_support_size_context
+        self.kernel_transformer_encoder: nn.Module = TransformerEncoder(
+            num_layers=params.kernel_transformer_layers_no,
+            input_dim=kernel_transformer_input_dim,
+            num_heads=params.kernel_transformer_heads_no,
+            dim_feedforward=params.kernel_transformer_feedforward_dim
+        )
 
     def build_relations_features(self, support_feature: torch.Tensor,
                                  feature_to_classify: torch.Tensor) -> torch.Tensor:
@@ -160,13 +145,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         n_examples, feat_dim = feature_to_classify.shape
         support_features = support_feature.reshape(supp_way * n_support, supp_feat)
 
-        # TODO - check!!!
-        if self.use_scalar_product:
-            kernel_values_tensor = torch.matmul(support_features, feature_to_classify.T)
-        elif self.use_cosine_distance:
-            kernel_values_tensor = self.pw_cosine_distance(support_features, feature_to_classify)
-        else:
-            kernel_values_tensor = self.kernel_function.forward(support_features, feature_to_classify)
+        kernel_values_tensor = self.kernel_function.forward(support_features, feature_to_classify)
 
         relations = kernel_values_tensor.T
 
@@ -181,13 +160,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         support_features = support_feature.reshape(supp_way * n_support, supp_feat)
         support_features_copy = torch.clone(support_features)
 
-        # TODO - check!!!
-        if self.use_scalar_product:
-            kernel_values_tensor = torch.matmul(support_features, support_features_copy.T)
-        elif self.use_cosine_distance:
-            kernel_values_tensor = self.pw_cosine_distance(support_features, support_features_copy)
-        else:
-            kernel_values_tensor = self.kernel_function.forward(support_features, support_features_copy)
+        kernel_values_tensor = self.kernel_function.forward(support_features, support_features_copy)
 
         # Remove self relations by matrix multiplication
         if self.no_self_relations:
@@ -196,37 +169,23 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             kernel_values_tensor = kernel_values_tensor * zero_diagonal_matrix
             return torch.flatten(kernel_values_tensor[kernel_values_tensor != 0.0])
 
-        # TODO - check!!!
         if self.hn_kernel_invariance:
+            # TODO - check!!!
             if self.hn_kernel_invariance_type == 'attention':
                 kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
+                encoded = self.kernel_transformer_encoder.forward(kernel_values_tensor)
 
                 if self.hn_kernel_invariance_pooling == 'min':
-                    invariant_kernel_values = \
-                    torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                    invariant_kernel_values, _ = torch.min(encoded, 1)
                 elif self.hn_kernel_invariance_pooling == 'max':
-                    invariant_kernel_values = \
-                    torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                    invariant_kernel_values, _ = torch.max(encoded, 1)
                 else:
-                    invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor),
-                                                         1)
+                    invariant_kernel_values = torch.mean(encoded, 1)
 
                 return invariant_kernel_values
             else:
                 # TODO - add convolutional approach
-                kernel_values_tensor = torch.unsqueeze(kernel_values_tensor.T, 0)
-
-                if self.hn_kernel_invariance_pooling == 'min':
-                    invariant_kernel_values = \
-                    torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
-                elif self.hn_kernel_invariance_pooling == 'max':
-                    invariant_kernel_values = \
-                    torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
-                else:
-                    invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor),
-                                                         1)
-
-                return invariant_kernel_values
+                raise NotImplementedError(self.hn_kernel_invariance_type)
 
         return torch.flatten(kernel_values_tensor)
 
