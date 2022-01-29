@@ -242,7 +242,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             -1, query_feature.shape[-1]
         )
         relational_query_feature = self.build_relations_features(support_feature, query_feature)
-        metrics["accuracy/val_relational"] = accuracy_from_scores(relational_query_feature.T, self.n_way, self.n_query)
+        metrics["accuracy/val_relational"] = accuracy_from_scores(relational_query_feature, self.n_way, self.n_query)
         return y_pred, metrics
 
 

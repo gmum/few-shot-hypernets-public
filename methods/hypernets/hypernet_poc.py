@@ -233,7 +233,6 @@ class HyperNetPOC(MetaTemplate):
                 val_opt.step()
                 self_copy.eval()
                 metrics[f"accuracy/val@-{i}"] = self_copy.query_accuracy(x)
-
         return self_copy.set_forward(x, permutation_sanity_check=True), metrics
 
     def query_accuracy(self, x: torch.Tensor) -> float:
