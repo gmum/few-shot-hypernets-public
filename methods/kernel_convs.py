@@ -5,15 +5,24 @@ import torch.nn as nn
 class KernelConv(nn.Module):
     def __init__(self, hn_kernel_convolution_output_dim):
         super(KernelConv, self).__init__()
+        # self.conv = nn.Sequential(
+        #     nn.Conv2d(1, 2, kernel_size=(5, 5)),
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(2, 3, kernel_size=(3, 3)),
+        #     nn.ReLU(inplace=True),
+        #     nn.Conv2d(3, 5, kernel_size=(2, 2)),
+        #     nn.ReLU(inplace=True)
+        # )
+        # self.fc = nn.Linear(5 * 18 * 18, hn_kernel_convolution_output_dim)
         self.conv = nn.Sequential(
-            nn.Conv2d(1, 2, kernel_size=(5, 5)),
+            nn.Conv2d(1, 2, kernel_size=(2, 2)),
             nn.ReLU(inplace=True),
-            nn.Conv2d(2, 3, kernel_size=(3, 3)),
+            nn.Conv2d(2, 3, kernel_size=(2, 2)),
             nn.ReLU(inplace=True),
             nn.Conv2d(3, 5, kernel_size=(2, 2)),
             nn.ReLU(inplace=True)
         )
-        self.fc = nn.Linear(5 * 18 * 18, hn_kernel_convolution_output_dim)
+        self.fc = nn.Linear(5 * 2 * 2, hn_kernel_convolution_output_dim)
 
     def forward(self, x):
         x = self.conv(x)
