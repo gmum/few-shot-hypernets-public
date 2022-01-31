@@ -11,6 +11,7 @@ from methods.hypernets import HyperNetPOC
 from methods.hypernets.utils import get_param_dict, set_from_param_dict, accuracy_from_scores
 from methods.kernels import NNKernel, ScalarProductKernel, CosineDistanceKernel
 from methods.transformer import TransformerEncoder
+from methods.kernel_convolutions import KernelConv
 
 
 class HyperNetPocSupportSupportKernel(HyperNetPOC):
@@ -127,7 +128,8 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
     def init_kernel_convolution_architecture(self, params):
         # TODO - add convolution-based approach
-        self.kernel_1D_convolution: bool = True
+        self.kernel_2D_convolution: bool = True
+        self.kernel_conv: nn.Module = KernelConv(self.n_support, params.hn_kernel_convolution_output_dim)
 
     def init_kernel_transformer_architecture(self, params):
         kernel_transformer_input_dim: int = self.n_way * self.n_support_size_context
@@ -185,7 +187,10 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                 return invariant_kernel_values
             else:
                 # TODO - add convolutional approach
-                raise NotImplementedError(self.hn_kernel_invariance_type)
+                kernel_values_tensor = torch.unsqueeze(torch.unsqueeze(kernel_values_tensor.T, 0), 0)
+                invariant_kernel_values = torch.flatten(self.kernel_conv.forward(kernel_values_tensor))
+
+                return invariant_kernel_values
 
         return torch.flatten(kernel_values_tensor)
 
