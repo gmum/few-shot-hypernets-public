@@ -339,5 +339,3 @@ class HyperNetPOC(MetaTemplate):
         metrics["loss/train"] = np.mean(losses)
         metrics["accuracy/train"] = np.mean(accuracies) * 100
         return metrics
-
-
