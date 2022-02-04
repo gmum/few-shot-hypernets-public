@@ -1,4 +1,4 @@
-from methods.hypernets.hypernet_poc import HyperNetPOC
+from methods.hypernets.hypernet_poc import HyperNetPOC, HypernetPPA
 from methods.hypernets.hypnettorch_wrapper import HypnettorchWrapper
 from methods.hypernets.deprecated import HNPocAdaptTN, HNPocWithUniversalFinal, HyperNetConvFromDKT, HyperNetSepJoint, \
     HyperNetSupportConv, HyperNetSupportKernel, NoHNConditioning
@@ -7,6 +7,7 @@ from methods.hypernets.hypernet_kernel import HyperNetPocWithKernel, HyperNetPoc
 
 hypernet_types = {
     "hn_poc": HyperNetPOC,
+    "hn_ppa": HypernetPPA,
     "hn_poc_kernel": HyperNetPocWithKernel,
     "hn_poc_sup_sup_kernel": HyperNetPocSupportSupportKernel,
     "hn_sup_kernel": HNKernelBetweenSupportAndQuery,
