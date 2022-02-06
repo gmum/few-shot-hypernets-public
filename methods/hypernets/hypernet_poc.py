@@ -173,7 +173,6 @@ class HyperNetPOC(MetaTemplate):
 
     def generate_network_params(self, support_feature: torch.Tensor) -> Dict[str, torch.Tensor]:
         embedding = self.build_embedding(support_feature)
-
         root = self.hypernet_neck(embedding)
         network_params = {
             name.replace("-", "."): param_net(root).reshape(self.target_net_param_shapes[name])
@@ -273,11 +272,11 @@ class HyperNetPOC(MetaTemplate):
         if train_on_query:
             feature_to_classify.append(
                 query_feature.reshape(
-                    (self.n_way * (n_examples - self.n_support_size)), query_feature.shape[-1]
+                    (self.n_way * (n_examples - self.n_support)), query_feature.shape[-1]
                 )
             )
             y_query = self.get_labels(query_feature)
-            y_to_classify_gt.append(y_query.reshape(self.n_way * (n_examples - self.n_support_size)))
+            y_to_classify_gt.append(y_query.reshape(self.n_way * (n_examples - self.n_support)))
 
         feature_to_classify = torch.cat(feature_to_classify)
         y_to_classify_gt = torch.cat(y_to_classify_gt)

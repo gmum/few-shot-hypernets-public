@@ -104,7 +104,11 @@ def single_test(params):
         hn_type: Type[HyperNetPOC] = hypernet_types[params.method]
         model = hn_type(model_dict[params.model], params=params, **few_shot_params)
         # model = HyperNetPOC(model_dict[params.model], **few_shot_params)
-
+    elif params.method == 'hyper_maml':
+        model = HyperMAML(model_dict[params.model], params=params, approx=(params.method == 'maml_approx'), **few_shot_params)
+        if params.dataset in ['omniglot', 'cross_char']:  # maml use different parameter in omniglot
+            model.n_task = 32
+            model.train_lr = 0.1
     else:
        raise ValueError('Unknown method')
 

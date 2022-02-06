@@ -7,7 +7,6 @@ import math
 import numpy as np
 import torch.nn.functional as F
 from torch.nn.utils.weight_norm import WeightNorm
-
 # Basic ResNet model
 
 def init_layer(L):
