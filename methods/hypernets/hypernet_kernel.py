@@ -8,6 +8,7 @@ from torch import nn
 from torch.utils.data import DataLoader
 
 from methods.hypernets import HyperNetPOC
+from methods.hypernets.hypernet_poc import PPAMixin
 from methods.hypernets.utils import get_param_dict, set_from_param_dict, accuracy_from_scores
 from methods.kernels import NNKernel, ScalarProductKernel, CosineDistanceKernel
 from methods.transformer import TransformerEncoder
@@ -34,10 +35,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
         # embedding size
         # TODO - add attention based input also
-        if self.use_support_embeddings:
-            support_embeddings_size = self.feat_dim * self.n_way * self.n_support_size_context
-        else:
-            support_embeddings_size = 0
+        self.embedding_size = self.init_embedding_size(params)
 
         # I will be adding the kernel vector to the stacked images embeddings
         # TODO: add/check changes for attention-like input
@@ -47,23 +45,34 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             self.hn_kernel_invariance_pooling: str = params.hn_kernel_invariance_pooling
 
             if self.hn_kernel_invariance_type == 'attention':
-                self.embedding_size: int = support_embeddings_size + (self.n_way * self.n_support_size_context)
                 self.init_kernel_transformer_architecture(params)
             else:
-                self.embedding_size: int = support_embeddings_size + params.hn_kernel_convolution_output_dim
                 self.init_kernel_convolution_architecture(params)
 
-        else:
-            if self.no_self_relations:
-                self.embedding_size: int = support_embeddings_size + (
-                            ((self.n_way * self.n_support_size_context) ** 2) - (
-                                self.n_way * self.n_support_size_context))
-            else:
-                self.embedding_size: int = support_embeddings_size + ((self.n_way * self.n_support_size_context) ** 2)
 
         self.query_relations_size = self.n_way * self.n_support_size_context
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.init_hypernet_modules()
+
+    def init_embedding_size(self, params) -> int:
+        if params.use_support_embeddings:
+            support_embeddings_size = self.feat_dim * self.n_way * self.n_support_size_context
+        else:
+            support_embeddings_size = 0
+
+        if params.hn_kernel_invariance:
+            if params.hn_kernel_invariance_type == 'attention':
+                return support_embeddings_size + (self.n_way * self.n_support_size_context)
+            else:
+                return support_embeddings_size + params.hn_kernel_convolution_output_dim
+
+        else:
+            if params.no_self_relations:
+                return support_embeddings_size + (
+                            ((self.n_way * self.n_support_size_context) ** 2) - (
+                                self.n_way * self.n_support_size_context))
+            else:
+                return support_embeddings_size + ((self.n_way * self.n_support_size_context) ** 2)
 
 
     def init_kernel_function(self, params):
@@ -193,7 +202,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
                 return invariant_kernel_values
 
-        return torch.flatten(kernel_values_tensor)
+        return kernel_values_tensor
 
     def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
         """
@@ -201,6 +210,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         """
 
         embedding = self.build_kernel_features_embedding(support_feature)
+        embedding = embedding.reshape(1, self.embedding_size)
         # TODO - check!!!
         if self.use_support_embeddings:
             embedding = torch.cat((embedding, torch.flatten(support_feature)), 0)
@@ -310,57 +320,51 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         y_pred = classifier(relational_feature_to_classify)
         return self.loss_fn(y_pred, y_to_classify_gt)
 
-    def train_loop(self, epoch: int, train_loader: DataLoader, optimizer: torch.optim.Optimizer):
-        taskset_id = 0
-        taskset = []
-        n_train = len(train_loader)
-        accuracies = []
-        losses = []
-        metrics = defaultdict(list)
-        ts_repeats = self.taskset_repeats(epoch)
 
-        for i, (x, _) in enumerate(train_loader):
-            taskset.append(x)
+class HypernetSupSupPPA(PPAMixin, HyperNetPocSupportSupportKernel):
 
-            # TODO 3: perhaps the idea of tasksets is redundant and it's better to update weights at every task
-            if i % self.taskset_size == (self.taskset_size - 1) or i == (n_train - 1):
-                loss_sum = torch.tensor(0).cuda()
-                for tr in range(ts_repeats):
-                    loss_sum = torch.tensor(0).cuda()
+    def taskset_repeats(self, epoch: int):
+        return 1
 
-                    for task in taskset:
-                        if self.change_way:
-                            self.n_way = task.size(0)
-                        self.n_query = task.size(1) - self.n_support
-                        loss = self.set_forward_loss(task)
-                        loss_sum = loss_sum + loss
+    def init_embedding_size(self, params) -> int:
+        if params.use_support_embeddings:
+            support_embeddings_size = self.feat_dim * self.n_support_size_context
+        else:
+            support_embeddings_size = 0
 
-                    optimizer.zero_grad()
-                    loss_sum.backward()
+        if params.hn_kernel_invariance:
+            if params.hn_kernel_invariance_type == 'attention':
+                return support_embeddings_size + self.n_support_size_context
+            else:
+                return support_embeddings_size + params.hn_kernel_convolution_output_dim
 
-                    if tr == 0:
-                        for k, p in get_param_dict(self).items():
-                            metrics[f"grad_norm/{k}"] = p.grad.abs().mean().item() if p.grad is not None else 0
+        else:
+            if params.no_self_relations:
+                raise NotImplementedError()
+            else:
+                return support_embeddings_size + (self.n_way * self.n_support_size_context)
 
-                    optimizer.step()
+    def generate_target_net(self, support_feature: torch.Tensor) -> nn.Module:
+        """
+        x_support: [n_way, n_support, hidden_size]
+        """
 
-                losses.append(loss_sum.item())
-                accuracies.extend([
-                    self.query_accuracy(task) for task in taskset
-                ])
-                acc_mean = np.mean(accuracies) * 100
-                acc_std = np.std(accuracies) * 100
+        embedding = self.build_kernel_features_embedding(support_feature)
+        # TODO - check!!!
+        if self.use_support_embeddings:
+            embedding = torch.cat((embedding, torch.flatten(support_feature)), 0)
 
-                if taskset_id % self.taskset_print_every == 0:
-                    print(
-                        f"Epoch {epoch} | Taskset {taskset_id} | TS {len(taskset)} | TS epochs {ts_repeats} | Loss {loss_sum.item()} | Train acc {acc_mean:.2f} +- {acc_std:.2f} %")
+        assert embedding.shape[0] == self.n_way
 
-                taskset_id += 1
-                taskset = []
-
-        metrics["loss/train"] = np.mean(losses)
-        metrics["accuracy/train"] = np.mean(accuracies) * 100
-        return metrics
+        root = self.hypernet_neck(embedding)
+        network_params = {
+            name.replace("-", "."): param_net(root).reshape(self.target_net_param_shapes[name])
+            for name, param_net in self.hypernet_heads.items()
+        }
+        tn = deepcopy(self.target_net_architecture)
+        set_from_param_dict(tn, network_params)
+        tn.support_feature = support_feature
+        return tn.cuda()
 
 
 class HyperNetPocWithKernel(HyperNetPOC):
