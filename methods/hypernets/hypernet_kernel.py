@@ -84,7 +84,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             # if (not self.use_scalar_product) and (not self.use_cosine_distance):
             kernel_input_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
             # kernel_output_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
-            kernel_output_dim = params.kernel_out_size
+            kernel_output_dim = params.hn_kernel_out_size
             kernel_layers_no = params.hn_kernel_layers_no
             kernel_hidden_dim = params.hn_kernel_hidden_dim
             return NNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
