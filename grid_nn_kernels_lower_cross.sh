@@ -9,7 +9,7 @@ which python
 
 CMD="python train.py --dataset cross --n_shot 1 --test_n_way 5 --num_classes 200 --method hn_poc_sup_sup_kernel --train_n_way 5 --seed 1 --resume --train_aug"
 
-for KERNEL_OUT_SIZE in 400 50 100;
+for HN_KERNEL_OUT_SIZE in 400 50 100;
 do
   for HN_KERNEL_LAYERS_NUM in 2 1 4;
   do
@@ -29,9 +29,9 @@ do
                 do
                   for LR in 1e-3;
                   do
-                    SUFFIX="nn_kernel_1600-${HN_KERNEL_LAYERS_NUM}x${HN_KERNEL_HIDDEN_DIM}-${KERNEL_OUT_SIZE}"
+                    SUFFIX="nn_kernel_1600-${HN_KERNEL_LAYERS_NUM}x${HN_KERNEL_HIDDEN_DIM}-${HN_KERNEL_OUT_SIZE}"
                     $CMD --hn_hidden_size $HN_HIDDEN_SIZE \
-                      --kernel_out_size $KERNEL_OUT_SIZE \
+                      --hn_kernel_out_size $HN_KERNEL_OUT_SIZE \
                       --hn_tn_hidden_size $HN_TN_HIDDEN_SIZE \
                       --hn_taskset_size 1 \
                       --hn_neck_len $HN_NECK_LEN \
