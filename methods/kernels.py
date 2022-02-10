@@ -107,6 +107,7 @@ class CosineNNKernel(nn.Module):
             normalized_input_a = torch.nn.functional.normalize(z1)
             normalized_input_b = torch.nn.functional.normalize(z2)
             out = torch.mm(normalized_input_a, normalized_input_b.T)
+            out *= -1  # 1-res without copy
             out += 1
 
             if diag:
@@ -125,6 +126,7 @@ class CosineDistanceKernel(nn.Module):
         normalized_input_a = torch.nn.functional.normalize(x1)
         normalized_input_b = torch.nn.functional.normalize(x2)
         res = torch.mm(normalized_input_a, normalized_input_b.T)
+        res *= -1  # 1-res without copy
         res += 1
         return res
 
