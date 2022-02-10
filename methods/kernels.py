@@ -69,6 +69,53 @@ class NNKernel(nn.Module):
             else:
                 return out
 
+class CosineNNKernel(nn.Module):
+    def __init__(self, input_dim: int, output_dim: int, num_layers: int, hidden_dim: int, flatten: bool =False, **kwargs):
+        super().__init__()
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.num_layers = num_layers
+        self.hidden_dim = hidden_dim
+        self.flatten = flatten
+        self.model = self.create_model()
+
+    def create_model(self):
+
+        if self.num_layers == 0:
+            modules = [nn.Linear(self.input_dim, self.output_dim)]
+        else:
+            assert self.num_layers >= 1, "Number of hidden layers must be at least 1"
+            modules = [nn.Linear(self.input_dim, self.hidden_dim), nn.ReLU()]
+            if self.flatten:
+                modules = [nn.Flatten()] + modules
+            for i in range(self.num_layers - 1):
+                modules.append(nn.Linear(self.hidden_dim, self.hidden_dim))
+                modules.append(nn.ReLU())
+            modules.append(nn.Linear(self.hidden_dim, self.output_dim))
+
+        model = nn.Sequential(*modules)
+        return model
+
+    def forward(self, x1, x2, diag=False, last_dim_is_batch=False, full_covar=True, **params):
+        if last_dim_is_batch:
+            raise NotImplementedError()
+        else:
+
+            z1 = self.model(x1)
+            z2 = self.model(x2)
+
+            normalized_input_a = torch.nn.functional.normalize(z1)
+            normalized_input_b = torch.nn.functional.normalize(z2)
+            out = torch.mm(normalized_input_a, normalized_input_b.T)
+            out *= -1  # 1-res without copy
+            out += 1
+
+            if diag:
+                return torch.diag(out)
+            else:
+                return out
+
+
 class ScalarProductKernel(nn.Module):
     def forward(self, x1, x2):
         return torch.matmul(x1, x2)
