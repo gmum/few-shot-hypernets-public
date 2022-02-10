@@ -40,7 +40,7 @@ do
                       --hn_detach_ft_in_hn $DETACH_EPOCH \
                       --hn_detach_ft_in_tn $DETACH_EPOCH \
                       --stop_epoch 1001 \
-                      --es_epoch 10000 \
+                      --es_threshold 35.0 \
                       --save_freq 500 \
                       --checkpoint_suffix $SUFFIX
                   done

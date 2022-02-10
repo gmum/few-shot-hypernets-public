@@ -7,7 +7,7 @@ set -xe
 
 which python
 
-CMD="python train.py --dataset cross --n_shot 1 --test_n_way 5 --num_classes 200 --method hn_poc_sup_sup_kernel --train_n_way 5 --seed 1 --resume --train_aug"
+CMD="python train.py --dataset miniImagenet --n_shot 1 --test_n_way 5 --num_classes 200 --method hn_poc_sup_sup_kernel --train_n_way 5 --seed 1 --resume --train_aug"
 
 for HN_KERNEL_OUT_SIZE in 400 50 100;
 do
@@ -40,7 +40,7 @@ do
                       --hn_detach_ft_in_hn $DETACH_EPOCH \
                       --hn_detach_ft_in_tn $DETACH_EPOCH \
                       --stop_epoch 1001 \
-                      --es_epoch 10000 \
+                      --es_threshold 35.0 \
                       --save_freq 500 \
                       --checkpoint_suffix $SUFFIX
                   done
