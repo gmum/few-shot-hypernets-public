@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from methods.hypernets import HyperNetPOC
 from methods.hypernets.hypernet_poc import PPAMixin
 from methods.hypernets.utils import get_param_dict, set_from_param_dict, accuracy_from_scores
-from methods.kernels import NNKernel, ScalarProductKernel, CosineDistanceKernel, NegCosineDistanceKernel
+from methods.kernels import NNKernel, ScalarProductKernel, CosineDistanceKernel, CosineNNKernel
 from methods.transformer import TransformerEncoder
 from methods.kernel_convolutions import KernelConv
 
@@ -49,6 +49,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             else:
                 self.init_kernel_convolution_architecture(params)
 
+
         self.query_relations_size = self.n_way * self.n_support_size_context
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.init_hypernet_modules()
@@ -75,26 +76,21 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
 
 
     def init_kernel_function(self, params):
-        if params.hn_kernel_op == "scalar":
-            kop = ScalarProductKernel()
-        elif params.hn_kernel_op == "cosine":
-            kop = CosineDistanceKernel()
-        elif params.hn_kernel_op == "negcosine":
-            kop = NegCosineDistanceKernel()
+        if params.use_scalar_product:
+            return ScalarProductKernel()
+        elif params.use_cosine_distance:
+            return CosineDistanceKernel()
         else:
-            raise TypeError(params.hn_kernel_op)
-
-        kernel_input_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
-        kernel_output_dim = self.feat_dim + self.n_way if self.attention_embedding else params.hn_kernel_out_size
-        kernel_layers_no = params.hn_kernel_layers_no
-        kernel_hidden_dim = params.hn_kernel_hidden_dim
-        return NNKernel(
-            input_dim=kernel_input_dim,
-            output_dim=kernel_output_dim,
-            num_layers=kernel_layers_no,
-            hidden_dim=kernel_hidden_dim, kernel_op=kop
-        )
-
+            # if (not self.use_scalar_product) and (not self.use_cosine_distance):
+            kernel_input_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
+            # kernel_output_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
+            kernel_output_dim = params.hn_kernel_out_size
+            kernel_layers_no = params.hn_kernel_layers_no
+            kernel_hidden_dim = params.hn_kernel_hidden_dim
+            if params.use_cosine_nn_kernel:
+                return CosineNNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
+            else:
+                return NNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
 
     @property
     def n_support_size_context(self) -> int:
