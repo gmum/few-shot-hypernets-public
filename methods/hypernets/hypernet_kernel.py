@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from methods.hypernets import HyperNetPOC
 from methods.hypernets.hypernet_poc import PPAMixin
 from methods.hypernets.utils import get_param_dict, set_from_param_dict, accuracy_from_scores
-from methods.kernels import NNKernel, ScalarProductKernel, CosineDistanceKernel
+from methods.kernels import NNKernel, ScalarProductKernel, CosineDistanceKernel, CosineNNKernel
 from methods.transformer import TransformerEncoder
 from methods.kernel_convolutions import KernelConv
 
@@ -87,7 +87,10 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             kernel_output_dim = params.hn_kernel_out_size
             kernel_layers_no = params.hn_kernel_layers_no
             kernel_hidden_dim = params.hn_kernel_hidden_dim
-            return NNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
+            if params.use_cosine_nn_kernel:
+                return CosineNNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
+            else:
+                return NNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
 
     @property
     def n_support_size_context(self) -> int:
