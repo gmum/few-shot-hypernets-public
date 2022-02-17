@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from methods.hypernets import HyperNetPOC
 from methods.hypernets.hypernet_poc import PPAMixin
 from methods.hypernets.utils import get_param_dict, set_from_param_dict, accuracy_from_scores
-from methods.kernels import NNKernel, ScalarProductKernel, CosineDistanceKernel, CosineNNKernel
+from methods.kernels import NNKernel, ScalarProductKernel, CosineDistanceKernel, CosineNNKernel, init_kernel_function
 from methods.transformer import TransformerEncoder
 from methods.kernel_convolutions import KernelConv
 
@@ -31,7 +31,10 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         # Remove self relations by matrix K multiplication
         self.no_self_relations: bool = params.no_self_relations
 
-        self.kernel_function = self.init_kernel_function(params)
+        self.kernel_function = init_kernel_function(
+            kernel_input_dim=self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim,
+            params=params
+        )
 
         # embedding size
         # TODO - add attention based input also
@@ -75,22 +78,22 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
                 return support_embeddings_size + ((self.n_way * self.n_support_size_context) ** 2)
 
 
-    def init_kernel_function(self, params):
-        if params.use_scalar_product:
-            return ScalarProductKernel()
-        elif params.use_cosine_distance:
-            return CosineDistanceKernel()
-        else:
-            # if (not self.use_scalar_product) and (not self.use_cosine_distance):
-            kernel_input_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
-            # kernel_output_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
-            kernel_output_dim = params.hn_kernel_out_size
-            kernel_layers_no = params.hn_kernel_layers_no
-            kernel_hidden_dim = params.hn_kernel_hidden_dim
-            if params.use_cosine_nn_kernel:
-                return CosineNNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
-            else:
-                return NNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
+    # def init_kernel_function(self, params):
+    #     if params.use_scalar_product:
+    #         return ScalarProductKernel()
+    #     elif params.use_cosine_distance:
+    #         return CosineDistanceKernel()
+    #     else:
+    #         # if (not self.use_scalar_product) and (not self.use_cosine_distance):
+    #         kernel_input_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
+    #         # kernel_output_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
+    #         kernel_output_dim = params.hn_kernel_out_size
+    #         kernel_layers_no = params.hn_kernel_layers_no
+    #         kernel_hidden_dim = params.hn_kernel_hidden_dim
+    #         if params.use_cosine_nn_kernel:
+    #             return CosineNNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
+    #         else:
+    #             return NNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
 
     @property
     def n_support_size_context(self) -> int:
@@ -673,10 +676,17 @@ class ClassifierSupportQueryKernel(nn.Module):
 class HNKernelBetweenSupportAndQuery(HyperNetPOC):
     """A hypernet which generates a `ClassifierSupportQueryKernel`"""
 
-    def __init__(self, model_func, n_way: int, n_support: int, n_query: int):
-        target_net_architecture = ClassifierSupportQueryKernel(NNKernel(64, 16, 1, 128))
-        super().__init__(
-            model_func, n_way, n_support, n_query, target_net_architecture=target_net_architecture)
+    def set_forward_with_adaptation(self, x: torch.Tensor):
+        raise NotImplementedError()
+
+    def build_target_net_architecture(self, params) -> nn.Module:
+        kernel = init_kernel_function(
+            kernel_input_dim=self.feat_dim,
+            params=params
+        )
+        target_net_architecture = ClassifierSupportQueryKernel(kernel)
+        return target_net_architecture
+
 
     def taskset_repeats(self, epoch: int):
         return 1

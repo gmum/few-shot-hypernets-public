@@ -47,6 +47,8 @@ class HyperNetPOC(MetaTemplate):
         if self.attention_embedding:
             self.init_transformer_architecture(params)
 
+        print(self.target_net_architecture)
+
     def init_embedding_size(self, params) -> int:
         if self.attention_embedding:
             return (self.feat_dim + self.n_way) * self.n_way * self.n_support

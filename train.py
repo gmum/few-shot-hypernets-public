@@ -309,6 +309,7 @@ if __name__ == '__main__':
 
     if params.resume:
         resume_file = get_resume_file(params.checkpoint_dir)
+        print(resume_file)
         if resume_file is not None:
             tmp = torch.load(resume_file)
             start_epoch = tmp['epoch'] + 1
