@@ -17,11 +17,11 @@ CMD="python train.py --dataset CUB --hn_detach_ft_in_hn 100000 --hn_detach_ft_in
   --test_n_way 5 --train_n_way 5 --hn_val_epochs 0 --n_shot 1 --es_threshold 20 --seed 1 --use_cosine_distance --train_aug"
 
 
-for HN_HEAD_LEN in 2 1;
+for HN_HEAD_LEN in 3 2 1;
 do
   for HN_NECK_LEN in 0 1;
   do
-    for HN_HIDDEN_SIZE in 128 256 512;
+    for HN_HIDDEN_SIZE in 512 1024 2048;
     do
       for HN_TN_HIDDEN_SIZE in 64 128;
       do
