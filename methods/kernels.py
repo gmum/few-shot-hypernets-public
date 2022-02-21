@@ -125,6 +125,7 @@ class CosineDistanceKernel(nn.Module):
         normalized_input_a = torch.nn.functional.normalize(x1)
         normalized_input_b = torch.nn.functional.normalize(x2)
         res = torch.mm(normalized_input_a, normalized_input_b.T)
+        res = res * -1
         res += 1
         return res
 
