@@ -95,9 +95,9 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         scheduler.step()
         model.eval()
 
-        # delta_params = metrics.pop('delta_params', None)
-        # if delta_params is not None:
-        #     delta_params_list.append(delta_params)
+        delta_params = metrics.pop('delta_params', None)
+        if delta_params is not None:
+            delta_params_list.append(delta_params)
 
         if (epoch % params.eval_freq == 0) or epoch in [
             params.es_epoch - 1,
@@ -150,8 +150,9 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
     neptune_run["best_model"].track_files(os.path.join(params.checkpoint_dir, 'best_model.tar'))
     neptune_run["last_model"].track_files(os.path.join(params.checkpoint_dir, 'last_model.tar'))
 
-    # with (Path(params.checkpoint_dir) / f"delta_params_list_{len(delta_params_list)}.json").open("w") as f:
-    #     json.dump(delta_params_list, f, indent=2)
+    if len(delta_params_list) > 0 and params.hn_save_delta_params:
+        with (Path(params.checkpoint_dir) / f"delta_params_list_{len(delta_params_list)}.json").open("w") as f:
+            json.dump(delta_params_list, f, indent=2)
 
     return model
 

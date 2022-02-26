@@ -115,8 +115,7 @@ class MAML(MetaTemplate):
         acc_all  = np.asarray(acc_all)
         acc_mean = np.mean(acc_all)
         
-        # delta_params = {"epoch": epoch, "delta_list": self.delta_list}
-        metrics = {"accuracy/train": acc_mean} #, "delta_params": delta_params} 
+        metrics = {"accuracy/train": acc_mean}
         
         return metrics 
 
@@ -195,6 +194,7 @@ class HyperMAML(MAML):
         self.hn_embeddings_strategy = params.hn_embeddings_strategy
         self.hn_hidden_size = params.hn_hidden_size
         self.hn_lambda = params.hn_lambda
+        self.hn_save_delta_params = params.hn_save_delta_params
 
         self.calculate_embedding_size()
 
@@ -268,13 +268,13 @@ class HyperMAML(MAML):
         self.zero_grad()
 
         delta = self.hyper_nets[0](flattened_embeddings)
-        delta = delta.view(self.n_way, self.feat_dim)
-
         bias_delta = self.hyper_nets[1](flattened_embeddings)
 
-        delta_list = [delta, bias_delta]
+        if self.hn_save_delta_params and len(self.delta_list) == 0: 
+            self.delta_list = [{'params_delta': delta.tolist(), 'bias_delta': bias_delta.tolist()}]
 
-        # self.delta_list.append(delta.tolist())
+        delta = delta.view(self.n_way, self.feat_dim)
+        delta_list = [delta, bias_delta]
 
         for k, weight in enumerate(self.classifier.parameters()):
             #for usage of weight.fast, please see Linear_fw, Conv_fw in backbone.py
@@ -354,8 +354,11 @@ class HyperMAML(MAML):
         acc_all  = np.asarray(acc_all)
         acc_mean = np.mean(acc_all)
         
-        # delta_params = {"epoch": epoch, "delta_list": self.delta_list}
-        metrics = {"accuracy/train": acc_mean} #, "delta_params": delta_params} 
+        metrics = {"accuracy/train": acc_mean}
+
+        if self.hn_save_delta_params and len(self.delta_list) > 0:
+            delta_params = {"epoch": epoch, "delta_list": self.delta_list}
+            metrics['delta_params'] = delta_params
 
         return metrics                      
 

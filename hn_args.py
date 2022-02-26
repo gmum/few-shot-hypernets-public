@@ -37,6 +37,7 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hn_args.add_argument("--hn_activation", type=str, default=None, help="Activation function used at the end of hypernetwork, sigmoid/None")
     hn_args.add_argument('--hn_embeddings_strategy', default=None, help='class_mean')
     hn_args.add_argument('--hn_lambda', type=float, default=0.0, help='Regularization coefficient for the output of the hypernet')
+    hn_args.add_argument('--hn_save_delta_params', type=bool, default=False, help='saving delta parameters')
     hn_args.add_argument("--kernel_transformer_layers_no", type=int, default=1, help="Number of layers in kernel's transformer")
     hn_args.add_argument("--kernel_transformer_heads_no", type=int, default=1, help="Number of attention heads in kernel's transformer")
     hn_args.add_argument("--kernel_transformer_feedforward_dim", type=int, default=512, help="Kernel transformer's feedforward dimensionality")
