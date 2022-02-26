@@ -18,7 +18,7 @@ from methods.protonet import ProtoNet
 from methods.DKT import DKT
 from methods.matchingnet import MatchingNet
 from methods.relationnet import RelationNet
-from methods.maml import MAML
+from methods.maml import MAML, HyperMAML
 from io_utils import model_dict, parse_args, get_best_file , get_assigned_file
 
 def _set_seed(seed, verbose=True):
@@ -50,7 +50,7 @@ def feature_evaluation(cl_data_file, model, n_way = 5, n_support = 5, n_query = 
     if adaptation:
         scores  = model.set_forward_adaptation(z_all, is_feature = True)
     else:
-        scores  = model.set_forward(z_all, is_feature = True)
+        scores, _  = model.set_forward(z_all, is_feature = True)
     pred = scores.data.cpu().numpy().argmax(axis = 1)
     y = np.repeat(range( n_way ), n_query )
     acc = np.mean(pred == y)*100 
@@ -61,8 +61,10 @@ def single_test(params):
     acc_all = []
 
     iter_num = 600
-
-    few_shot_params = dict(n_way = params.test_n_way , n_support = params.n_shot) 
+    
+    n_query = max(1, int(16 * params.test_n_way / params.train_n_way))  # if test_n_way is smaller than train_n_way, reduce n_query to keep batch size small
+    print("n_query", n_query)
+    few_shot_params = dict(n_way = params.test_n_way , n_support = params.n_shot, n_query=n_query) 
 
     if params.dataset in ['omniglot', 'cross_char']:
         assert params.model == 'Conv4' and not params.train_aug ,'omniglot only support Conv4 without augmentation'
@@ -140,7 +142,7 @@ def single_test(params):
         split_str = split + "_" +str(params.save_iter)
     else:
         split_str = split
-    if params.method in ['maml', 'maml_approx', 'DKT'] + list(hypernet_types.keys()): #maml do not support testing with feature
+    if params.method in ['maml', 'maml_approx', 'hyper_maml', 'DKT'] + list(hypernet_types.keys()): #maml do not support testing with feature
         if 'Conv' in params.model:
             if params.dataset in ['omniglot', 'cross_char']:
                 image_size = 28
@@ -169,7 +171,7 @@ def single_test(params):
             model.task_update_num = 100 #We perform adaptation on MAML simply by updating more times.
         model.eval()
         # print(model.test_loop( novel_loader, return_std = True))
-        acc_mean, acc_std, _ = model.test_loop( novel_loader, return_std = True)
+        acc_mean, acc_std = model.test_loop( novel_loader, return_std = True)
 
     else:
         novel_file = os.path.join( checkpoint_dir.replace("checkpoints","features"), split_str +".hdf5") #defaut split = novel, but you can also test base or val classes

@@ -65,8 +65,10 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                 metrics_per_epoch = defaultdict(list, json.load(f))
                 try:
                     max_acc = metrics_per_epoch["accuracy/val_max"][-1]
+                    max_train_acc = metrics_per_epoch["accuracy/train_max"][-1]
                 except:
                     max_acc = metrics_per_epoch["accuracy_val_max"][-1]
+                    max_train_acc = metrics_per_epoch["accuracy_train_max"][-1]
             except:
                 metrics_per_epoch = defaultdict(list)
 
@@ -80,6 +82,8 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
     print("\n\t".join(sorted(params.history)))
     print("Params ignored until this point:")
     print("\n\t".join(params.get_ignored_args()))
+    
+    delta_params_list = []
 
     for epoch in range(start_epoch, stop_epoch):
         if epoch >= params.es_epoch:
@@ -91,6 +95,10 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         scheduler.step()
         model.eval()
 
+        # delta_params = metrics.pop('delta_params', None)
+        # if delta_params is not None:
+        #     delta_params_list.append(delta_params)
+
         if (epoch % params.eval_freq == 0) or epoch in [
             params.es_epoch - 1,
             stop_epoch - 1
@@ -100,7 +108,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             except:
                 acc = model.test_loop(val_loader)
                 test_loop_metrics = dict()
-            print(f"Epoch {epoch} | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Metrics: {test_loop_metrics}")
+            print(f"Epoch {epoch}/{stop_epoch}  | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Metrics: {test_loop_metrics}")
 
             metrics = metrics or dict()
             metrics["lr"] = scheduler.get_lr()
@@ -111,7 +119,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                 **metrics,
                 **test_loop_metrics
             }
-            
+
             if metrics["accuracy/train"] > max_train_acc:
                 max_train_acc = metrics["accuracy/train"]
 
@@ -138,6 +146,12 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             if neptune_run is not None:
                 for m, v in metrics.items():
                     neptune_run[m].log(v, step=epoch)
+
+    neptune_run["best_model"].track_files(os.path.join(params.checkpoint_dir, 'best_model.tar'))
+    neptune_run["last_model"].track_files(os.path.join(params.checkpoint_dir, 'last_model.tar'))
+
+    # with (Path(params.checkpoint_dir) / f"delta_params_list_{len(delta_params_list)}.json").open("w") as f:
+    #     json.dump(delta_params_list, f, indent=2)
 
     return model
 
