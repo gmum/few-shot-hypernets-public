@@ -125,6 +125,7 @@ class CosineDistanceKernel(nn.Module):
         normalized_input_a = torch.nn.functional.normalize(x1)
         normalized_input_b = torch.nn.functional.normalize(x2)
         res = torch.mm(normalized_input_a, normalized_input_b.T)
+        res = res * -1
         res += 1
         return res
 
@@ -275,3 +276,20 @@ class MultiNNKernel(gpytorch.kernels.Kernel):
                 return torch.diag(out)
             else:
                 return out
+
+
+def init_kernel_function(kernel_input_dim, params):
+    if params.use_scalar_product:
+        return ScalarProductKernel()
+    elif params.use_cosine_distance:
+        return CosineDistanceKernel()
+    else:
+        # if (not self.use_scalar_product) and (not self.use_cosine_distance):
+        # kernel_output_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
+        kernel_output_dim = params.hn_kernel_out_size
+        kernel_layers_no = params.hn_kernel_layers_no
+        kernel_hidden_dim = params.hn_kernel_hidden_dim
+        if params.use_cosine_nn_kernel:
+            return CosineNNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
+        else:
+            return NNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)

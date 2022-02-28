@@ -21,7 +21,7 @@ for HN_HEAD_LEN in 3 2 1;
 do
   for HN_NECK_LEN in 0 1;
   do
-    for HN_HIDDEN_SIZE in 512 1024 2048;
+    for HN_HIDDEN_SIZE in 4096 2048 1024;
     do
       for HN_TN_HIDDEN_SIZE in 64 128;
       do
