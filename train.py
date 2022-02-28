@@ -355,15 +355,18 @@ if __name__ == '__main__':
 
     model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
 
-    # add default test params
-    params.split = "novel"
-    params.save_iter = -1
-    params.adaptation = False
-    params.repeat = 5
+    for hn_val_epochs in [0, 10]:
+        params.hn_val_epochs = hn_val_epochs
+        # add default test params
+        params.split = "novel"
+        params.save_iter = -1
+        params.adaptation = False
+        params.repeat = 5
 
-    test_results =  perform_test(params)
-    if neptune_run is not None:
-        neptune_run["full_test"] = test_results
+        print(f"Testing with {hn_val_epochs=}")
+        test_results = perform_test(params)
+        if neptune_run is not None:
+            neptune_run[f"full_test @ {hn_val_epochs}"] = test_results
 
 
 
