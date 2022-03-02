@@ -167,7 +167,7 @@ class HyperNet(nn.Module):
 
         tail = [nn.Linear(hn_hidden_size, out_neurons)]
         if self.hn_activation == 'sigmoid':
-            tail.append(nn.Sigmoid(inplace=True))
+            tail.append(nn.Sigmoid())
 
         self.tail = nn.Sequential(*tail)
 
@@ -195,25 +195,41 @@ class HyperMAML(MAML):
         self.hn_hidden_size = params.hn_hidden_size
         self.hn_lambda = params.hn_lambda
         self.hn_save_delta_params = params.hn_save_delta_params
+        self.hn_use_batch_input = params.hn_use_batch_input
 
         self.calculate_embedding_size()
 
-        hyper_nets = [HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.n_way*self.feat_dim, params)]
-        hyper_nets.append(HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.n_way, params))
+        self.setup_hypernet_modules(params)
 
-        self.hyper_nets = nn.ModuleList(hyper_nets)
+    def init_hypernet_modules(self, params):
+        if self.hn_use_batch_input:
+            base_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.n_way * self.feat_dim, params)
+            bias_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.n_way, params)
+
+            self.hyper_nets = nn.ModuleDict({'base_hypernet': base_hypernet,
+                                             'bias_hypernet': bias_hypernet})
+        else:
+            base_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.feat_dim + 1, params) # 1 is for bias param
+
+            self.hyper_nets = nn.ModuleDict({'base_hypernet': base_hypernet})
 
     def calculate_embedding_size(self):
-        if self.hn_embeddings_strategy == 'class_mean':
-            if self.enhance_embeddings:
-                self.embedding_size = self.n_way * (self.feat_dim + self.n_way + 1)
+        if self.hn_use_batch_input:
+            if self.hn_embeddings_strategy == 'class_mean':
+                if self.enhance_embeddings:
+                    self.embedding_size = self.n_way * (self.feat_dim + self.n_way + 1)
+                else:
+                    self.embedding_size = self.n_way * self.feat_dim
             else:
-                self.embedding_size = self.n_way * self.feat_dim
+                if self.enhance_embeddings:
+                    self.embedding_size = self.n_way * self.n_support * (self.feat_dim + self.n_way + 1)
+                else:
+                    self.embedding_size = self.n_way * self.n_support * self.feat_dim
         else:
             if self.enhance_embeddings:
-                self.embedding_size = self.n_way * self.n_support * (self.feat_dim + self.n_way + 1)
+                self.embedding_size = self.n_support * (self.feat_dim + self.n_way + 1)
             else:
-                self.embedding_size = self.n_way * self.n_support * self.feat_dim
+                self.embedding_size = self.n_support * self.feat_dim
 
     def forward(self, x):
         out  = self.feature.forward(x)
@@ -239,9 +255,35 @@ class HyperMAML(MAML):
 
         return torch.from_numpy(np.repeat(range(self.n_way), self.n_support)).cuda() # labels for support data
 
+    def generate_delta_params(self, support_embeddings):
+        if self.hn_use_batch_input:
+            delta = []
+            bias_delta = []
+
+            for i in support_embeddings.size(0):
+                class_embeddings = support_embeddings[i]
+                class_embeddings = class_embeddings.flatten()
+                delta_params = self.hyper_nets['base_hypernet'](class_embeddings)
+
+                class_delta = delta_params[:self.feat_dim]
+                class_bias_delta = delta_params[self.feat_dim:]
+
+                delta.append(class_delta)
+                bias_delta.append(class_bias_delta)
+
+            return torch.stack(delta), torch.stack(bias_delta)
+        else:
+            flattened_embeddings = support_embeddings.flatten()
+
+            delta = self.hyper_nets['base_hypernet'](flattened_embeddings)
+            bias_delta = self.hyper_nets['bias_hypernet'](flattened_embeddings)
+
+            delta = delta.view(self.n_way, self.feat_dim)
+
+            return delta, bias_delta
+
     def set_forward(self,x, is_feature = False):
         assert is_feature == False, 'MAML do not support fixed feature'
-        support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
         x = x.cuda()
         x_var = Variable(x)
@@ -261,19 +303,15 @@ class HyperMAML(MAML):
             support_data_labels = support_data_labels.view(support_embeddings.shape[0], -1)
             support_embeddings = torch.cat((support_embeddings, support_data_logits, support_data_labels), dim=1)
         
-        flattened_embeddings = support_embeddings.flatten()
-
         for weight in self.parameters():
             weight.fast = None
         self.zero_grad()
 
-        delta = self.hyper_nets[0](flattened_embeddings)
-        bias_delta = self.hyper_nets[1](flattened_embeddings)
+        delta, bias_delta = self.generate_delta_params(support_embeddings)
 
         if self.hn_save_delta_params and len(self.delta_list) == 0: 
-            self.delta_list = [{'params_delta': delta.tolist(), 'bias_delta': bias_delta.tolist()}]
+            self.delta_list = [{'params_delta': delta.flatten().tolist(), 'bias_delta': bias_delta.tolist()}]
 
-        delta = delta.view(self.n_way, self.feat_dim)
         delta_list = [delta, bias_delta]
 
         for k, weight in enumerate(self.classifier.parameters()):
