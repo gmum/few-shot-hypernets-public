@@ -26,6 +26,8 @@ from io_utils import model_dict, parse_args, get_resume_file, setup_neptune
 
 import matplotlib.pyplot as plt
 from pathlib import Path
+
+from save_features import do_save_fts
 from test import perform_test
 
 
@@ -356,11 +358,17 @@ if __name__ == '__main__':
 
     model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
 
+    params.split = "novel"
+    params.save_iter = -1
+
+    try:
+        do_save_fts(params)
+    except Exception as e:
+        print("Cannot save features bc of", e)
+
     for hn_val_epochs in [0, 10]:
         params.hn_val_epochs = hn_val_epochs
         # add default test params
-        params.split = "novel"
-        params.save_iter = -1
         params.adaptation = False
         params.repeat = 5
 
