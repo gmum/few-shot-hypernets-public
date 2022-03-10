@@ -63,6 +63,7 @@ def parse_args(script):
     parser.add_argument("--lr_scheduler", type=str, help="LR scheduler", default="none", choices=[
         "multisteplr", "none", "cosine"
     ])
+    parser.add_argument("--milestones", nargs='+', type=int, default=None, help="Milestones for multisteplr")
     if script == 'train':
         parser.add_argument('--num_classes' , default=200, type=int, help='total number of classes in softmax, only used in baseline') #make it larger than the maximum label value in base class
         parser.add_argument('--save_freq'   , default=50, type=int, help='Save frequency')
