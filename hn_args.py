@@ -6,6 +6,8 @@ from methods.hypernets.hypernet_poc import ALLOWED_AGGREGATIONS
 def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
 
     hn_args = parser.add_argument_group("Hypernet-related arguments")
+    hn_args.add_argument('--hn_adaptation_strategy', type=str, default=None, choices=['increasing_alpha'], help='strategy used for manipulating alpha parameter')
+    hn_args.add_argument('--hn_alpha_step', type=float, default=0, help='step used to increase alpha from 0 to 1 during adaptation to new task')
     hn_args.add_argument("--hn_hidden_size", type=int, default=256, help="HN hidden size")
     hn_args.add_argument("--hn_tn_hidden_size", type=int, default=128, help="TN hidden size")
     hn_args.add_argument("--hn_taskset_size", type=int, default=1, help="Taskset size")
@@ -36,7 +38,7 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hn_args.add_argument("--hn_relu", action='store_true', help="Using relu as an activation function in the internal layers of hypernet")
     hn_args.add_argument("--hn_activation", type=str, default=None, help="Activation function used at the end of hypernetwork", choices=['sigmoid'])
     hn_args.add_argument('--hn_embeddings_strategy', default=None, help='class_mean')
-    hn_args.add_argument('--hn_use_batch_input', default=True, help='Strategy for handling query set embeddings as an input of hyper network')
+    hn_args.add_argument('--hn_use_class_batch_input', action='store_true', help='Strategy for handling query set embeddings as an input of hyper network')
     hn_args.add_argument('--hn_lambda', type=float, default=0.0, help='Regularization coefficient for the output of the hypernet')
     hn_args.add_argument('--hn_save_delta_params', type=bool, default=False, help='saving delta parameters')
     hn_args.add_argument("--kernel_transformer_layers_no", type=int, default=1, help="Number of layers in kernel's transformer")

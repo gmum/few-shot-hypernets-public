@@ -195,26 +195,38 @@ class HyperMAML(MAML):
         self.hn_hidden_size = params.hn_hidden_size
         self.hn_lambda = params.hn_lambda
         self.hn_save_delta_params = params.hn_save_delta_params
-        self.hn_use_batch_input = params.hn_use_batch_input
+        self.hn_use_class_batch_input = params.hn_use_class_batch_input
+        self.hn_adaptation_strategy = params.hn_adaptation_strategy
+
+        self.alpha = 0
+        self.hn_alpha_step = params.hn_alpha_step
+
+        if self.hn_adaptation_strategy == 'increasing_alpha' and self.hn_alpha_step < 0:
+            raise ValueError('hn_alpha_step is not positive!')
 
         self.calculate_embedding_size()
 
-        self.setup_hypernet_modules(params)
+        self.init_hypernet_modules(params)
 
     def init_hypernet_modules(self, params):
-        if self.hn_use_batch_input:
+        if self.hn_use_class_batch_input:
+            base_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.feat_dim + 1, params) # 1 is for bias param
+
+            self.hyper_nets = nn.ModuleDict({'base_hypernet': base_hypernet})
+        else:
             base_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.n_way * self.feat_dim, params)
             bias_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.n_way, params)
 
             self.hyper_nets = nn.ModuleDict({'base_hypernet': base_hypernet,
                                              'bias_hypernet': bias_hypernet})
-        else:
-            base_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.feat_dim + 1, params) # 1 is for bias param
-
-            self.hyper_nets = nn.ModuleDict({'base_hypernet': base_hypernet})
 
     def calculate_embedding_size(self):
-        if self.hn_use_batch_input:
+        if self.hn_use_class_batch_input:
+            if self.enhance_embeddings:
+                self.embedding_size = self.n_support * (self.feat_dim + self.n_way + 1)
+            else:
+                self.embedding_size = self.n_support * self.feat_dim
+        else:
             if self.hn_embeddings_strategy == 'class_mean':
                 if self.enhance_embeddings:
                     self.embedding_size = self.n_way * (self.feat_dim + self.n_way + 1)
@@ -225,11 +237,6 @@ class HyperMAML(MAML):
                     self.embedding_size = self.n_way * self.n_support * (self.feat_dim + self.n_way + 1)
                 else:
                     self.embedding_size = self.n_way * self.n_support * self.feat_dim
-        else:
-            if self.enhance_embeddings:
-                self.embedding_size = self.n_support * (self.feat_dim + self.n_way + 1)
-            else:
-                self.embedding_size = self.n_support * self.feat_dim
 
     def forward(self, x):
         out  = self.feature.forward(x)
@@ -256,20 +263,30 @@ class HyperMAML(MAML):
         return torch.from_numpy(np.repeat(range(self.n_way), self.n_support)).cuda() # labels for support data
 
     def generate_delta_params(self, support_embeddings):
-        if self.hn_use_batch_input:
+        if self.hn_use_class_batch_input:
             delta = []
             bias_delta = []
 
-            for i in support_embeddings.size(0):
-                class_embeddings = support_embeddings[i]
+            lower = 0
+            upper = self.n_support
+
+            for i in range(self.n_way):
+                class_embeddings = support_embeddings[lower:upper]
                 class_embeddings = class_embeddings.flatten()
                 delta_params = self.hyper_nets['base_hypernet'](class_embeddings)
 
                 class_delta = delta_params[:self.feat_dim]
                 class_bias_delta = delta_params[self.feat_dim:]
 
+                if self.hn_adaptation_strategy == 'increasing_alpha' and self.alpha < 1:
+                    class_delta = self.alpha * class_delta
+                    class_bias_delta = self.alpha * class_bias_delta
+
                 delta.append(class_delta)
                 bias_delta.append(class_bias_delta)
+
+                lower += self.n_support
+                upper += self.n_support
 
             return torch.stack(delta), torch.stack(bias_delta)
         else:
@@ -280,9 +297,13 @@ class HyperMAML(MAML):
 
             delta = delta.view(self.n_way, self.feat_dim)
 
+            if self.hn_adaptation_strategy == 'increasing_alpha' and self.alpha < 1:
+                delta = self.alpha * delta
+                bias_delta = self.alpha * bias_delta
+
             return delta, bias_delta
 
-    def set_forward(self,x, is_feature = False):
+    def set_forward(self, x, is_feature = False):
         assert is_feature == False, 'MAML do not support fixed feature'
 
         x = x.cuda()
@@ -318,12 +339,12 @@ class HyperMAML(MAML):
             #for usage of weight.fast, please see Linear_fw, Conv_fw in backbone.py
             if weight.fast is None:
                 if weight.shape == delta_list[k].shape:
-                    weight.fast = weight - delta_list[k] # create weight.fast 
+                    weight.fast = weight * delta_list[k] # create weight.fast 
                 else: # if shapes not matching
                     weight.fast = weight 
             else:
                 if weight.fast.shape == delta_list[k].shape: # update only weights, not bias
-                    weight.fast = weight.fast - delta_list[k] #create an updated weight.fast, note the '-' is not merely minus value, but to create a new weight.fast 
+                    weight.fast = weight.fast * delta_list[k] #create an updated weight.fast, note the '-' is not merely minus value, but to create a new weight.fast 
 
         scores = self.forward(query_data)
         
@@ -394,9 +415,15 @@ class HyperMAML(MAML):
         
         metrics = {"accuracy/train": acc_mean}
 
+        if self.hn_adaptation_strategy == 'increasing_alpha':
+            metrics['alpha'] =  self.alpha
+
         if self.hn_save_delta_params and len(self.delta_list) > 0:
             delta_params = {"epoch": epoch, "delta_list": self.delta_list}
             metrics['delta_params'] = delta_params
+
+        if self.alpha < 1:
+            self.alpha += self.hn_alpha_step
 
         return metrics                      
 

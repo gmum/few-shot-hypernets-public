@@ -180,7 +180,7 @@ def plot_metrics(metrics_per_epoch: Dict[str, Union[List[float], float]], epoch:
 
 def get_scheduler(params, optimizer) -> lr_scheduler._LRScheduler:
     if params.lr_scheduler == "multisteplr":
-        return lr_scheduler.MultiStepLR(optimizer, milestones=[300, 600, 900, 1200],
+        return lr_scheduler.MultiStepLR(optimizer, milestones=[75, 800, 1450],
                                              gamma=0.3)
     elif params.lr_scheduler == "none":
         return lr_scheduler.MultiStepLR(optimizer, milestones=list(range(0, params.stop_epoch, params.stop_epoch // 4))[1:],
