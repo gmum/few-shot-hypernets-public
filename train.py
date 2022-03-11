@@ -364,7 +364,7 @@ if __name__ == '__main__':
     try:
         do_save_fts(params)
     except Exception as e:
-        raise
+        #raise
         print("Cannot save features bc of", e)
 
     for hn_val_epochs in [0, 10]:
