@@ -75,7 +75,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
     else:
         metrics_per_epoch = defaultdict(list)
 
-    scheduler = get_scheduler(params, optimizer)
+    scheduler = get_scheduler(params, optimizer, stop_epoch)
 
     print("Starting training")
     print("Params accessed until this point:")
@@ -178,7 +178,7 @@ def plot_metrics(metrics_per_epoch: Dict[str, Union[List[float], float]], epoch:
         plt.savefig(fig_dir / f"{m}.png")
         plt.close()
 
-def get_scheduler(params, optimizer) -> lr_scheduler._LRScheduler:
+def get_scheduler(params, optimizer, stop_epoch=None) -> lr_scheduler._LRScheduler:
     if params.lr_scheduler == "multisteplr":
         if params.milestones is not None:
             milestones = params.milestones
@@ -192,9 +192,10 @@ def get_scheduler(params, optimizer) -> lr_scheduler._LRScheduler:
                                              gamma=1)
 
     elif params.lr_scheduler == "cosine":
+        T_0 = stop_epoch if stop_epoch is not None else params.stop_epoch // 4
         return lr_scheduler.CosineAnnealingWarmRestarts(
             optimizer,
-            T_0=params.stop_epoch // 4
+            T_0=T_0
         )
 
     raise TypeError(params.lr_scheduler)

@@ -197,6 +197,7 @@ class HyperMAML(MAML):
         self.hn_save_delta_params = params.hn_save_delta_params
         self.hn_use_class_batch_input = params.hn_use_class_batch_input
         self.hn_adaptation_strategy = params.hn_adaptation_strategy
+        self.hm_support_set_loss = params.hm_support_set_loss
 
         self.alpha = 0
         self.hn_alpha_step = params.hn_alpha_step
@@ -303,7 +304,7 @@ class HyperMAML(MAML):
 
             return delta, bias_delta
 
-    def set_forward(self, x, is_feature = False):
+    def set_forward(self, x, is_feature = False, train_stage = False):
         assert is_feature == False, 'MAML do not support fixed feature'
 
         x = x.cuda()
@@ -346,6 +347,9 @@ class HyperMAML(MAML):
                 if weight.fast.shape == delta_list[k].shape: # update only weights, not bias
                     weight.fast = weight.fast * delta_list[k] #create an updated weight.fast, note the '-' is not merely minus value, but to create a new weight.fast 
 
+        if self.hm_support_set_loss and train_stage:
+            query_data = torch.cat((support_data, query_data))
+
         scores = self.forward(query_data)
         
         # sum of delta params for regularization
@@ -361,8 +365,12 @@ class HyperMAML(MAML):
 
 
     def set_forward_loss(self, x):
-        scores, total_delta_sum = self.set_forward(x, is_feature = False)
+        scores, total_delta_sum = self.set_forward(x, is_feature = False, train_stage = True)
         query_data_labels = Variable( torch.from_numpy( np.repeat(range(self.n_way), self.n_query))).cuda()
+
+        if self.hm_support_set_loss:
+            support_data_labels = torch.from_numpy(np.repeat(range(self.n_way), self.n_support)).cuda()
+            query_data_labels = torch.cat((support_data_labels, query_data_labels))
 
         loss = self.loss_fn(scores, query_data_labels)
 

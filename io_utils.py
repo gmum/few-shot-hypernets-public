@@ -61,7 +61,7 @@ def parse_args(script):
     parser.add_argument("--optim", type=str, choices=["adam", "sgd"], help="Optimizer", default="adam")
     parser.add_argument("--n_val_perms", type=int, default=1, help="Number of task permutations in evaluation.")
     parser.add_argument("--lr_scheduler", type=str, help="LR scheduler", default="none", choices=[
-        "multisteplr", "none", "cosine"
+        "multisteplr", "none", "cosine", "reducelronplateau"
     ])
     parser.add_argument("--milestones", nargs='+', type=int, default=None, help="Milestones for multisteplr")
     if script == 'train':
