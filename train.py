@@ -314,9 +314,14 @@ if __name__ == '__main__':
             hn_type: Type[HyperNetPOC] = hypernet_types[params.method]
             model = hn_type(model_dict[params.model], params=params, **train_few_shot_params)
         elif params.method == 'hyper_maml':
+            backbone.ConvBlock.maml = True
+            backbone.SimpleBlock.maml = True
+            backbone.BottleneckBlock.maml = True
+            backbone.ResNet.maml = True
             model = HyperMAML(model_dict[params.model], params=params, approx=(params.method == 'maml_approx'), **train_few_shot_params)
             if params.dataset in ['omniglot', 'cross_char']:  # maml use different parameter in omniglot
-                model.n_task = 32
+                model.n_task = 32                
+                model.task_update_num = 1
                 model.train_lr = 0.1
     else:
         raise ValueError('Unknown method')
