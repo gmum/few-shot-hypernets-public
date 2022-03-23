@@ -170,6 +170,7 @@ def single_test(params):
         if params.adaptation:
             model.task_update_num = 100 #We perform adaptation on MAML simply by updating more times.
         model.eval()
+        model.single_test = True
         # print(model.test_loop( novel_loader, return_std = True))
         acc_mean, acc_std = model.test_loop( novel_loader, return_std = True)
 

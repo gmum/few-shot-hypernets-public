@@ -51,7 +51,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         optimizer = torch.optim.SGD(model.parameters(), lr=params.lr)
     else:
         raise ValueError(f'Unknown optimization {optimization}, please define by yourself')
-
+    
     max_acc = 0
     max_train_acc = 0
 
@@ -91,6 +91,8 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                 print("Breaking training at epoch", epoch, "because max accuracy", max_acc, "is lower than threshold", params.es_threshold)
                 break
         model.epoch = epoch
+        model.start_epoch = start_epoch
+        model.stop_epoch = stop_epoch
 
         model.train()
         metrics = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
@@ -131,8 +133,16 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                 outfile = os.path.join(params.checkpoint_dir, 'best_model.tar')
                 torch.save({'epoch': epoch, 'state': model.state_dict()}, outfile)
 
+                if params.maml_save_feature_network and params.method in ['maml', 'hyper_maml']:
+                    outfile = os.path.join(params.checkpoint_dir, 'best_feature_net.tar')
+                    torch.save({'epoch': epoch, 'state': model.feature.state_dict()}, outfile)
+
             outfile = os.path.join(params.checkpoint_dir, 'last_model.tar')
             torch.save({'epoch': epoch, 'state': model.state_dict()}, outfile)
+
+            if params.maml_save_feature_network and params.method in ['maml', 'hyper_maml']:
+                outfile = os.path.join(params.checkpoint_dir, 'last_feature_net.tar')
+                torch.save({'epoch': epoch, 'state': model.feature.state_dict()}, outfile)
 
             if (epoch % params.save_freq == 0) or (epoch == stop_epoch - 1):
                 outfile = os.path.join(params.checkpoint_dir, '{:d}.tar'.format(epoch))
@@ -151,6 +161,8 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
     neptune_run["best_model"].track_files(os.path.join(params.checkpoint_dir, 'best_model.tar'))
     neptune_run["last_model"].track_files(os.path.join(params.checkpoint_dir, 'last_model.tar'))
+    neptune_run["best_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'best_feature_net.tar'))
+    neptune_run["last_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'last_feature_net.tar'))
 
     if len(delta_params_list) > 0 and params.hn_save_delta_params:
         with (Path(params.checkpoint_dir) / f"delta_params_list_{len(delta_params_list)}.json").open("w") as f:
