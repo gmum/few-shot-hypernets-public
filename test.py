@@ -96,7 +96,7 @@ def single_test(params):
         backbone.SimpleBlock.maml = True
         backbone.BottleneckBlock.maml = True
         backbone.ResNet.maml = True
-        model = MAML(  model_dict[params.model], approx = (params.method == 'maml_approx') , **few_shot_params )
+        model = MAML(  model_dict[params.model], params=params, approx = (params.method == 'maml_approx') , **few_shot_params )
         if params.dataset in ['omniglot', 'cross_char']: #maml use different parameter in omniglot
             model.n_task     = 32
             model.task_update_num = 1

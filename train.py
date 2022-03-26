@@ -161,8 +161,10 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
     neptune_run["best_model"].track_files(os.path.join(params.checkpoint_dir, 'best_model.tar'))
     neptune_run["last_model"].track_files(os.path.join(params.checkpoint_dir, 'last_model.tar'))
-    neptune_run["best_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'best_feature_net.tar'))
-    neptune_run["last_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'last_feature_net.tar'))
+    
+    if params.maml_save_feature_network:
+        neptune_run["best_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'best_feature_net.tar'))
+        neptune_run["last_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'last_feature_net.tar'))
 
     if len(delta_params_list) > 0 and params.hn_save_delta_params:
         with (Path(params.checkpoint_dir) / f"delta_params_list_{len(delta_params_list)}.json").open("w") as f:
@@ -316,7 +318,7 @@ if __name__ == '__main__':
             backbone.SimpleBlock.maml = True
             backbone.BottleneckBlock.maml = True
             backbone.ResNet.maml = True
-            model = MAML(model_dict[params.model], approx=(params.method == 'maml_approx'), **train_few_shot_params)
+            model = MAML(model_dict[params.model], params=params, approx=(params.method == 'maml_approx'), **train_few_shot_params)
             if params.dataset in ['omniglot', 'cross_char']:  # maml use different parameter in omniglot
                 model.n_task = 32
                 model.task_update_num = 1

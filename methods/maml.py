@@ -16,13 +16,15 @@ from methods.meta_template import MetaTemplate
 from methods.hypernets.utils import get_param_dict, set_from_param_dict, SinActivation, accuracy_from_scores
 
 class MAML(MetaTemplate):
-    def __init__(self, model_func,  n_way, n_support, n_query, approx = False):
-        super(MAML, self).__init__( model_func,  n_way, n_support, change_way = False)
+    def __init__(self, model_func, n_way, n_support, n_query, params=None, approx = False):
+        super(MAML, self).__init__(model_func, n_way, n_support, change_way = False)
 
         self.loss_fn = nn.CrossEntropyLoss()
         self.classifier = backbone.Linear_fw(self.feat_dim, n_way)
         self.classifier.bias.data.fill_(0)
         
+        self.maml_adapt_classifier = params.maml_adapt_classifier
+
         self.n_task     = 4
         self.task_update_num = 5
         self.train_lr = 0.01
@@ -41,9 +43,15 @@ class MAML(MetaTemplate):
         x_b_i = x_var[:,self.n_support:,:,:,:].contiguous().view( self.n_way* self.n_query,   *x.size()[2:]) #query data
         y_a_i = Variable( torch.from_numpy( np.repeat(range( self.n_way ), self.n_support ) )).cuda() #label for support data
         
-        fast_parameters = list(self.parameters()) #the first gradient calcuated in line 45 is based on original weight
-        for weight in self.parameters():
-            weight.fast = None
+        if self.maml_adapt_classifier:
+            fast_parameters = list(self.classifier.parameters())
+            for weight in self.classifier.parameters():
+                weight.fast = None
+        else:
+            fast_parameters = list(self.parameters()) #the first gradient calcuated in line 45 is based on original weight
+            for weight in self.parameters():
+                weight.fast = None
+
         self.zero_grad()
 
         for task_step in range(self.task_update_num):
@@ -53,7 +61,8 @@ class MAML(MetaTemplate):
             if self.approx:
                 grad = [ g.detach()  for g in grad ] #do not calculate gradient of gradient if using first order approximation
             fast_parameters = []
-            for k, weight in enumerate(self.parameters()):
+            parameters = self.classifier.parameters() if self.maml_adapt_classifier else self.parameters()
+            for k, weight in enumerate(parameters):
                 #for usage of weight.fast, please see Linear_fw, Conv_fw in backbone.py 
                 if weight.fast is None:
                     weight.fast = weight - self.train_lr * grad[k] #create weight.fast 

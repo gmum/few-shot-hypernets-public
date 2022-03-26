@@ -65,6 +65,7 @@ def parse_args(script):
     ])
     parser.add_argument("--milestones", nargs='+', type=int, default=None, help="Milestones for multisteplr")
     parser.add_argument("--maml_save_feature_network", action="store_true", help="if to save feature net used in MAML")
+    parser.add_argument("--maml_adapt_classifier", action="store_true", help="Adapt only the classifier during second gradient calculation")
     if script == 'train':
         parser.add_argument('--num_classes' , default=200, type=int, help='total number of classes in softmax, only used in baseline') #make it larger than the maximum label value in base class
         parser.add_argument('--save_freq'   , default=50, type=int, help='Save frequency')
