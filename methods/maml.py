@@ -187,12 +187,12 @@ class HyperNet(nn.Module):
 
 class HyperMAML(MAML):
     def __init__(self, model_func, n_way, n_support, n_query, params=None, approx = False):
-        super(HyperMAML, self).__init__( model_func, n_way, n_support, n_query)
+        super(HyperMAML, self).__init__(model_func, n_way, n_support, n_query, params=params)
         self.loss_fn = nn.CrossEntropyLoss()
 
         self.hn_tn_hidden_size = params.hn_tn_hidden_size
         self.hn_tn_depth = params.hn_tn_depth
-        self.init_classifier(params)
+        self._init_classifier()
 
         self.enhance_embeddings = params.hn_enhance_embeddings
         
@@ -213,7 +213,11 @@ class HyperMAML(MAML):
         self.hm_maml_warmup_switch_epochs = params.hm_maml_warmup_switch_epochs
         self.hm_maml_update_feature_net = params.hm_maml_update_feature_net
         self.hm_update_operator = params.hm_update_operator
-
+        self.hm_load_feature_net = params.hm_load_feature_net
+        self.hm_feature_net_path = params.hm_feature_net_path
+        self.hm_detach_feature_net = params.hm_detach_feature_net
+        self.hm_detach_before_hyper_net = params.hm_detach_before_hyper_net
+        
         self.alpha = 0
         self.hn_alpha_step = params.hn_alpha_step
 
@@ -227,9 +231,16 @@ class HyperMAML(MAML):
         
         self.calculate_embedding_size()
 
-        self.init_hypernet_modules(params)
+        self._init_hypernet_modules(params)
+        self._init_feature_net()
 
-    def init_classifier(self, params):
+    def _init_feature_net(self):
+        if self.hm_load_feature_net:
+            print(f'loading feature net model from location: {self.hm_feature_net_path}')
+            model_dict = torch.load(self.hm_feature_net_path)
+            self.feature.load_state_dict(model_dict['state'])
+
+    def _init_classifier(self):
         layers = []
         
         for i in range(self.hn_tn_depth):
@@ -243,7 +254,7 @@ class HyperMAML(MAML):
 
         self.classifier = nn.Sequential(*layers)
 
-    def init_hypernet_modules(self, params):
+    def _init_hypernet_modules(self, params):
         if self.hn_use_class_batch_input:
             base_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.feat_dim + 1, params) # 1 is for bias param
 
@@ -273,11 +284,6 @@ class HyperMAML(MAML):
                 else:
                     self.embedding_size = self.n_way * self.n_support * self.feat_dim
 
-    def forward(self, x):
-        out  = self.feature.forward(x)
-        scores  = self.classifier.forward(out)
-        return scores
-
     def apply_embeddings_strategy(self, embeddings):
         if self.hn_embeddings_strategy == 'class_mean':
             new_embeddings = torch.zeros(self.n_way, *embeddings.shape[1:])
@@ -298,6 +304,9 @@ class HyperMAML(MAML):
         return torch.from_numpy(np.repeat(range(self.n_way), self.n_support)).cuda() # labels for support data
 
     def get_hn_delta_params(self, support_embeddings):
+        if self.hm_detach_before_hyper_net:
+            support_embeddings = support_embeddings.detach()
+            
         if self.hn_use_class_batch_input:
             delta = []
             bias_delta = []
@@ -445,6 +454,15 @@ class HyperMAML(MAML):
         else:
             return [torch.zeros(self.n_way, self.feat_dim).cuda(), torch.zeros(self.n_way).cuda()]
 
+    def forward(self, x):
+        out  = self.feature.forward(x)
+        
+        if self.hm_detach_feature_net:
+            out = out.detach()
+
+        scores  = self.classifier.forward(out)
+        return scores
+
     def set_forward(self, x, is_feature = False, train_stage = False):
         assert is_feature == False, 'MAML do not support fixed feature'
 
@@ -454,7 +472,10 @@ class HyperMAML(MAML):
         query_data = x_var[:, self.n_support:, :, :, :].contiguous().view(self.n_way * self.n_query,  *x.size()[2:]) # query data
         support_data_labels = self.get_support_data_labels()
 
-        support_embeddings = self.feature(support_data)    
+        support_embeddings = self.feature(support_data)   
+
+        if self.hm_detach_feature_net:
+            support_embeddings = support_embeddings.detach()
 
         maml_warmup_used = ((not self.single_test) and self.hm_maml_warmup and (self.epoch < self.hm_maml_warmup_epochs))    
 
