@@ -217,7 +217,11 @@ class HyperMAML(MAML):
         self.hm_feature_net_path = params.hm_feature_net_path
         self.hm_detach_feature_net = params.hm_detach_feature_net
         self.hm_detach_before_hyper_net = params.hm_detach_before_hyper_net
-        
+        self.hm_set_forward_with_adaptation = params.hm_set_forward_with_adaptation
+        self.hn_val_lr = params.hn_val_lr
+        self.hn_val_epochs = params.hn_val_epochs
+        self.hn_val_optim = params.hn_val_optim
+
         self.alpha = 0
         self.hn_alpha_step = params.hn_alpha_step
 
@@ -483,18 +487,22 @@ class HyperMAML(MAML):
         
         self._update_network_weights(delta_list, support_embeddings, support_data_labels)
 
-        if self.hm_support_set_loss and train_stage and not maml_warmup_used:
-            query_data = torch.cat((support_data, query_data))
-
-        scores = self.forward(query_data)
-        
-        # sum of delta params for regularization
-        if self.hn_lambda != 0:
-            total_delta_sum = sum([delta_params.pow(2.0).sum() for delta_params in delta_list])
-
-            return scores, total_delta_sum
-        else:
+        if self.hm_set_forward_with_adaptation and not train_stage:
+            scores = self.forward(support_data)
             return scores, None
+        else:
+            if self.hm_support_set_loss and train_stage and not maml_warmup_used:
+                query_data = torch.cat((support_data, query_data))
+
+            scores = self.forward(query_data)
+                
+            # sum of delta params for regularization
+            if self.hn_lambda != 0:
+                total_delta_sum = sum([delta_params.pow(2.0).sum() for delta_params in delta_list])
+
+                return scores, total_delta_sum
+            else:
+                return scores, None
 
     def set_forward_adaptation(self,x, is_feature = False): #overwrite parrent function
         raise ValueError('MAML performs further adapation simply by increasing task_upate_num')
@@ -517,6 +525,20 @@ class HyperMAML(MAML):
         y_labels = query_data_labels.cpu().numpy()
         top1_correct = np.sum(topk_ind == y_labels)
         task_accuracy = (top1_correct / len(query_data_labels)) * 100
+
+        return loss, task_accuracy
+
+    def set_forward_loss_with_adaptation(self, x):
+        scores, _ = self.set_forward(x, is_feature = False, train_stage = False)
+        support_data_labels = Variable( torch.from_numpy( np.repeat(range(self.n_way), self.n_support))).cuda()
+
+        loss = self.loss_fn(scores, support_data_labels)
+
+        topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
+        topk_ind = topk_labels.cpu().numpy().flatten()
+        y_labels = support_data_labels.cpu().numpy()
+        top1_correct = np.sum(topk_ind == y_labels)
+        task_accuracy = (top1_correct / len(support_data_labels)) * 100
 
         return loss, task_accuracy
 
@@ -575,22 +597,78 @@ class HyperMAML(MAML):
         count = 0
         acc_all = []
         self.delta_list = []
-        
+        acc_at = defaultdict(list)
+
         iter_num = len(test_loader) 
-        for i, (x,_) in enumerate(test_loader):
-            self.n_query = x.size(1) - self.n_support
-            assert self.n_way  ==  x.size(0), "MAML do not support way change"
-            correct_this, count_this = self.correct(x)
-            acc_all.append(correct_this/ count_this *100 )
+
+        if self.hm_set_forward_with_adaptation:
+            for i, (x,_) in enumerate(test_loader):
+                self.n_query = x.size(1) - self.n_support
+                assert self.n_way  ==  x.size(0), "MAML do not support way change"
+                acc_task, acc_at_metrics = self.set_forward_with_adaptation(x)
+                for (k, v) in acc_at_metrics.items():
+                    acc_at[k].append(v)
+                acc_all.append(acc_task)
+        else:
+            for i, (x,_) in enumerate(test_loader):
+                self.n_query = x.size(1) - self.n_support
+                assert self.n_way  ==  x.size(0), "MAML do not support way change"
+                correct_this, count_this = self.correct(x)
+                acc_all.append(correct_this/ count_this *100 )
+       
+        metrics = {
+            k: np.mean(v) if len(v) > 0 else 0
+            for (k,v) in acc_at.items()
+        }
 
         acc_all  = np.asarray(acc_all)
         acc_mean = np.mean(acc_all)
         acc_std  = np.std(acc_all)
         print('%d Test Acc = %4.2f%% +- %4.2f%%' %(iter_num,  acc_mean, 1.96* acc_std/np.sqrt(iter_num)))
         if return_std:
-            return acc_mean, acc_std
+            return acc_mean, acc_std, metrics
         else:
-            return acc_mean
+            return acc_mean, metrics
+
+    def set_forward_with_adaptation(self, x: torch.Tensor):
+        self_copy = deepcopy(self)
+
+        # deepcopy does not copy "fast" parameters so it should be done manually
+        for param1, param2 in zip(self.parameters(), self_copy.parameters()):
+            if hasattr(param1, 'fast'):
+                if param1.fast is not None:
+                    param2.fast = param1.fast.clone()
+                else:
+                    param2.fast = None
+
+        metrics = {
+            "accuracy/val@-0": self_copy.query_accuracy(x)
+        }
+        
+        val_opt_type = torch.optim.Adam if self.hn_val_optim == "adam" else torch.optim.SGD
+        val_opt = val_opt_type(self_copy.parameters(), lr=self.hn_val_lr)
+
+        if self.hn_val_epochs > 0:
+            for i in range(1, self.hn_val_epochs + 1):
+                self_copy.train()
+                val_opt.zero_grad()
+                loss, val_support_acc = self_copy.set_forward_loss_with_adaptation(x)
+                loss.backward()
+                val_opt.step()
+                self_copy.eval()
+                metrics[f"accuracy/val_support_acc@-{i}"] = val_support_acc
+                metrics[f"accuracy/val_loss@-{i}"] = loss.item()
+                metrics[f"accuracy/val@-{i}"] = self_copy.query_accuracy(x)
+
+        # free CUDA memory by deleting "fast" parameters
+        for param in self_copy.parameters():
+            param.fast = None
+
+        return metrics["accuracy/val@-0"], metrics
+
+    def query_accuracy(self, x: torch.Tensor) -> float:
+        scores, _ = self.set_forward(x, train_stage=True)
+        return 100 * accuracy_from_scores(scores, n_way=self.n_way, n_query=self.n_query)
 
     def get_logits(self, x):
         self.n_query = x.size(1) - self.n_support

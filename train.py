@@ -2,6 +2,7 @@ import json
 import sys
 from collections import defaultdict
 from typing import Type, List, Union, Dict, Optional
+from copy import deepcopy
 
 import numpy as np
 import torch
@@ -55,6 +56,12 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
     max_acc = 0
     max_train_acc = 0
 
+    if params.hm_set_forward_with_adaptation:
+        max_acc_adaptation_dict = {}
+        for i in range(params.hn_val_epochs + 1):            
+            if i != 0:
+                max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"] = 0
+            max_acc_adaptation_dict[f"accuracy/val_max@-{i}"] = 0
 
     if not os.path.isdir(params.checkpoint_dir):
         os.makedirs(params.checkpoint_dir)
@@ -66,6 +73,11 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                 try:
                     max_acc = metrics_per_epoch["accuracy/val_max"][-1]
                     max_train_acc = metrics_per_epoch["accuracy/train_max"][-1]
+
+                    for i in range(params.hn_val_epochs + 1):            
+                        if i != 0:
+                            max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"] = metrics_per_epoch[f"accuracy/val_support_max@-{i}"][-1]
+                        max_acc_adaptation_dict[f"accuracy/val_max@-{i}"] = metrics_per_epoch[f"accuracy/val_max@-{i}"][-1]
                 except:
                     max_acc = metrics_per_epoch["accuracy_val_max"][-1]
                     max_train_acc = metrics_per_epoch["accuracy_train_max"][-1]
@@ -121,11 +133,26 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             metrics["accuracy/train_max"] = max_train_acc
             metrics = {
                 **metrics,
-                **test_loop_metrics
+                **test_loop_metrics,
+                **max_acc_adaptation_dict
             }
+
+            if params.hm_set_forward_with_adaptation:
+                for i in range(params.hn_val_epochs + 1):
+                    if i != 0:
+                        metrics[f"accuracy/val_support_max@-{i}"] = max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"]
+                    metrics[f"accuracy/val_max@-{i}"] = max_acc_adaptation_dict[f"accuracy/val_max@-{i}"]
 
             if metrics["accuracy/train"] > max_train_acc:
                 max_train_acc = metrics["accuracy/train"]
+
+            if params.hm_set_forward_with_adaptation:
+                for i in range(params.hn_val_epochs + 1):
+                    if i != 0 and metrics[f"accuracy/val_support_acc@-{i}"] > max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"]:
+                        max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"] = metrics[f"accuracy/val_support_acc@-{i}"]
+                        
+                    if metrics[f"accuracy/val@-{i}"] > max_acc_adaptation_dict[f"accuracy/val_max@-{i}"]:
+                        max_acc_adaptation_dict[f"accuracy/val_max@-{i}"] = metrics[f"accuracy/val@-{i}"]
 
             if acc > max_acc:  # for baseline and baseline++, we don't use validation here so we let acc = -1
                 print("--> Best model! save...")

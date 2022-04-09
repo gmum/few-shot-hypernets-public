@@ -59,6 +59,7 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hn_args.add_argument("--hn_kernel_convolution_output_dim", type=int, default=256, help="Kernel convolution's output dim")
     hn_args.add_argument("--hn_kernel_invariance_pooling", default='mean',  choices=['average', 'mean', 'min', 'max'], help="The type of invariance operation for the kernel's output")
     hn_args.add_argument("--hm_support_set_loss", action='store_true', help="Use both query and support data when calculating loss")
+    hn_args.add_argument("--hm_set_forward_with_adaptation", action='store_true', help="Adapt network before test")
     hn_args.add_argument("--use_support_embeddings", action='store_true', help="Concatenate support embeddings with kernel features")
     hn_args.add_argument("--no_self_relations", action='store_true', help="Multiply matrix K to remove self relations (i.e., kernel(x_i, x_i))")
     hn_args.add_argument("--use_cosine_distance", action='store_true', help="Use cosine distance instead of a more specific kernel")
