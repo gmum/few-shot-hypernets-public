@@ -245,6 +245,7 @@ class HyperMAML(MAML):
             self.feature.load_state_dict(model_dict['state'])
 
     def _init_classifier(self):
+        assert self.hn_tn_hidden_size % self.n_way == 0, f"hn_tn_hidden_size {self.hn_tn_hidden_size} should be the multiple of n_way {self.n_way}" 
         layers = []
         
         for i in range(self.hn_tn_depth):
@@ -259,16 +260,47 @@ class HyperMAML(MAML):
         self.classifier = nn.Sequential(*layers)
 
     def _init_hypernet_modules(self, params):
-        if self.hn_use_class_batch_input:
-            base_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.feat_dim + 1, params) # 1 is for bias param
+        target_net_param_dict = get_param_dict(self.classifier)
 
-            self.hyper_nets = nn.ModuleDict({'base_hypernet': base_hypernet})
-        else:
-            base_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.n_way * self.feat_dim, params)
-            bias_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.n_way, params)
+        target_net_param_dict = {
+            name.replace(".", "-"): p
+            # replace dots with hyphens bc torch doesn't like dots in modules names
+            for name, p in target_net_param_dict.items()
+        }
 
-            self.hyper_nets = nn.ModuleDict({'base_hypernet': base_hypernet,
-                                             'bias_hypernet': bias_hypernet})
+        self.target_net_param_shapes = {
+            name: p.shape
+            for (name, p)
+            in target_net_param_dict.items()
+        }
+        
+        print(f'self.target_net_param_shapes {self.target_net_param_shapes}')
+
+        self.hypernet_heads = nn.ModuleDict()
+
+        for name, param in target_net_param_dict.items():
+            if self.hn_use_class_batch_input and name[-4:] == 'bias':
+                continue
+            
+            bias_size = param.shape[0] // self.n_way
+
+            head_in = self.embedding_size
+            head_out = (param.numel() // self.n_way) + bias_size if self.hn_use_class_batch_input else param.numel()
+            head_modules = []
+        
+            self.hypernet_heads[name] = HyperNet(self.hn_hidden_size, self.n_way, head_in, self.feat_dim, head_out, params)
+
+        print(self.hypernet_heads)
+        # if self.hn_use_class_batch_input:
+        #     base_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.feat_dim + 1, params) # 1 is for bias param
+
+        #     self.hyper_nets = nn.ModuleDict({'base_hypernet': base_hypernet})
+        # else:
+        #     base_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.n_way * self.feat_dim, params)
+        #     bias_hypernet = HyperNet(self.hn_hidden_size, self.n_way, self.embedding_size, self.feat_dim, self.n_way, params)
+
+        #     self.hyper_nets = nn.ModuleDict({'base_hypernet': base_hypernet,
+        #                                      'bias_hypernet': bias_hypernet})
 
     def calculate_embedding_size(self):
         if self.hn_use_class_batch_input:
@@ -312,32 +344,41 @@ class HyperMAML(MAML):
             support_embeddings = support_embeddings.detach()
             
         if self.hn_use_class_batch_input:
-            delta = []
-            bias_delta = []
+            delta_params_list = []
+            
+            for name, param_net in self.hypernet_heads.items():
+                delta = []
+                bias_delta = []
 
-            lower = 0
-            upper = self.n_support
+                lower = 0
+                upper = self.n_support
 
-            for i in range(self.n_way):
-                class_embeddings = support_embeddings[lower:upper]
-                class_embeddings = class_embeddings.flatten()
-                delta_params = self.hyper_nets['base_hypernet'](class_embeddings)
+                for i in range(self.n_way):
+                    class_embeddings = support_embeddings[lower:upper]
+                    class_embeddings = class_embeddings.flatten()
+                    delta_params = param_net(class_embeddings)
 
-                class_delta = delta_params[:self.feat_dim]
-                class_bias_delta = delta_params[self.feat_dim:]
+                    bias_neurons_num = self.target_net_param_shapes[name][0] // 5
 
-                if self.hn_adaptation_strategy == 'increasing_alpha' and self.alpha < 1:
-                    class_delta = self.alpha * class_delta
-                    class_bias_delta = self.alpha * class_bias_delta
+                    class_delta = delta_params[:-bias_neurons_num]
+                    class_bias_delta = delta_params[-bias_neurons_num:]
 
-                delta.append(class_delta)
-                bias_delta.append(class_bias_delta)
+                    if self.hn_adaptation_strategy == 'increasing_alpha' and self.alpha < 1:
+                        class_delta = self.alpha * class_delta
+                        class_bias_delta = self.alpha * class_bias_delta
 
-                lower += self.n_support
-                upper += self.n_support
+                    delta.append(class_delta)
+                    bias_delta.append(class_bias_delta)
 
-            return torch.stack(delta), torch.cat(bias_delta, dim=0)
+                    lower += self.n_support
+                    upper += self.n_support
+
+                delta_params_list.append(torch.stack(delta).reshape(self.target_net_param_shapes[name]))
+                delta_params_list.append(torch.cat(bias_delta, dim=0))
+                
+            return delta_params_list
         else:
+            # TODO
             flattened_embeddings = support_embeddings.flatten()
 
             delta = self.hyper_nets['base_hypernet'](flattened_embeddings)
@@ -375,7 +416,7 @@ class HyperMAML(MAML):
             return (self.hm_maml_warmup_switch_epochs + self.hm_maml_warmup_epochs - self.epoch) / (self.hm_maml_warmup_switch_epochs + 1)
         return 0.0
 
-    def _update_network_weights(self, delta_list, support_embeddings, support_data_labels):
+    def _update_network_weights(self, delta_params_list, support_embeddings, support_data_labels):
         if self.hm_maml_warmup and not self.single_test:
             p = self._get_p_value()
 
@@ -421,15 +462,15 @@ class HyperMAML(MAML):
                     elif 0.0 < p < 1.0:
                         # update weights of classifier network by adding gradient and output of hypernetwork
                         for k, weight in enumerate(self.classifier.parameters()):
-                            update_value = ((self.train_lr * p * grad[classifier_offset + k]) + ((1 - p) * delta_list[k]))
+                            update_value = ((self.train_lr * p * grad[classifier_offset + k]) + ((1 - p) * delta_params_list[k]))
                             self._update_weight(weight, update_value)
             else:
                 for k, weight in enumerate(self.classifier.parameters()):
-                    update_value = delta_list[k]
+                    update_value = delta_params_list[k]
                     self._update_weight(weight, update_value)
         else:
             for k, weight in enumerate(self.classifier.parameters()):
-                update_value = delta_list[k]
+                update_value = delta_params_list[k]
                 self._update_weight(weight, update_value)
 
 
@@ -449,14 +490,14 @@ class HyperMAML(MAML):
                 weight.fast = None
             self.zero_grad()
 
-            delta, bias_delta = self.get_hn_delta_params(enhanced_support_embeddings)
+            delta_params = self.get_hn_delta_params(enhanced_support_embeddings)
 
             if self.hn_save_delta_params and len(self.delta_list) == 0: 
-                self.delta_list = [{'params_delta': delta.flatten().tolist(), 'bias_delta': bias_delta.tolist()}]
+                self.delta_list = [{'delta_params': delta_params}]
 
-            return [delta, bias_delta]
+            return delta_params
         else:
-            return [torch.zeros(self.n_way, self.feat_dim).cuda(), torch.zeros(self.n_way).cuda()]
+            return [torch.zeros(i).cuda() for (_, i) in self.target_net_param_shapes]
 
     def forward(self, x):
         out  = self.feature.forward(x)
@@ -483,9 +524,9 @@ class HyperMAML(MAML):
 
         maml_warmup_used = ((not self.single_test) and self.hm_maml_warmup and (self.epoch < self.hm_maml_warmup_epochs))    
 
-        delta_list = self._get_list_of_delta_params(maml_warmup_used, support_embeddings, support_data_labels)
+        delta_params_list = self._get_list_of_delta_params(maml_warmup_used, support_embeddings, support_data_labels)
         
-        self._update_network_weights(delta_list, support_embeddings, support_data_labels)
+        self._update_network_weights(delta_params_list, support_embeddings, support_data_labels)
 
         if self.hm_set_forward_with_adaptation and not train_stage:
             scores = self.forward(support_data)
@@ -664,7 +705,7 @@ class HyperMAML(MAML):
         for param in self_copy.parameters():
             param.fast = None
 
-        return metrics["accuracy/val@-0"], metrics
+        return metrics[f"accuracy/val@-{self.hn_val_epochs}"], metrics
 
     def query_accuracy(self, x: torch.Tensor) -> float:
         scores, _ = self.set_forward(x, train_stage=True)
