@@ -55,7 +55,8 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
     
     max_acc = 0
     max_train_acc = 0
-
+    max_acc_adaptation_dict = {}
+    
     if params.hm_set_forward_with_adaptation:
         max_acc_adaptation_dict = {}
         for i in range(params.hn_val_epochs + 1):            
@@ -74,10 +75,11 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                     max_acc = metrics_per_epoch["accuracy/val_max"][-1]
                     max_train_acc = metrics_per_epoch["accuracy/train_max"][-1]
 
-                    for i in range(params.hn_val_epochs + 1):            
-                        if i != 0:
-                            max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"] = metrics_per_epoch[f"accuracy/val_support_max@-{i}"][-1]
-                        max_acc_adaptation_dict[f"accuracy/val_max@-{i}"] = metrics_per_epoch[f"accuracy/val_max@-{i}"][-1]
+                    if params.hm_set_forward_with_adaptation:
+                        for i in range(params.hn_val_epochs + 1):            
+                            if i != 0:
+                                max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"] = metrics_per_epoch[f"accuracy/val_support_max@-{i}"][-1]
+                            max_acc_adaptation_dict[f"accuracy/val_max@-{i}"] = metrics_per_epoch[f"accuracy/val_max@-{i}"][-1]
                 except:
                     max_acc = metrics_per_epoch["accuracy_val_max"][-1]
                     max_train_acc = metrics_per_epoch["accuracy_train_max"][-1]
@@ -431,7 +433,8 @@ if __name__ == '__main__':
 
     neptune_run = setup_neptune(params)
 
-    model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
+    if not params.evaluate_model:
+        model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
 
     # add default test params
     params.split = "novel"
