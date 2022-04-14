@@ -9,7 +9,7 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hn_args.add_argument('--hn_adaptation_strategy', type=str, default=None, choices=['increasing_alpha'], help='strategy used for manipulating alpha parameter')
     hn_args.add_argument('--hn_alpha_step', type=float, default=0, help='step used to increase alpha from 0 to 1 during adaptation to new task')
     hn_args.add_argument("--hn_hidden_size", type=int, default=256, help="HN hidden size")
-    hn_args.add_argument("--hn_tn_hidden_size", type=int, default=128, help="TN hidden size")
+    hn_args.add_argument("--hn_tn_hidden_size", type=int, default=120, help="TN hidden size")
     hn_args.add_argument("--hn_taskset_size", type=int, default=1, help="Taskset size")
     hn_args.add_argument("--hn_neck_len", type=int, default=0, help="Number of layers in the neck of the hypernet")
     hn_args.add_argument("--hn_head_len", type=int, default=2, help="Number of layers in the heads of the hypernet, must be >= 1")
