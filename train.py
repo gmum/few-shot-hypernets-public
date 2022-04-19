@@ -27,6 +27,8 @@ from io_utils import model_dict, parse_args, get_resume_file, setup_neptune
 
 import matplotlib.pyplot as plt
 from pathlib import Path
+
+from save_features import do_save_fts
 from test import perform_test
 
 
@@ -389,6 +391,7 @@ if __name__ == '__main__':
 
     if params.resume:
         resume_file = get_resume_file(params.checkpoint_dir)
+        print(resume_file)
         if resume_file is not None:
             tmp = torch.load(resume_file)
             start_epoch = tmp['epoch'] + 1
@@ -436,15 +439,25 @@ if __name__ == '__main__':
     if not params.evaluate_model:
         model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
 
-    # add default test params
     params.split = "novel"
     params.save_iter = -1
-    params.adaptation = False
-    params.repeat = 5
 
-    test_results =  perform_test(params)
-    if neptune_run is not None:
-        neptune_run["full_test"] = test_results
+    try:
+        do_save_fts(params)
+    except Exception as e:
+        #raise
+        print("Cannot save features bc of", e)
+
+    for hn_val_epochs in [0, 10]:
+        params.hn_val_epochs = hn_val_epochs
+        # add default test params
+        params.adaptation = False
+        params.repeat = 5
+
+        print(f"Testing with {hn_val_epochs=}")
+        test_results = perform_test(params)
+        if neptune_run is not None:
+            neptune_run[f"full_test @ {hn_val_epochs}"] = test_results
 
 
 

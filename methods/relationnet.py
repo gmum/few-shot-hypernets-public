@@ -10,7 +10,7 @@ from methods.meta_template import MetaTemplate
 import utils
 
 class RelationNet(MetaTemplate):
-    def __init__(self, model_func,  n_way, n_support, loss_type = 'mse'):
+    def __init__(self, model_func,  n_way, n_support, loss_type = 'mse', n_query=None):
         super(RelationNet, self).__init__(model_func,  n_way, n_support)
 
         self.loss_type = loss_type  #'softmax'# 'mse'

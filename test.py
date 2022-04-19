@@ -113,7 +113,8 @@ def single_test(params):
             model.train_lr = 0.1
     else:
        raise ValueError('Unknown method')
-
+    
+    few_shot_params["n_query"] = 15
     model = model.cuda()
 
     checkpoint_dir = '%s/checkpoints/%s/%s_%s' %(configs.save_dir, params.dataset, params.model, params.method)
@@ -131,6 +132,8 @@ def single_test(params):
             modelfile   = get_assigned_file(checkpoint_dir,params.save_iter)
         else:
             modelfile   = get_best_file(checkpoint_dir)
+        
+        print("Using model file", modelfile)
         if modelfile is not None:
             tmp = torch.load(modelfile)
             model.load_state_dict(tmp['state'])
@@ -172,14 +175,16 @@ def single_test(params):
         model.eval()
         model.single_test = True
         # print(model.test_loop( novel_loader, return_std = True))
-        acc_mean, acc_std, metrics = model.test_loop( novel_loader, return_std = True)
+
+        acc_mean, acc_std, *_ = model.test_loop( novel_loader, return_std = True)
+
 
     else:
         novel_file = os.path.join( checkpoint_dir.replace("checkpoints","features"), split_str +".hdf5") #defaut split = novel, but you can also test base or val classes
         cl_data_file = feat_loader.init_loader(novel_file)
 
         for i in range(iter_num):
-            acc = feature_evaluation(cl_data_file, model, n_query = 15, adaptation = params.adaptation, **few_shot_params)
+            acc = feature_evaluation(cl_data_file, model, adaptation = params.adaptation, **few_shot_params)
             acc_all.append(acc)
 
         acc_all  = np.asarray(acc_all)

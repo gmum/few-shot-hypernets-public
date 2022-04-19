@@ -12,6 +12,8 @@ from methods.meta_template import MetaTemplate
 from methods.transformer import TransformerEncoder
 
 ALLOWED_AGGREGATIONS = ["concat", "mean", "max_pooling", "min_pooling"]
+
+
 class HyperNetPOC(MetaTemplate):
     def __init__(
             self, model_func: nn.Module, n_way: int, n_support: int, n_query: int,
@@ -27,14 +29,6 @@ class HyperNetPOC(MetaTemplate):
         self.hn_hidden_size: int = params.hn_hidden_size
         self.attention_embedding: bool = params.hn_attention_embedding
         self.sup_aggregation: str = params.hn_sup_aggregation
-        if self.attention_embedding:
-            self.embedding_size: int = (self.feat_dim + self.n_way) * self.n_way * self.n_support
-        else:
-            assert self.sup_aggregation in ALLOWED_AGGREGATIONS
-            if self.sup_aggregation == "concat":
-                self.embedding_size: int = self.feat_dim * self.n_way * self.n_support
-            elif self.sup_aggregation in ["mean", "max_pooling", "min_pooling"]:
-                self.embedding_size: int = self.feat_dim * self.n_way
         self.detach_ft_in_hn: int = params.hn_detach_ft_in_hn
         self.detach_ft_in_tn: int = params.hn_detach_ft_in_tn
         self.hn_neck_len: int = params.hn_neck_len
@@ -45,11 +39,25 @@ class HyperNetPOC(MetaTemplate):
         self.hn_val_epochs: int = params.hn_val_epochs
         self.hn_val_lr: float = params.hn_val_lr
         self.hn_val_optim: float = params.hn_val_optim
+
+        self.embedding_size = self.init_embedding_size(params)
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.loss_fn = nn.CrossEntropyLoss()
         self.init_hypernet_modules()
         if self.attention_embedding:
             self.init_transformer_architecture(params)
+
+        print(self.target_net_architecture)
+
+    def init_embedding_size(self, params) -> int:
+        if self.attention_embedding:
+            return (self.feat_dim + self.n_way) * self.n_way * self.n_support
+        else:
+            assert self.sup_aggregation in ALLOWED_AGGREGATIONS
+            if self.sup_aggregation == "concat":
+                return self.feat_dim * self.n_way * self.n_support
+            elif self.sup_aggregation in ["mean", "max_pooling", "min_pooling"]:
+                return self.feat_dim * self.n_way
 
     def build_target_net_architecture(self, params) -> nn.Module:
         tn_hidden_size = params.hn_tn_hidden_size
@@ -76,7 +84,8 @@ class HyperNetPOC(MetaTemplate):
     def init_transformer_architecture(self, params):
         transformer_input_dim: int = self.feat_dim + self.n_way
         self.transformer_encoder: nn.Module = TransformerEncoder(
-            num_layers= params.hn_transformer_layers_no, input_dim=transformer_input_dim, num_heads=params.hn_transformer_heads_no, dim_feedforward=params.hn_transformer_feedforward_dim)
+            num_layers=params.hn_transformer_layers_no, input_dim=transformer_input_dim,
+            num_heads=params.hn_transformer_heads_no, dim_feedforward=params.hn_transformer_feedforward_dim)
 
     def init_hypernet_modules(self):
         target_net_param_dict = get_param_dict(self.target_net_architecture)
@@ -90,25 +99,8 @@ class HyperNetPOC(MetaTemplate):
             for (name, p)
             in target_net_param_dict.items()
         }
-        neck_modules = []
-        if self.hn_neck_len > 0:
 
-            neck_modules = [
-                nn.Linear(self.embedding_size, self.hn_hidden_size),
-                nn.ReLU()
-            ]
-            if self.hn_ln:
-                neck_modules = [nn.LayerNorm(self.embedding_size)] + neck_modules
-            for _ in range(self.hn_neck_len - 1):
-                if self.hn_ln:
-                    neck_modules.append(nn.LayerNorm(self.hn_hidden_size))
-                neck_modules.extend(
-                    [nn.Dropout(self.hn_dropout), nn.Linear(self.hn_hidden_size, self.hn_hidden_size), nn.ReLU()]
-                )
-
-            neck_modules = neck_modules[:-1]  # remove the last ReLU
-
-        self.hypernet_neck = nn.Sequential(*neck_modules)
+        self.init_hypernet_neck()
 
         self.hypernet_heads = nn.ModuleDict()
         assert self.hn_head_len >= 1, "Head len must be >= 1!"
@@ -129,6 +121,27 @@ class HyperNetPOC(MetaTemplate):
 
             self.hypernet_heads[name] = nn.Sequential(*head_modules)
 
+    def init_hypernet_neck(self):
+        neck_modules = []
+        if self.hn_neck_len > 0:
+
+            neck_modules = [
+                nn.Linear(self.embedding_size, self.hn_hidden_size),
+                nn.ReLU()
+            ]
+            if self.hn_ln:
+                neck_modules = [nn.LayerNorm(self.embedding_size)] + neck_modules
+            for _ in range(self.hn_neck_len - 1):
+                if self.hn_ln:
+                    neck_modules.append(nn.LayerNorm(self.hn_hidden_size))
+                neck_modules.extend(
+                    [nn.Dropout(self.hn_dropout), nn.Linear(self.hn_hidden_size, self.hn_hidden_size), nn.ReLU()]
+                )
+
+            neck_modules = neck_modules[:-1]  # remove the last ReLU
+
+        self.hypernet_neck = nn.Sequential(*neck_modules)
+
     def taskset_repeats(self, epoch: int):
         epoch_ceiling_to_n_repeats = {
             int(kv.split(":")[0]): int(kv.split(":")[1])
@@ -147,6 +160,23 @@ class HyperNetPOC(MetaTemplate):
         ys = ys.repeat(1, x.shape[1]).to(x.device)
         return ys.cuda()
 
+    def maybe_aggregate_support_feature(self, support_feature: torch.Tensor) -> torch.Tensor:
+        way, n_support, feat = support_feature.shape
+        if self.sup_aggregation == "concat":
+            features = support_feature.reshape(way * n_support, feat)
+        elif self.sup_aggregation == "sum":
+            features = support_feature.sum(dim=1)
+            way, feat = features.shape
+            assert (way, feat) == (self.n_way, self.feat_dim)
+        elif self.sup_aggregation == "mean":
+            features = support_feature.mean(dim=1)
+            way, feat = features.shape
+            assert (way, feat) == (self.n_way, self.feat_dim)
+        else:
+            raise TypeError(self.sup_aggregation)
+
+        return features
+
     def build_embedding(self, support_feature: torch.Tensor) -> torch.Tensor:
         way, n_support, feat = support_feature.shape
         if self.attention_embedding:
@@ -154,21 +184,8 @@ class HyperNetPOC(MetaTemplate):
             attention_features = torch.flatten(self.transformer_encoder.forward(features))
             return attention_features
 
-        if self.sup_aggregation == "concat":
-            features = support_feature.reshape(way * n_support, feat)
-            features = features.reshape(1, -1)
-        elif self.sup_aggregation == "sum":
-            features = support_feature.sum(dim=1)
-            way, feat = features.shape
-            assert (way, feat) == (self.n_way, self.feat_dim)
-            features = features.reshape(1, -1)
-        elif self.sup_aggregation == "mean":
-            features = support_feature.mean(dim=1)
-            way, feat = features.shape
-            assert (way, feat) == (self.n_way, self.feat_dim)
-            features = features.reshape(1, -1)
-        else:
-            raise TypeError(self.sup_aggregation)
+        features = self.maybe_aggregate_support_feature(support_feature)
+        features = features.reshape(1, -1)
         return features
 
     def generate_network_params(self, support_feature: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -256,7 +273,6 @@ class HyperNetPOC(MetaTemplate):
         else:
             feature_to_hn = support_feature.detach() if detach_ft_hn else support_feature
 
-
         classifier = self.generate_target_net(feature_to_hn)
 
         feature_to_classify = []
@@ -340,3 +356,82 @@ class HyperNetPOC(MetaTemplate):
         return metrics
 
 
+class PPAMixin(HyperNetPOC):
+    def build_target_net_architecture(self, params) -> nn.Module:
+        assert params.hn_tn_depth == 1, "In PPA the target network must be a single linear layer, please use `--hn_tn_depth=1`"
+        return super().build_target_net_architecture(params)
+
+    def init_hypernet_modules(self):
+        target_net_param_dict = get_param_dict(self.target_net_architecture)
+        target_net_param_dict = {
+            name.replace(".", "-"): p
+            # replace dots with hyphens bc torch doesn't like dots in modules names
+            for name, p in target_net_param_dict.items()
+        }
+        self.target_net_param_shapes = {
+            name: p.shape
+            for (name, p)
+            in target_net_param_dict.items()
+        }
+        self.init_hypernet_neck()
+
+        self.hypernet_heads = nn.ModuleDict()
+        assert self.hn_head_len >= 1, "Head len must be >= 1!"
+
+        # assert False, self.target_net_param_shapes
+        for name, param in target_net_param_dict.items():
+            head_in = self.embedding_size if self.hn_neck_len == 0 else self.hn_hidden_size
+            head_modules = []
+            assert param.numel() % self.n_way == 0, f"Each param in PPA should be divisible by {self.n_way=}, but {name} is of {param.shape=} -> {param.numel()=}"
+            head_out = param.numel() // self.n_way
+            for i in range(self.hn_head_len):
+                in_size = head_in if i == 0 else self.hn_hidden_size
+                is_final = (i == (self.hn_head_len - 1))
+                out_size = head_out if is_final else self.hn_hidden_size
+                if self.hn_ln:
+                    head_modules.append(nn.LayerNorm(in_size))
+                head_modules.extend([nn.Dropout(self.hn_dropout), nn.Linear(in_size, out_size)])
+                if not is_final:
+                    head_modules.append(nn.ReLU())
+
+            self.hypernet_heads[name] = nn.Sequential(*head_modules)
+
+class HypernetPPA(PPAMixin, HyperNetPOC):
+    """Based loosely on https://arxiv.org/abs/1706.03466"""
+
+    def taskset_repeats(self, epoch: int):
+        return 1
+
+    def init_embedding_size(self, params) -> int:
+        if self.attention_embedding:
+            raise NotImplementedError()
+        else:
+            assert self.sup_aggregation in ALLOWED_AGGREGATIONS
+            if self.sup_aggregation == "concat":
+                return self.feat_dim * self.n_support
+            elif self.sup_aggregation in ["mean", "max_pooling", "min_pooling"]:
+                return self.feat_dim
+
+
+
+    def build_embedding(self, support_feature: torch.Tensor) -> torch.Tensor:
+        way, n_support, feat = support_feature.shape
+        if self.attention_embedding:
+            features = support_feature.view(1, -1, *(support_feature.size()[2:]))
+            attention_features = torch.flatten(self.transformer_encoder.forward(features))
+            return attention_features
+
+        features = self.maybe_aggregate_support_feature(support_feature)
+        return features
+
+    def generate_network_params(self, support_feature: torch.Tensor) -> Dict[str, torch.Tensor]:
+        embedding = self.build_embedding(support_feature)
+        assert embedding.shape[0] == self.n_way
+
+        root = self.hypernet_neck(embedding)
+        network_params = {
+            name.replace("-", "."): param_net(root).reshape(self.target_net_param_shapes[name])
+            for name, param_net in self.hypernet_heads.items()
+        }
+
+        return network_params
