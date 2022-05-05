@@ -436,6 +436,9 @@ if __name__ == '__main__':
 
     neptune_run = setup_neptune(params)
 
+    if neptune_run is not None:
+        neptune_run["model"] = str(model)
+
     if not params.evaluate_model:
         model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
 
@@ -445,19 +448,25 @@ if __name__ == '__main__':
     try:
         do_save_fts(params)
     except Exception as e:
-        #raise
         print("Cannot save features bc of", e)
 
-    for hn_val_epochs in [0, 10]:
-        params.hn_val_epochs = hn_val_epochs
-        # add default test params
-        params.adaptation = False
-        params.repeat = 5
+    val_datasets = [params.dataset]
+    if params.dataset in ["cross", "miniImagenet"]:
+        val_datasets = ["cross", "miniImagenet"]
 
-        print(f"Testing with {hn_val_epochs=}")
-        test_results = perform_test(params)
-        if neptune_run is not None:
-            neptune_run[f"full_test @ {hn_val_epochs}"] = test_results
+    for d in val_datasets:
+        print("Evaluating on", d)
+        params.dataset = d
+        for hn_val_epochs in range(11):
+            params.hn_val_epochs = hn_val_epochs
+            # add default test params
+            params.adaptation = False
+            params.repeat = 5
+
+            print(f"Testing with {hn_val_epochs=}")
+            test_results = perform_test(params)
+            if neptune_run is not None:
+                neptune_run[f"full_test/{d}/metrics @ {hn_val_epochs}"] = test_results
 
 
 

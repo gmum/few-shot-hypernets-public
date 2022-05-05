@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 import numpy as np
 import random
@@ -117,13 +119,27 @@ def single_test(params):
     few_shot_params["n_query"] = 15
     model = model.cuda()
 
-    checkpoint_dir = '%s/checkpoints/%s/%s_%s' %(configs.save_dir, params.dataset, params.model, params.method)
+    checkpoint_dir = '%s/checkpoints/%s/%s_%s' %(
+        configs.save_dir,
+        params.dataset,
+        params.model,
+        params.method
+    )
+
+
+
     if params.train_aug:
         checkpoint_dir += '_aug'
     if not params.method in ['baseline', 'baseline++'] :
         checkpoint_dir += '_%dway_%dshot' %( params.train_n_way, params.n_shot)
     if params.checkpoint_suffix != "":
         checkpoint_dir = checkpoint_dir + "_" + params.checkpoint_suffix
+
+    if params.dataset == "cross":
+        if not Path(checkpoint_dir).exists():
+            checkpoint_dir = checkpoint_dir.replace("cross", "miniImagenet")
+
+    assert Path(checkpoint_dir).exists(), checkpoint_dir
 
     #modelfile   = get_resume_file(checkpoint_dir)
 
