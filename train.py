@@ -459,6 +459,7 @@ if __name__ == '__main__':
         params.dataset = d
         for hn_val_epochs in range(11):
             params.hn_val_epochs = hn_val_epochs
+            params.hm_set_forward_with_adaptation = True
             # add default test params
             params.adaptation = False
             params.repeat = 5
