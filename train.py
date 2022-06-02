@@ -206,7 +206,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         neptune_run["best_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'best_feature_net.tar'))
         neptune_run["last_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'last_feature_net.tar'))
 
-    if len(delta_params_list) > 0 and params.hn_save_delta_params:
+    if len(delta_params_list) > 0 and params.hm_save_delta_params:
         with (Path(params.checkpoint_dir) / f"delta_params_list_{len(delta_params_list)}.json").open("w") as f:
             json.dump(delta_params_list, f, indent=2)
 

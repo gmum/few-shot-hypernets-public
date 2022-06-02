@@ -34,7 +34,6 @@ class HyperNetPOC(MetaTemplate):
         self.hn_neck_len: int = params.hn_neck_len
         self.hn_head_len: int = params.hn_head_len
         self.taskset_repeats_config: str = params.hn_taskset_repeats
-        self.hn_ln: bool = params.hn_ln
         self.hn_dropout: float = params.hn_dropout
         self.hn_val_epochs: int = params.hn_val_epochs
         self.hn_val_lr: float = params.hn_val_lr
@@ -63,12 +62,6 @@ class HyperNetPOC(MetaTemplate):
         tn_hidden_size = params.hn_tn_hidden_size
         layers = []
 
-        activation_name = params.hn_tn_activation
-        activation_fn = (
-            nn.Tanh if activation_name == "tanh" else
-            nn.ReLU if activation_name == "relu" else
-            SinActivation
-        )
 
         for i in range(params.hn_tn_depth):
             is_final = i == (params.hn_tn_depth - 1)
@@ -76,7 +69,7 @@ class HyperNetPOC(MetaTemplate):
             outsize = self.n_way if is_final else tn_hidden_size
             layers.append(nn.Linear(insize, outsize))
             if not is_final:
-                layers.append(activation_fn())
+                layers.append(nn.ReLU())
         res = nn.Sequential(*layers)
         print(res)
         return res
@@ -113,8 +106,6 @@ class HyperNetPOC(MetaTemplate):
                 in_size = head_in if i == 0 else self.hn_hidden_size
                 is_final = (i == (self.hn_head_len - 1))
                 out_size = head_out if is_final else self.hn_hidden_size
-                if self.hn_ln:
-                    head_modules.append(nn.LayerNorm(in_size))
                 head_modules.extend([nn.Dropout(self.hn_dropout), nn.Linear(in_size, out_size)])
                 if not is_final:
                     head_modules.append(nn.ReLU())
@@ -129,11 +120,7 @@ class HyperNetPOC(MetaTemplate):
                 nn.Linear(self.embedding_size, self.hn_hidden_size),
                 nn.ReLU()
             ]
-            if self.hn_ln:
-                neck_modules = [nn.LayerNorm(self.embedding_size)] + neck_modules
             for _ in range(self.hn_neck_len - 1):
-                if self.hn_ln:
-                    neck_modules.append(nn.LayerNorm(self.hn_hidden_size))
                 neck_modules.extend(
                     [nn.Dropout(self.hn_dropout), nn.Linear(self.hn_hidden_size, self.hn_hidden_size), nn.ReLU()]
                 )
@@ -388,8 +375,6 @@ class PPAMixin(HyperNetPOC):
                 in_size = head_in if i == 0 else self.hn_hidden_size
                 is_final = (i == (self.hn_head_len - 1))
                 out_size = head_out if is_final else self.hn_hidden_size
-                if self.hn_ln:
-                    head_modules.append(nn.LayerNorm(in_size))
                 head_modules.extend([nn.Dropout(self.hn_dropout), nn.Linear(in_size, out_size)])
                 if not is_final:
                     head_modules.append(nn.ReLU())

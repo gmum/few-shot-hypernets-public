@@ -23,9 +23,9 @@ class HyperShot(HyperNetPOC):
         # TODO - check!!!
 
         # Use support embeddings - concatenate them with kernel features
-        self.use_support_embeddings: bool = params.use_support_embeddings
+        self.hn_use_support_embeddings: bool = params.hn_use_support_embeddings
         # Remove self relations by matrix K multiplication
-        self.no_self_relations: bool = params.no_self_relations
+        self.hn_no_self_relations: bool = params.hn_no_self_relations
 
         self.kernel_function = init_kernel_function(
             kernel_input_dim=self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim,
@@ -53,7 +53,7 @@ class HyperShot(HyperNetPOC):
         self.init_hypernet_modules()
 
     def init_embedding_size(self, params) -> int:
-        if params.use_support_embeddings:
+        if params.hn_use_support_embeddings:
             support_embeddings_size = self.feat_dim * self.n_way * self.n_support_size_context
         else:
             support_embeddings_size = 0
@@ -65,7 +65,7 @@ class HyperShot(HyperNetPOC):
                 return support_embeddings_size + params.hn_kernel_convolution_output_dim
 
         else:
-            if params.no_self_relations:
+            if params.hn_no_self_relations:
                 return support_embeddings_size + (
                         ((self.n_way * self.n_support_size_context) ** 2) - (
                         self.n_way * self.n_support_size_context))
@@ -79,7 +79,7 @@ class HyperShot(HyperNetPOC):
     def build_target_net_architecture(self, params) -> nn.Module:
         tn_hidden_size = params.hn_tn_hidden_size
         layers = []
-        if params.use_support_embeddings:
+        if params.hn_use_support_embeddings:
             common_insize = ((self.n_way * self.n_support_size_context) + self.feat_dim)
         else:
             common_insize = (self.n_way * self.n_support_size_context)
@@ -158,7 +158,7 @@ class HyperShot(HyperNetPOC):
         kernel_values_tensor = self.kernel_function.forward(support_features, support_features_copy)
 
         # Remove self relations by matrix multiplication
-        if self.no_self_relations:
+        if self.hn_no_self_relations:
             zero_diagonal_matrix = torch.ones_like(kernel_values_tensor).cuda() - torch.eye(
                 kernel_values_tensor.shape[0]).cuda()
             kernel_values_tensor = kernel_values_tensor * zero_diagonal_matrix
@@ -195,7 +195,7 @@ class HyperShot(HyperNetPOC):
         embedding = self.build_kernel_features_embedding(support_feature)
         embedding = embedding.reshape(1, self.embedding_size)
         # TODO - check!!!
-        if self.use_support_embeddings:
+        if self.hn_use_support_embeddings:
             embedding = torch.cat((embedding, torch.flatten(support_feature)), 0)
 
         root = self.hypernet_neck(embedding)
@@ -218,7 +218,7 @@ class HyperShot(HyperNetPOC):
 
         relational_query_feature = self.build_relations_features(support_feature, query_feature)
         # TODO - check!!!
-        if self.use_support_embeddings:
+        if self.hn_use_support_embeddings:
             relational_query_feature = torch.cat((relational_query_feature, query_feature), 1)
         y_pred = classifier(relational_query_feature)
 
@@ -296,7 +296,7 @@ class HyperShot(HyperNetPOC):
         if detach_ft_tn:
             relational_feature_to_classify = relational_feature_to_classify.detach()
 
-        if self.use_support_embeddings:
+        if self.hn_use_support_embeddings:
             relational_feature_to_classify = torch.cat((relational_feature_to_classify, feature_to_classify), 1)
 
         y_pred = classifier(relational_feature_to_classify)

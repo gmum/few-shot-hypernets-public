@@ -279,9 +279,9 @@ class MultiNNKernel(gpytorch.kernels.Kernel):
 
 
 def init_kernel_function(kernel_input_dim, params):
-    if params.use_scalar_product:
+    if params.hn_use_scalar_product:
         return ScalarProductKernel()
-    elif params.use_cosine_distance:
+    elif params.hn_use_cosine_distance:
         return CosineDistanceKernel()
     else:
         # if (not self.use_scalar_product) and (not self.use_cosine_distance):
@@ -289,7 +289,7 @@ def init_kernel_function(kernel_input_dim, params):
         kernel_output_dim = params.hn_kernel_out_size
         kernel_layers_no = params.hn_kernel_layers_no
         kernel_hidden_dim = params.hn_kernel_hidden_dim
-        if params.use_cosine_nn_kernel:
+        if params.hn_use_cosine_nn_kernel:
             return CosineNNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
         else:
             return NNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)

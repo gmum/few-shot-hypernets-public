@@ -20,21 +20,16 @@ class HyperNet(nn.Module):
         self.hn_head_len = params.hn_head_len
         self.hn_activation = params.hn_activation
 
-        head = [nn.Linear(embedding_size, hn_hidden_size)]
-        if params.hn_relu:
-            head.append(nn.ReLU())
+        head = [nn.Linear(embedding_size, hn_hidden_size), nn.ReLU()]
 
         if self.hn_head_len > 2:
             for i in range(self.hn_head_len - 2):
                 head.append(nn.Linear(hn_hidden_size, hn_hidden_size))
-                if params.hn_relu:
-                    head.append(nn.ReLU())
+                head.append(nn.ReLU())
 
         self.head = nn.Sequential(*head)
 
         tail = [nn.Linear(hn_hidden_size, out_neurons)]
-        if self.hn_activation == 'sigmoid':
-            tail.append(nn.Sigmoid())
 
         self.tail = nn.Sequential(*tail)
 
@@ -53,18 +48,18 @@ class HyperMAML(MAML):
         self.hn_tn_depth = params.hn_tn_depth
         self._init_classifier()
 
-        self.enhance_embeddings = params.hn_enhance_embeddings
+        self.enhance_embeddings = params.hm_enhance_embeddings
 
         self.n_task = 4
         self.task_update_num = 5
         self.train_lr = 0.01
         self.approx = approx # first order approx.
 
-        self.hn_embeddings_strategy = params.hn_embeddings_strategy
+        self.hn_sup_aggregation = params.hn_sup_aggregation
         self.hn_hidden_size = params.hn_hidden_size
-        self.hn_lambda = params.hn_lambda
-        self.hn_save_delta_params = params.hn_save_delta_params
-        self.hn_use_class_batch_input = params.hn_use_class_batch_input
+        self.hm_lambda = params.hm_lambda
+        self.hm_save_delta_params = params.hm_save_delta_params
+        self.hm_use_class_batch_input = params.hm_use_class_batch_input
         self.hn_adaptation_strategy = params.hn_adaptation_strategy
         self.hm_support_set_loss = params.hm_support_set_loss
         self.hm_maml_warmup = params.hm_maml_warmup
@@ -138,27 +133,27 @@ class HyperMAML(MAML):
         self.hypernet_heads = nn.ModuleDict()
 
         for name, param in target_net_param_dict.items():
-            if self.hn_use_class_batch_input and name[-4:] == 'bias':
+            if self.hm_use_class_batch_input and name[-4:] == 'bias':
                 continue
 
             bias_size = param.shape[0] // self.n_way
 
             head_in = self.embedding_size
-            head_out = (param.numel() // self.n_way) + bias_size if self.hn_use_class_batch_input else param.numel()
+            head_out = (param.numel() // self.n_way) + bias_size if self.hm_use_class_batch_input else param.numel()
             head_modules = []
 
             self.hypernet_heads[name] = HyperNet(self.hn_hidden_size, self.n_way, head_in, self.feat_dim, head_out, params)
 
     def calculate_embedding_size(self):
 
-        n_classes_in_embedding = 1 if self.hn_use_class_batch_input else self.n_way
-        n_support_per_class = 1 if self.hn_embeddings_strategy == 'class_mean' else self.n_support
+        n_classes_in_embedding = 1 if self.hm_use_class_batch_input else self.n_way
+        n_support_per_class = 1 if self.hn_sup_aggregation == 'mean' else self.n_support
         single_support_embedding_len = self.feat_dim + self.n_way + 1 if self.enhance_embeddings else self.feat_dim
         self.embedding_size = n_classes_in_embedding * n_support_per_class * single_support_embedding_len
 
 
     def apply_embeddings_strategy(self, embeddings):
-        if self.hn_embeddings_strategy == 'class_mean':
+        if self.hn_sup_aggregation == 'mean':
             new_embeddings = torch.zeros(self.n_way, *embeddings.shape[1:])
 
             for i in range(self.n_way):
@@ -177,7 +172,7 @@ class HyperMAML(MAML):
         if self.hm_detach_before_hyper_net:
             support_embeddings = support_embeddings.detach()
 
-        if self.hn_use_class_batch_input:
+        if self.hm_use_class_batch_input:
             delta_params_list = []
 
             for name, param_net in self.hypernet_heads.items():
@@ -319,7 +314,7 @@ class HyperMAML(MAML):
 
             delta_params = self.get_hn_delta_params(support_embeddings)
 
-            if self.hn_save_delta_params and len(self.delta_list) == 0:
+            if self.hm_save_delta_params and len(self.delta_list) == 0:
                 self.delta_list = [{'delta_params': delta_params}]
 
             return delta_params
@@ -365,7 +360,7 @@ class HyperMAML(MAML):
             scores = self.forward(query_data)
 
             # sum of delta params for regularization
-            if self.hn_lambda != 0:
+            if self.hm_lambda != 0:
                 total_delta_sum = sum([delta_params.pow(2.0).sum() for delta_params in delta_params_list])
 
                 return scores, total_delta_sum
@@ -385,8 +380,8 @@ class HyperMAML(MAML):
 
         loss = self.loss_fn(scores, query_data_labels)
 
-        if self.hn_lambda != 0:
-            loss = loss + self.hn_lambda * total_delta_sum
+        if self.hm_lambda != 0:
+            loss = loss + self.hm_lambda * total_delta_sum
 
         topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
         topk_ind = topk_labels.cpu().numpy().flatten()
@@ -451,7 +446,7 @@ class HyperMAML(MAML):
         if self.hn_adaptation_strategy == 'increasing_alpha':
             metrics['alpha'] =  self.alpha
 
-        if self.hn_save_delta_params and len(self.delta_list) > 0:
+        if self.hm_save_delta_params and len(self.delta_list) > 0:
             delta_params = {"epoch": self.epoch, "delta_list": self.delta_list}
             metrics['delta_params'] = delta_params
 
