@@ -1,21 +1,24 @@
 # This code is modified from https://github.com/dragen1860/MAML-Pytorch and https://github.com/katerakelly/pytorch-maml 
 
-import backbone
 import torch
-import torch.nn as nn
-from torch.autograd import Variable
+import backbone
 import numpy as np
-import torch.nn.functional as F
+import torch.nn as nn
+
+from torch.autograd import Variable
 from methods.meta_template import MetaTemplate
+from time import time
 
 class MAML(MetaTemplate):
-    def __init__(self, model_func,  n_way, n_support, approx = False):
-        super(MAML, self).__init__( model_func,  n_way, n_support, change_way = False)
+    def __init__(self, model_func, n_way, n_support, n_query, params=None, approx = False):
+        super(MAML, self).__init__(model_func, n_way, n_support, change_way = False)
 
         self.loss_fn = nn.CrossEntropyLoss()
         self.classifier = backbone.Linear_fw(self.feat_dim, n_way)
         self.classifier.bias.data.fill_(0)
         
+        self.maml_adapt_classifier = params.maml_adapt_classifier
+
         self.n_task     = 4
         self.task_update_num = 5
         self.train_lr = 0.01
@@ -34,19 +37,26 @@ class MAML(MetaTemplate):
         x_b_i = x_var[:,self.n_support:,:,:,:].contiguous().view( self.n_way* self.n_query,   *x.size()[2:]) #query data
         y_a_i = Variable( torch.from_numpy( np.repeat(range( self.n_way ), self.n_support ) )).cuda() #label for support data
         
-        fast_parameters = list(self.parameters()) #the first gradient calcuated in line 45 is based on original weight
-        for weight in self.parameters():
-            weight.fast = None
+        if self.maml_adapt_classifier:
+            fast_parameters = list(self.classifier.parameters())
+            for weight in self.classifier.parameters():
+                weight.fast = None
+        else:
+            fast_parameters = list(self.parameters()) #the first gradient calcuated in line 45 is based on original weight
+            for weight in self.parameters():
+                weight.fast = None
+
         self.zero_grad()
 
-        for task_step in range(self.task_update_num):
+        for task_step in (list(range(self.task_update_num))):
             scores = self.forward(x_a_i)
             set_loss = self.loss_fn( scores, y_a_i) 
             grad = torch.autograd.grad(set_loss, fast_parameters, create_graph=True) #build full graph support gradient of gradient
             if self.approx:
                 grad = [ g.detach()  for g in grad ] #do not calculate gradient of gradient if using first order approximation
             fast_parameters = []
-            for k, weight in enumerate(self.parameters()):
+            parameters = self.classifier.parameters() if self.maml_adapt_classifier else self.parameters()
+            for k, weight in enumerate(parameters):
                 #for usage of weight.fast, please see Linear_fw, Conv_fw in backbone.py 
                 if weight.fast is None:
                     weight.fast = weight - self.train_lr * grad[k] #create weight.fast 
@@ -63,16 +73,23 @@ class MAML(MetaTemplate):
 
     def set_forward_loss(self, x):
         scores = self.set_forward(x, is_feature = False)
-        y_b_i = Variable( torch.from_numpy( np.repeat(range( self.n_way ), self.n_query   ) )).cuda()
-        loss = self.loss_fn(scores, y_b_i)
+        query_data_labels = Variable( torch.from_numpy( np.repeat(range( self.n_way ), self.n_query   ) )).cuda()
+        loss = self.loss_fn(scores, query_data_labels)
 
-        return loss
+        topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
+        topk_ind = topk_labels.cpu().numpy().flatten()
+        y_labels = query_data_labels.cpu().numpy()
+        top1_correct = np.sum(topk_ind == y_labels)
+        task_accuracy = (top1_correct / len(query_data_labels)) * 100
+
+        return loss, task_accuracy
 
     def train_loop(self, epoch, train_loader, optimizer): #overwrite parrent function
         print_freq = 10
         avg_loss=0
         task_count = 0
         loss_all = []
+        acc_all = []
         optimizer.zero_grad()
 
         #train
@@ -80,9 +97,10 @@ class MAML(MetaTemplate):
             self.n_query = x.size(1) - self.n_support
             assert self.n_way  ==  x.size(0), "MAML do not support way change"
 
-            loss = self.set_forward_loss(x)
+            loss, task_accuracy = self.set_forward_loss(x)
             avg_loss = avg_loss+loss.item()#.data[0]
             loss_all.append(loss)
+            acc_all.append(task_accuracy)
 
             task_count += 1
 
@@ -96,30 +114,49 @@ class MAML(MetaTemplate):
             optimizer.zero_grad()
             if i % print_freq==0:
                 print('Epoch {:d} | Batch {:d}/{:d} | Loss {:f}'.format(epoch, i, len(train_loader), avg_loss/float(i+1)))
-                      
-    def test_loop(self, test_loader, return_std = False): #overwrite parrent function
-        correct =0
+        
+        acc_all  = np.asarray(acc_all)
+        acc_mean = np.mean(acc_all)
+        
+        metrics = {"accuracy/train": acc_mean}
+        
+        return metrics 
+
+    def test_loop(self, test_loader, return_std = False, return_time: bool = False): #overwrite parrent function
+        correct = 0
         count = 0
         acc_all = []
-        
+        eval_time = 0
         iter_num = len(test_loader) 
         for i, (x,_) in enumerate(test_loader):
             self.n_query = x.size(1) - self.n_support
             assert self.n_way  ==  x.size(0), "MAML do not support way change"
+            s = time()
             correct_this, count_this = self.correct(x)
+            t = time()
+            eval_time += (t -s)
             acc_all.append(correct_this/ count_this *100 )
 
+        num_tasks = len(acc_all)
         acc_all  = np.asarray(acc_all)
         acc_mean = np.mean(acc_all)
         acc_std  = np.std(acc_all)
         print('%d Test Acc = %4.2f%% +- %4.2f%%' %(iter_num,  acc_mean, 1.96* acc_std/np.sqrt(iter_num)))
+        print("Num tasks", num_tasks)
+
+        ret = [acc_mean]
         if return_std:
-            return acc_mean, acc_std
-        else:
-            return acc_mean
+            ret.append(acc_std)
+        if return_time:
+            ret.append(eval_time)
+        ret.append({})
+
+        return ret
+
 
     def get_logits(self, x):
         self.n_query = x.size(1) - self.n_support
         logits = self.set_forward(x)
         return logits
+
 

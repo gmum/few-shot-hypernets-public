@@ -44,9 +44,10 @@ class SetDataset:
         sub_data_loader_params = dict(batch_size = batch_size,
                                   shuffle = True,
                                   num_workers = 0, #use main thread only or may receive multiple batches
-                                  pin_memory = False)        
+                                  pin_memory = False)
+
         for cl in self.cl_list:
-            sub_dataset = SubDataset(self.sub_meta[cl], cl, transform = transform )
+            sub_dataset = SubDataset(self.sub_meta[cl], cl, transform = transform)
             self.sub_dataloader.append( torch.utils.data.DataLoader(sub_dataset, **sub_data_loader_params) )
 
     def __getitem__(self,i):
@@ -56,7 +57,7 @@ class SetDataset:
         return len(self.cl_list)
 
 class SubDataset:
-    def __init__(self, sub_meta, cl, transform=transforms.ToTensor(), target_transform=identity):
+    def __init__(self, sub_meta, cl, transform=transforms.ToTensor(), target_transform=identity ):
         self.sub_meta = sub_meta
         self.cl = cl 
         self.transform = transform
