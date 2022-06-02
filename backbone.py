@@ -7,7 +7,6 @@ import math
 import numpy as np
 import torch.nn.functional as F
 from torch.nn.utils.weight_norm import WeightNorm
-
 # Basic ResNet model
 
 def init_layer(L):
@@ -248,7 +247,7 @@ class BottleneckBlock(nn.Module):
 
 
 class ConvNet(nn.Module):
-    def __init__(self, depth, flatten = True):
+    def __init__(self, depth, flatten = True, pool=False):
         super(ConvNet,self).__init__()
         trunk = []
         for i in range(depth):
@@ -256,6 +255,9 @@ class ConvNet(nn.Module):
             outdim = 64
             B = ConvBlock(indim, outdim, pool = ( i <4 ) ) #only pooling for fist 4 layers
             trunk.append(B)
+
+        if pool:
+            trunk.append(nn.AdaptiveAvgPool2d((1,1)))
 
         if flatten:
             trunk.append(Flatten())
@@ -502,6 +504,8 @@ class ResNet10WithKernel(nn.Module):
 def Conv4():
     return ConvNet(4)
 
+def Conv4Pool():
+    return ConvNet(4, pool=True)
 def Conv6():
     return ConvNet(6)
 

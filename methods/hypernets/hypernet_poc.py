@@ -190,7 +190,6 @@ class HyperNetPOC(MetaTemplate):
 
     def generate_network_params(self, support_feature: torch.Tensor) -> Dict[str, torch.Tensor]:
         embedding = self.build_embedding(support_feature)
-
         root = self.hypernet_neck(embedding)
         network_params = {
             name.replace("-", "."): param_net(root).reshape(self.target_net_param_shapes[name])

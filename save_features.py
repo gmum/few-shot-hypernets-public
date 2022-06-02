@@ -43,7 +43,7 @@ def save_features(model, data_loader, outfile ):
 
 def do_save_fts(params):
     illegal_models = [
-        "maml", "maml_approx", "DKT",
+        "maml", "maml_approx", "hyper_maml", "DKT",
     ] + list(hypernet_types.keys())
     assert params.method not in illegal_models, 'maml do not support save_feature and run'
 
@@ -79,12 +79,17 @@ def do_save_fts(params):
     if not params.method in ['baseline', 'baseline++']:
         checkpoint_dir += '_%dway_%dshot' % (params.train_n_way, params.n_shot)
 
+    if params.checkpoint_suffix != "":
+        checkpoint_dir = checkpoint_dir + "_" + params.checkpoint_suffix
+
     if params.save_iter != -1:
         modelfile = get_assigned_file(checkpoint_dir, params.save_iter)
     elif params.method in ['baseline', 'baseline++']:
         modelfile = get_resume_file(checkpoint_dir)
     else:
+        print("looking for best file in", checkpoint_dir)
         modelfile = get_best_file(checkpoint_dir)
+        print("got", modelfile)
 
     if params.save_iter != -1:
         outfile = os.path.join(checkpoint_dir.replace("checkpoints", "features"),

@@ -11,7 +11,7 @@ import utils
 import copy
 
 class MatchingNet(MetaTemplate):
-    def __init__(self, model_func,  n_way, n_support):
+    def __init__(self, model_func,  n_way, n_support, n_query=None):
         super(MatchingNet, self).__init__( model_func,  n_way, n_support)
 
         self.loss_fn    = nn.NLLLoss()
