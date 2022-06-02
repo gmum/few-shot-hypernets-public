@@ -1,26 +1,7 @@
 from methods.hypernets.hypernet_poc import HyperNetPOC, HypernetPPA
-from methods.hypernets.hypnettorch_wrapper import HypnettorchWrapper
-from methods.hypernets.deprecated import HNPocAdaptTN, HNPocWithUniversalFinal, HyperNetConvFromDKT, HyperNetSepJoint, \
-    HyperNetSupportConv, HyperNetSupportKernel, NoHNConditioning
-from methods.hypernets.hypernet_kernel import (
-    HyperNetPocWithKernel, HyperShot,
-    HNKernelBetweenSupportAndQuery, NoHNKernelBetweenSupportAndQuery,
-    HypernetSupSupPPA
-)
+from methods.hypernets.hypernet_kernel import HyperShot
 hypernet_types = {
     "hyper_shot": HyperShot,
     "hn_ppa": HypernetPPA,
-    "hn_poc": HyperNetPOC,
-    "hn_poc_kernel": HyperNetPocWithKernel,
-    "hn_ppa_sup_sup_kernel": HypernetSupSupPPA,
-    "hn_sup_kernel": HNKernelBetweenSupportAndQuery,
-    "no_hn_sup_kernel": NoHNKernelBetweenSupportAndQuery,
-    "hn_lib": HypnettorchWrapper,
-    "_hn_uni_final": HNPocWithUniversalFinal,
-    "_hn_poc_adapt_tn_val": HNPocAdaptTN,
-    "_hn_from_dkt": HyperNetConvFromDKT,
-    "_hn_sep_joint": HyperNetSepJoint,
-    "_hn_cnv": HyperNetSupportConv,
-    "_hn_kernel": HyperNetSupportKernel,
-    "_no_hn_cond": NoHNConditioning,
+    "hn_poc": HyperNetPOC
 }
