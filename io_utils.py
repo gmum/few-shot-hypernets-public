@@ -16,6 +16,7 @@ from methods.hypernets import hypernet_types
 
 model_dict = dict(
             Conv4 = backbone.Conv4,
+            Conv4Pool = backbone.Conv4Pool,
             Conv4S = backbone.Conv4S,
             Conv6 = backbone.Conv6,
             ResNet10 = backbone.ResNet10,
@@ -24,7 +25,8 @@ model_dict = dict(
             ResNet50 = backbone.ResNet50,
             ResNet101 = backbone.ResNet101,
             Conv4WithKernel = backbone.Conv4WithKernel,
-            ResNetWithKernel = backbone.ResNetWithKernel)
+            ResNetWithKernel = backbone.ResNetWithKernel,
+)
 
 class ParamHolder:
     """A class for checking which script arguments were actually used at any time"""
@@ -49,7 +51,7 @@ def parse_args(script):
                                      )
     parser.add_argument('--seed' , default=0, type=int,  help='Seed for Numpy and pyTorch. Default: 0 (None)')
     parser.add_argument('--dataset'     , default='CUB',        help='CUB/miniImagenet/cross/omniglot/cross_char')
-    parser.add_argument('--model'       , default='Conv4',      help='model: Conv{4|6} / ResNet{10|18|34|50|101}') # 50 and 101 are not used in the paper
+    parser.add_argument('--model'       , default='Conv4',      help='model: Conv{4|6}{Pool} / ResNet{10|18|34|50|101}', choices=sorted(model_dict.keys())) # 50 and 101 are not used in the paper
     parser.add_argument('--method', default='baseline', choices=['baseline', 'baseline++', 'DKT', 'protonet', 'matchingnet', 'relationnet', 'relationnet_softmax', 'maml', 'maml_approx', 'hyper_maml'] + list(hypernet_types.keys()),
                         help='baseline/baseline++/protonet/matchingnet/relationnet{_softmax}/maml{_approx}/hn_poc/hyper_maml') #relationnet_softmax replace L2 norm with softmax to expedite training, maml_approx use first-order approximation in the gradient for efficiency
     parser.add_argument('--train_n_way' , default=5, type=int,  help='class num to classify for training') #baseline and baseline++ would ignore this parameter

@@ -43,7 +43,7 @@ def save_features(model, data_loader, outfile ):
 
 def do_save_fts(params):
     illegal_models = [
-        "maml", "maml_approx", "DKT",
+        "maml", "maml_approx", "hyper_maml", "DKT",
     ] + list(hypernet_types.keys())
     assert params.method not in illegal_models, 'maml do not support save_feature and run'
 

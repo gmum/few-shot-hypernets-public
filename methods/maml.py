@@ -14,6 +14,8 @@ from collections import defaultdict
 from torch.autograd import Variable
 from methods.meta_template import MetaTemplate
 from methods.hypernets.utils import get_param_dict, set_from_param_dict, SinActivation, accuracy_from_scores
+from tqdm import tqdm
+from time import time
 
 class MAML(MetaTemplate):
     def __init__(self, model_func, n_way, n_support, n_query, params=None, approx = False):
@@ -54,7 +56,7 @@ class MAML(MetaTemplate):
 
         self.zero_grad()
 
-        for task_step in range(self.task_update_num):
+        for task_step in (list(range(self.task_update_num))):
             scores = self.forward(x_a_i)
             set_loss = self.loss_fn( scores, y_a_i) 
             grad = torch.autograd.grad(set_loss, fast_parameters, create_graph=True) #build full graph support gradient of gradient
@@ -128,26 +130,37 @@ class MAML(MetaTemplate):
         
         return metrics 
 
-    def test_loop(self, test_loader, return_std = False): #overwrite parrent function
+    def test_loop(self, test_loader, return_std = False, return_time: bool = False): #overwrite parrent function
         correct = 0
         count = 0
         acc_all = []
-        
+        eval_time = 0
         iter_num = len(test_loader) 
         for i, (x,_) in enumerate(test_loader):
             self.n_query = x.size(1) - self.n_support
             assert self.n_way  ==  x.size(0), "MAML do not support way change"
+            s = time()
             correct_this, count_this = self.correct(x)
+            t = time()
+            eval_time += (t -s)
             acc_all.append(correct_this/ count_this *100 )
 
+        num_tasks = len(acc_all)
         acc_all  = np.asarray(acc_all)
         acc_mean = np.mean(acc_all)
         acc_std  = np.std(acc_all)
         print('%d Test Acc = %4.2f%% +- %4.2f%%' %(iter_num,  acc_mean, 1.96* acc_std/np.sqrt(iter_num)))
+        print("Num tasks", num_tasks)
+
+        ret = [acc_mean]
         if return_std:
-            return acc_mean, acc_std, {}
-        else:
-            return acc_mean, {}
+            ret.append(acc_std)
+        if return_time:
+            ret.append(eval_time)
+        ret.append({})
+
+        return ret
+
 
     def get_logits(self, x):
         self.n_query = x.size(1) - self.n_support
@@ -238,6 +251,8 @@ class HyperMAML(MAML):
         self._init_hypernet_modules(params)
         self._init_feature_net()
 
+        # print(self)
+
     def _init_feature_net(self):
         if self.hm_load_feature_net:
             print(f'loading feature net model from location: {self.hm_feature_net_path}')
@@ -289,22 +304,12 @@ class HyperMAML(MAML):
             self.hypernet_heads[name] = HyperNet(self.hn_hidden_size, self.n_way, head_in, self.feat_dim, head_out, params)
 
     def calculate_embedding_size(self):
-        if self.hn_use_class_batch_input:
-            if self.enhance_embeddings:
-                self.embedding_size = self.n_support * (self.feat_dim + self.n_way + 1)
-            else:
-                self.embedding_size = self.n_support * self.feat_dim
-        else:
-            if self.hn_embeddings_strategy == 'class_mean':
-                if self.enhance_embeddings:
-                    self.embedding_size = self.n_way * (self.feat_dim + self.n_way + 1)
-                else:
-                    self.embedding_size = self.n_way * self.feat_dim
-            else:
-                if self.enhance_embeddings:
-                    self.embedding_size = self.n_way * self.n_support * (self.feat_dim + self.n_way + 1)
-                else:
-                    self.embedding_size = self.n_way * self.n_support * self.feat_dim
+
+        n_classes_in_embedding = 1 if self.hn_use_class_batch_input else self.n_way
+        n_support_per_class = 1 if self.hn_embeddings_strategy == 'class_mean' else self.n_support
+        single_support_embedding_len = self.feat_dim + self.n_way + 1 if self.enhance_embeddings else self.feat_dim
+        self.embedding_size = n_classes_in_embedding * n_support_per_class * single_support_embedding_len
+
 
     def apply_embeddings_strategy(self, embeddings):
         if self.hn_embeddings_strategy == 'class_mean':
@@ -320,48 +325,32 @@ class HyperMAML(MAML):
         return embeddings
 
     def get_support_data_labels(self):
-        if self.hn_embeddings_strategy == 'class_mean':
-            return torch.from_numpy(np.repeat(range(self.n_way), 1)).cuda()
-
         return torch.from_numpy(np.repeat(range(self.n_way), self.n_support)).cuda() # labels for support data
 
     def get_hn_delta_params(self, support_embeddings):
         if self.hm_detach_before_hyper_net:
             support_embeddings = support_embeddings.detach()
-            
+
         if self.hn_use_class_batch_input:
             delta_params_list = []
-            
+
             for name, param_net in self.hypernet_heads.items():
-                delta = []
-                bias_delta = []
 
-                lower = 0
-                upper = self.n_support
+                support_embeddings_resh = support_embeddings.reshape(
+                    self.n_way, -1
+                )
 
-                for i in range(self.n_way):
-                    class_embeddings = support_embeddings[lower:upper]
-                    class_embeddings = class_embeddings.flatten()
-                    delta_params = param_net(class_embeddings)
+                delta_params = param_net(support_embeddings_resh)
+                bias_neurons_num = self.target_net_param_shapes[name][0] // self.n_way
 
-                    bias_neurons_num = self.target_net_param_shapes[name][0] // 5
+                if self.hn_adaptation_strategy == 'increasing_alpha' and self.alpha < 1:
+                    delta_params = delta_params * self.alpha
 
-                    class_delta = delta_params[:-bias_neurons_num]
-                    class_bias_delta = delta_params[-bias_neurons_num:]
+                weights_delta = delta_params[:, :-bias_neurons_num]
+                bias_delta = delta_params[: ,-bias_neurons_num:].flatten()
+                delta_params_list.extend([weights_delta, bias_delta])
 
-                    if self.hn_adaptation_strategy == 'increasing_alpha' and self.alpha < 1:
-                        class_delta = self.alpha * class_delta
-                        class_bias_delta = self.alpha * class_bias_delta
 
-                    delta.append(class_delta)
-                    bias_delta.append(class_bias_delta)
-
-                    lower += self.n_support
-                    upper += self.n_support
-
-                delta_params_list.append(torch.stack(delta).reshape(self.target_net_param_shapes[name]))
-                delta_params_list.append(torch.cat(bias_delta, dim=0))
-                
             return delta_params_list
         else:
             delta_params_list = []
@@ -428,6 +417,7 @@ class HyperMAML(MAML):
                 
                 for task_step in range(self.task_update_num):
                     scores = self.classifier(support_embeddings)
+
                     set_loss = self.loss_fn(scores, support_data_labels) 
 
                     grad = torch.autograd.grad(set_loss, fast_parameters, create_graph=True, allow_unused=True) #build full graph support gradient of gradient
@@ -466,21 +456,22 @@ class HyperMAML(MAML):
 
     def _get_list_of_delta_params(self, maml_warmup_used, support_embeddings, support_data_labels):
         if not maml_warmup_used:
-            enhanced_support_embeddings = self.apply_embeddings_strategy(support_embeddings)
 
             if self.enhance_embeddings:
                 with torch.no_grad():
-                    logits = self.classifier.forward(enhanced_support_embeddings).detach()
+                    logits = self.classifier.forward(support_embeddings).detach()
                     logits = F.softmax(logits, dim=1)
             
-                labels = support_data_labels.view(enhanced_support_embeddings.shape[0], -1)
-                enhanced_support_embeddings = torch.cat((enhanced_support_embeddings, logits, labels), dim=1)
-        
+                labels = support_data_labels.view(support_embeddings.shape[0], -1)
+                support_embeddings = torch.cat((support_embeddings, logits, labels), dim=1)
+
             for weight in self.parameters():
                 weight.fast = None
             self.zero_grad()
 
-            delta_params = self.get_hn_delta_params(enhanced_support_embeddings)
+            support_embeddings = self.apply_embeddings_strategy(support_embeddings)
+
+            delta_params = self.get_hn_delta_params(support_embeddings)
 
             if self.hn_save_delta_params and len(self.delta_list) == 0: 
                 self.delta_list = [{'delta_params': delta_params}]
@@ -529,7 +520,7 @@ class HyperMAML(MAML):
                 
             # sum of delta params for regularization
             if self.hn_lambda != 0:
-                total_delta_sum = sum([delta_params.pow(2.0).sum() for delta_params in delta_list])
+                total_delta_sum = sum([delta_params.pow(2.0).sum() for delta_params in delta_params_list])
 
                 return scores, total_delta_sum
             else:
@@ -623,43 +614,60 @@ class HyperMAML(MAML):
 
         return metrics                      
 
-    def test_loop(self, test_loader, return_std = False): #overwrite parrent function
-        correct =0
-        count = 0
+    def test_loop(self, test_loader, return_std = False, return_time: bool = False): #overwrite parrent function
+
         acc_all = []
         self.delta_list = []
         acc_at = defaultdict(list)
 
         iter_num = len(test_loader) 
-
+        
+        eval_time = 0
+        
         if self.hm_set_forward_with_adaptation:
             for i, (x,_) in enumerate(test_loader):
                 self.n_query = x.size(1) - self.n_support
                 assert self.n_way  ==  x.size(0), "MAML do not support way change"
+                s = time()
                 acc_task, acc_at_metrics = self.set_forward_with_adaptation(x)
+                t = time()
                 for (k, v) in acc_at_metrics.items():
                     acc_at[k].append(v)
                 acc_all.append(acc_task)
+                eval_time += (t -s)
+
         else:
             for i, (x,_) in enumerate(test_loader):
+                print(x.shape)
                 self.n_query = x.size(1) - self.n_support
-                assert self.n_way  ==  x.size(0), "MAML do not support way change"
+                assert self.n_way  ==  x.size(0), f"MAML do not support way change, {self.n_way=}, {x.size(0)=}"
+                s = time()
                 correct_this, count_this = self.correct(x)
+                t = time()
                 acc_all.append(correct_this/ count_this *100 )
-       
+                eval_time += (t -s)
+
+        
         metrics = {
             k: np.mean(v) if len(v) > 0 else 0
             for (k,v) in acc_at.items()
         }
 
+        num_tasks = len(acc_all)
         acc_all  = np.asarray(acc_all)
         acc_mean = np.mean(acc_all)
         acc_std  = np.std(acc_all)
         print('%d Test Acc = %4.2f%% +- %4.2f%%' %(iter_num,  acc_mean, 1.96* acc_std/np.sqrt(iter_num)))
+        print("Num tasks", num_tasks)
+
+        ret = [acc_mean]
         if return_std:
-            return acc_mean, acc_std, metrics
-        else:
-            return acc_mean, metrics
+            ret.append(acc_std)
+        if return_time:
+            ret.append(eval_time)
+        ret.append(metrics)
+
+        return ret
 
     def set_forward_with_adaptation(self, x: torch.Tensor):
         self_copy = deepcopy(self)
