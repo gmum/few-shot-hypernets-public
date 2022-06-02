@@ -14,6 +14,8 @@ from collections import defaultdict
 from torch.autograd import Variable
 from methods.meta_template import MetaTemplate
 from methods.hypernets.utils import get_param_dict, set_from_param_dict, SinActivation, accuracy_from_scores
+from tqdm import tqdm
+from time import time
 
 class MAML(MetaTemplate):
     def __init__(self, model_func, n_way, n_support, n_query, params=None, approx = False):
@@ -54,7 +56,7 @@ class MAML(MetaTemplate):
 
         self.zero_grad()
 
-        for task_step in range(self.task_update_num):
+        for task_step in (list(range(self.task_update_num))):
             scores = self.forward(x_a_i)
             set_loss = self.loss_fn( scores, y_a_i) 
             grad = torch.autograd.grad(set_loss, fast_parameters, create_graph=True) #build full graph support gradient of gradient
@@ -128,26 +130,37 @@ class MAML(MetaTemplate):
         
         return metrics 
 
-    def test_loop(self, test_loader, return_std = False): #overwrite parrent function
+    def test_loop(self, test_loader, return_std = False, return_time: bool = False): #overwrite parrent function
         correct = 0
         count = 0
         acc_all = []
-        
+        eval_time = 0
         iter_num = len(test_loader) 
         for i, (x,_) in enumerate(test_loader):
             self.n_query = x.size(1) - self.n_support
             assert self.n_way  ==  x.size(0), "MAML do not support way change"
+            s = time()
             correct_this, count_this = self.correct(x)
+            t = time()
+            eval_time += (t -s)
             acc_all.append(correct_this/ count_this *100 )
 
+        num_tasks = len(acc_all)
         acc_all  = np.asarray(acc_all)
         acc_mean = np.mean(acc_all)
         acc_std  = np.std(acc_all)
         print('%d Test Acc = %4.2f%% +- %4.2f%%' %(iter_num,  acc_mean, 1.96* acc_std/np.sqrt(iter_num)))
+        print("Num tasks", num_tasks)
+
+        ret = [acc_mean]
         if return_std:
-            return acc_mean, acc_std, {}
-        else:
-            return acc_mean, {}
+            ret.append(acc_std)
+        if return_time:
+            ret.append(eval_time)
+        ret.append({})
+
+        return ret
+
 
     def get_logits(self, x):
         self.n_query = x.size(1) - self.n_support
@@ -238,7 +251,7 @@ class HyperMAML(MAML):
         self._init_hypernet_modules(params)
         self._init_feature_net()
 
-        print(self)
+        # print(self)
 
     def _init_feature_net(self):
         if self.hm_load_feature_net:
@@ -507,7 +520,7 @@ class HyperMAML(MAML):
                 
             # sum of delta params for regularization
             if self.hn_lambda != 0:
-                total_delta_sum = sum([delta_params.pow(2.0).sum() for delta_params in delta_list])
+                total_delta_sum = sum([delta_params.pow(2.0).sum() for delta_params in delta_params_list])
 
                 return scores, total_delta_sum
             else:
@@ -601,43 +614,60 @@ class HyperMAML(MAML):
 
         return metrics                      
 
-    def test_loop(self, test_loader, return_std = False): #overwrite parrent function
-        correct =0
-        count = 0
+    def test_loop(self, test_loader, return_std = False, return_time: bool = False): #overwrite parrent function
+
         acc_all = []
         self.delta_list = []
         acc_at = defaultdict(list)
 
         iter_num = len(test_loader) 
-
+        
+        eval_time = 0
+        
         if self.hm_set_forward_with_adaptation:
             for i, (x,_) in enumerate(test_loader):
                 self.n_query = x.size(1) - self.n_support
                 assert self.n_way  ==  x.size(0), "MAML do not support way change"
+                s = time()
                 acc_task, acc_at_metrics = self.set_forward_with_adaptation(x)
+                t = time()
                 for (k, v) in acc_at_metrics.items():
                     acc_at[k].append(v)
                 acc_all.append(acc_task)
+                eval_time += (t -s)
+
         else:
             for i, (x,_) in enumerate(test_loader):
+                print(x.shape)
                 self.n_query = x.size(1) - self.n_support
-                assert self.n_way  ==  x.size(0), "MAML do not support way change"
+                assert self.n_way  ==  x.size(0), f"MAML do not support way change, {self.n_way=}, {x.size(0)=}"
+                s = time()
                 correct_this, count_this = self.correct(x)
+                t = time()
                 acc_all.append(correct_this/ count_this *100 )
-       
+                eval_time += (t -s)
+
+        
         metrics = {
             k: np.mean(v) if len(v) > 0 else 0
             for (k,v) in acc_at.items()
         }
 
+        num_tasks = len(acc_all)
         acc_all  = np.asarray(acc_all)
         acc_mean = np.mean(acc_all)
         acc_std  = np.std(acc_all)
         print('%d Test Acc = %4.2f%% +- %4.2f%%' %(iter_num,  acc_mean, 1.96* acc_std/np.sqrt(iter_num)))
+        print("Num tasks", num_tasks)
+
+        ret = [acc_mean]
         if return_std:
-            return acc_mean, acc_std, metrics
-        else:
-            return acc_mean, metrics
+            ret.append(acc_std)
+        if return_time:
+            ret.append(eval_time)
+        ret.append(metrics)
+
+        return ret
 
     def set_forward_with_adaptation(self, x: torch.Tensor):
         self_copy = deepcopy(self)

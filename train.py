@@ -46,7 +46,8 @@ def _set_seed(seed, verbose=True):
         if (verbose): print("[INFO] Setting SEED: None")
 
 
-def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, *, neptune_run: Optional[Run] = None):
+def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, *,
+          neptune_run: Optional[Run] = None):
     print("Tot epochs: " + str(stop_epoch))
     if optimization == 'adam':
         optimizer = torch.optim.Adam(model.parameters(), lr=params.lr)
@@ -54,14 +55,14 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         optimizer = torch.optim.SGD(model.parameters(), lr=params.lr)
     else:
         raise ValueError(f'Unknown optimization {optimization}, please define by yourself')
-    
+
     max_acc = 0
     max_train_acc = 0
     max_acc_adaptation_dict = {}
-    
+
     if params.hm_set_forward_with_adaptation:
         max_acc_adaptation_dict = {}
-        for i in range(params.hn_val_epochs + 1):            
+        for i in range(params.hn_val_epochs + 1):
             if i != 0:
                 max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"] = 0
             max_acc_adaptation_dict[f"accuracy/val_max@-{i}"] = 0
@@ -78,10 +79,12 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                     max_train_acc = metrics_per_epoch["accuracy/train_max"][-1]
 
                     if params.hm_set_forward_with_adaptation:
-                        for i in range(params.hn_val_epochs + 1):            
+                        for i in range(params.hn_val_epochs + 1):
                             if i != 0:
-                                max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"] = metrics_per_epoch[f"accuracy/val_support_max@-{i}"][-1]
-                            max_acc_adaptation_dict[f"accuracy/val_max@-{i}"] = metrics_per_epoch[f"accuracy/val_max@-{i}"][-1]
+                                max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"] = \
+                                metrics_per_epoch[f"accuracy/val_support_max@-{i}"][-1]
+                            max_acc_adaptation_dict[f"accuracy/val_max@-{i}"] = \
+                            metrics_per_epoch[f"accuracy/val_max@-{i}"][-1]
                 except:
                     max_acc = metrics_per_epoch["accuracy_val_max"][-1]
                     max_train_acc = metrics_per_epoch["accuracy_train_max"][-1]
@@ -98,13 +101,14 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
     print("\n\t".join(sorted(params.history)))
     print("Params ignored until this point:")
     print("\n\t".join(params.get_ignored_args()))
-    
+
     delta_params_list = []
 
     for epoch in range(start_epoch, stop_epoch):
         if epoch >= params.es_epoch:
             if max_acc < params.es_threshold:
-                print("Breaking training at epoch", epoch, "because max accuracy", max_acc, "is lower than threshold", params.es_threshold)
+                print("Breaking training at epoch", epoch, "because max accuracy", max_acc, "is lower than threshold",
+                      params.es_threshold)
                 break
         model.epoch = epoch
         model.start_epoch = start_epoch
@@ -128,7 +132,8 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             except:
                 acc = model.test_loop(val_loader)
                 test_loop_metrics = dict()
-            print(f"Epoch {epoch}/{stop_epoch}  | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Metrics: {test_loop_metrics}")
+            print(
+                f"Epoch {epoch}/{stop_epoch}  | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Metrics: {test_loop_metrics}")
 
             metrics = metrics or dict()
             metrics["lr"] = scheduler.get_lr()
@@ -144,7 +149,8 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             if params.hm_set_forward_with_adaptation:
                 for i in range(params.hn_val_epochs + 1):
                     if i != 0:
-                        metrics[f"accuracy/val_support_max@-{i}"] = max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"]
+                        metrics[f"accuracy/val_support_max@-{i}"] = max_acc_adaptation_dict[
+                            f"accuracy/val_support_max@-{i}"]
                     metrics[f"accuracy/val_max@-{i}"] = max_acc_adaptation_dict[f"accuracy/val_max@-{i}"]
 
             if metrics["accuracy/train"] > max_train_acc:
@@ -152,9 +158,11 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
             if params.hm_set_forward_with_adaptation:
                 for i in range(params.hn_val_epochs + 1):
-                    if i != 0 and metrics[f"accuracy/val_support_acc@-{i}"] > max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"]:
-                        max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"] = metrics[f"accuracy/val_support_acc@-{i}"]
-                        
+                    if i != 0 and metrics[f"accuracy/val_support_acc@-{i}"] > max_acc_adaptation_dict[
+                        f"accuracy/val_support_max@-{i}"]:
+                        max_acc_adaptation_dict[f"accuracy/val_support_max@-{i}"] = metrics[
+                            f"accuracy/val_support_acc@-{i}"]
+
                     if metrics[f"accuracy/val@-{i}"] > max_acc_adaptation_dict[f"accuracy/val_max@-{i}"]:
                         max_acc_adaptation_dict[f"accuracy/val_max@-{i}"] = metrics[f"accuracy/val@-{i}"]
 
@@ -192,7 +200,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
     neptune_run["best_model"].track_files(os.path.join(params.checkpoint_dir, 'best_model.tar'))
     neptune_run["last_model"].track_files(os.path.join(params.checkpoint_dir, 'last_model.tar'))
-    
+
     if params.maml_save_feature_network:
         neptune_run["best_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'best_feature_net.tar'))
         neptune_run["last_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'last_feature_net.tar'))
@@ -225,6 +233,7 @@ def plot_metrics(metrics_per_epoch: Dict[str, Union[List[float], float]], epoch:
         plt.savefig(fig_dir / f"{m}.png")
         plt.close()
 
+
 def get_scheduler(params, optimizer, stop_epoch=None) -> lr_scheduler._LRScheduler:
     if params.lr_scheduler == "multisteplr":
         if params.milestones is not None:
@@ -233,10 +242,11 @@ def get_scheduler(params, optimizer, stop_epoch=None) -> lr_scheduler._LRSchedul
             milestones = list(range(0, params.stop_epoch, params.stop_epoch // 4))[1:]
 
         return lr_scheduler.MultiStepLR(optimizer, milestones=milestones,
-                                             gamma=0.3)
+                                        gamma=0.3)
     elif params.lr_scheduler == "none":
-        return lr_scheduler.MultiStepLR(optimizer, milestones=list(range(0, params.stop_epoch, params.stop_epoch // 4))[1:],
-                                             gamma=1)
+        return lr_scheduler.MultiStepLR(optimizer,
+                                        milestones=list(range(0, params.stop_epoch, params.stop_epoch // 4))[1:],
+                                        gamma=1)
 
     elif params.lr_scheduler == "cosine":
         T_0 = stop_epoch if stop_epoch is not None else params.stop_epoch // 4
@@ -246,6 +256,7 @@ def get_scheduler(params, optimizer, stop_epoch=None) -> lr_scheduler._LRSchedul
         )
 
     raise TypeError(params.lr_scheduler)
+
 
 if __name__ == '__main__':
     params = parse_args('train')
@@ -320,6 +331,7 @@ if __name__ == '__main__':
         base_loader = base_datamgr.get_data_loader(base_file, aug=params.train_aug)
 
         test_few_shot_params = dict(n_way=params.test_n_way, n_support=params.n_shot, n_query=n_query)
+
         val_datamgr = SetDataManager(image_size, **test_few_shot_params)
         val_loader = val_datamgr.get_data_loader(val_file, aug=False)
         # a batch for SetDataManager: a [n_way, n_support + n_query, dim, w, h] tensor
@@ -349,7 +361,8 @@ if __name__ == '__main__':
             backbone.SimpleBlock.maml = True
             backbone.BottleneckBlock.maml = True
             backbone.ResNet.maml = True
-            model = MAML(model_dict[params.model], params=params, approx=(params.method == 'maml_approx'), **train_few_shot_params)
+            model = MAML(model_dict[params.model], params=params, approx=(params.method == 'maml_approx'),
+                         **train_few_shot_params)
             if params.dataset in ['omniglot', 'cross_char']:  # maml use different parameter in omniglot
                 model.n_task = 32
                 model.task_update_num = 1
@@ -363,9 +376,10 @@ if __name__ == '__main__':
             backbone.SimpleBlock.maml = True
             backbone.BottleneckBlock.maml = True
             backbone.ResNet.maml = True
-            model = HyperMAML(model_dict[params.model], params=params, approx=(params.method == 'maml_approx'), **train_few_shot_params)
+            model = HyperMAML(model_dict[params.model], params=params, approx=(params.method == 'maml_approx'),
+                              **train_few_shot_params)
             if params.dataset in ['omniglot', 'cross_char']:  # maml use different parameter in omniglot
-                model.n_task = 32                
+                model.n_task = 32
                 model.task_update_num = 1
                 model.train_lr = 0.1
     else:
@@ -433,14 +447,14 @@ if __name__ == '__main__':
     with (Path(params.checkpoint_dir) / "rerun.sh").open("w") as f:
         print("python", " ".join(sys.argv), file=f)
 
-
     neptune_run = setup_neptune(params)
 
     if neptune_run is not None:
         neptune_run["model"] = str(model)
 
     if not params.evaluate_model:
-        model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, neptune_run=neptune_run)
+        model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params,
+                      neptune_run=neptune_run)
 
     params.split = "novel"
     params.save_iter = -1
@@ -457,18 +471,14 @@ if __name__ == '__main__':
     for d in val_datasets:
         print("Evaluating on", d)
         params.dataset = d
-        for hn_val_epochs in range(11):
+        for hn_val_epochs in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 25, 50, 100, 200]:
             params.hn_val_epochs = hn_val_epochs
             params.hm_set_forward_with_adaptation = True
             # add default test params
-            params.adaptation = False
+            params.adaptation = True
             params.repeat = 5
 
             print(f"Testing with {hn_val_epochs=}")
             test_results = perform_test(params)
             if neptune_run is not None:
                 neptune_run[f"full_test/{d}/metrics @ {hn_val_epochs}"] = test_results
-
-
-
-
