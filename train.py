@@ -22,7 +22,8 @@ from methods.hypernets import hypernet_types
 from methods.protonet import ProtoNet
 from methods.matchingnet import MatchingNet
 from methods.relationnet import RelationNet
-from methods.maml import MAML, HyperMAML
+from methods.maml import MAML
+from methods.hypernets.hypermaml import HyperMAML
 from io_utils import model_dict, parse_args, get_resume_file, setup_neptune
 
 import matplotlib.pyplot as plt
@@ -371,7 +372,7 @@ if __name__ == '__main__':
         elif params.method in hypernet_types.keys():
             hn_type: Type[HyperNetPOC] = hypernet_types[params.method]
             model = hn_type(model_dict[params.model], params=params, **train_few_shot_params)
-        elif params.method == 'hyper_maml':
+        elif params.method == "hyper_maml":
             backbone.ConvBlock.maml = True
             backbone.SimpleBlock.maml = True
             backbone.BottleneckBlock.maml = True

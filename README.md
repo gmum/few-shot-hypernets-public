@@ -1,124 +1,144 @@
-Official pytorch implementation of the paper: 
+# Few-shot Hypernets
 
-*"Bayesian Meta-Learning for the Few-Shot Setting via Deep Kernels"* (2020) Patacchiola, M., Turner, J., Crowley, E. J., O'Boyle, M., & Storkey, A., *Advances in Neural Information Processing (NeurIPS, Spotlight)* [[arXiv]](https://arxiv.org/abs/1910.05199)
+Official PyTorch implementation of the papers: 
+
+* *HyperMAML: Few-Shot Adaptation of Deep Models with Hypernetworks* (2022)
+Przewięźlikowski M., Przybysz P. , Tabor J., Zięba M., Spurek P., preprint
+
+* *[HyperShot: Few-Shot Learning by Kernel HyperNetworks](https://arxiv.org/abs/2203.11378)* (2022) 
+Sendera M., Przewięźlikowski M., Karanowski K., Zięba M. Tabor J., Spurek P., preprint
 
 ```bibtex
-@inproceedings{patacchiola2020bayesian,
-  title={Bayesian Meta-Learning for the Few-Shot Setting via Deep Kernels},
-  author={Patacchiola, Massimiliano and Turner, Jack and Crowley, Elliot J. and Storkey, Amos},
-  booktitle={Advances in Neural Information Processing Systems},
-  year={2020}
+@misc{sendera2022hypershot,
+  doi = {10.48550/ARXIV.2203.11378},
+  url = {https://arxiv.org/abs/2203.11378},
+  author = {Sendera, Marcin and Przewięźlikowski, Marcin and Karanowski, Konrad and Zięba, Maciej and Tabor, Jacek and Spurek, Przemysław},
+  keywords = {Machine Learning (cs.LG), Artificial Intelligence (cs.AI), Computer Vision and Pattern Recognition (cs.CV), FOS: Computer and information sciences, FOS: Computer and information sciences},
+  title = {HyperShot: Few-Shot Learning by Kernel HyperNetworks},
+  publisher = {arXiv},
+  year = {2022},
+  copyright = {Creative Commons Attribution 4.0 International}
 }
+
 ```
 
-**Overview.** We introduce a Bayesian meta-learning method based on [Gaussian Processes (GPs)](https://en.wikipedia.org/wiki/Gaussian_process) to tackle the problem of few-shot learning. We propose a simple, yet effective variant of deep kernel learning in which the kernel is transferred across tasks, which we call *Deep Kernel Transfer (DKT)*. This approach is straightforward to implement, provides uncertainty quantification, and does not require estimation of task-specific parameters. We empirically demonstrate that DKT outperforms several state-of-the-art algorithms in few-shot regression, classification, and cross-domain adaptation.
+## Overview
 
-**NOTE**: previous pre-prints of this paper have used the names "GPNet" and "GPShot". In the published version we are using the name "DKT".
+### HyperShot
 
-Requirements
--------------
+Few-shot models aim at making predictions using a minimal number of labeled examples from a given task. The main challenge in this area is the one-shot setting where only one element represents each class. We propose HyperShot - the fusion of kernels and hypernetwork paradigm. Compared to reference approaches that apply a gradient-based adjustment of the parameters, our model aims to switch the classification module parameters depending on the task's embedding. In practice, we utilize a hypernetwork, which takes the aggregated information from support data and returns the classifier's parameters handcrafted for the considered problem. Moreover, we introduce the kernel-based representation of the support examples delivered to hypernetwork to create the parameters of the classification module. Consequently, we rely on relations between embeddings of the support examples instead of direct feature values provided by the backbone models. Thanks to this approach, our model can adapt to highly different tasks.
 
-1. Python >= 3.x
-2. Numpy >= 1.17
-3. [pyTorch](https://pytorch.org/) >= 1.2.0
-4. [GPyTorch](https://gpytorch.ai/) >= 0.3.5
-5. (optional) [TensorboardX](https://pypi.org/project/tensorboardX/) 
+### HyperMAML 
+
+The aim of Few-Shot learning methods is to train models which can easily adapt to
+previously unseen tasks, based on small amounts of data. One of the most popular
+and elegant Few-Shot learning approaches is Model-Agnostic Meta-Learning
+(MAML). The main idea behind this method is to learn the general weights of the
+meta-model, which are further adapted to specific problems in a small number of
+gradient steps. However, the model’s main limitation lies in the fact that the update
+procedure is realized by gradient-based optimisation. In consequence, MAML
+cannot always modify weights to the essential level in one or even a few gradient
+iterations. On the other hand, using many gradient steps results in a complex
+and time-consuming optimization procedure, which is hard to train in practice,
+and may lead to overfitting. In this paper, we propose HyperMAML, a novel
+generalization of MAML, where the training of the update procedure is also part
+of the model. Namely, in HyperMAML, instead of updating the weights with
+gradient descent, we use for this purpose a trainable Hypernetwork. Consequently,
+in this framework, the model can generate significant updates whose range is not
+limited to a fixed number of gradient steps. Experiments show that HyperMAML
+consistently outperforms MAML and performs comparably to other state-of-the-art
+techniques in a number of standard Few-Shot learning benchmarks.
+
+## Requirements
+
+1. Python >= 3.7
+2. Numpy >= 1.19
+3. [pyTorch](https://pytorch.org/) >= 1.11
+4. [GPyTorch](https://gpytorch.ai/) >= 1.5.1
+5. (optional) [neptune-client](https://neptune.ai/) for logging traning results into your Neptune project.
  
 
-Installation
--------------
+### Installation
 
 ```
 pip install numpy torch torchvision gpytorch h5py pillow
 ```
 
-We confirm that the following configuration worked for us: numpy 1.18.1, torch 1.4.0, torchvision 0.5.0, gpytorch 1.0.1, h5py 5.10.0, pillow 7.0.0
 
-DKT: code of our method
---------------------------
+## Code of our method
 
-**Regression.** The implementation of our method is based on the [gpyTorch](https://gpytorch.ai/) library. The code for the regression case is available in [DKT_regression.py](./methods/DKT_regression.py).
-
-**Classification.** The code for the classification case is accessible in [DKT.py](./methods/DKT.py), with most of the important pieces contained in the `train_loop()` method (training), and in the `correct()` method (testing). 
-
-Note: there is the possibility of using the [scikit](https://scikit-learn.org/stable/modules/gaussian_process.html) Laplace approximation at test time (classification only), setting `laplace=True` in `correct()`. However, this has not been investigated enough and it is not the method used in the paper.
+* HyperShot: [hypernet_kernel.py](./methods/hypernets/hypernet_kernel.py)
+* HyperMAML: [hypermaml.py](./methods/hypernets/hypermaml.py)
 
 
-Experiments
-============
 
-These are the instructions to train and test the methods reported in the paper in the various conditions.
+## Running the code
 
-**Download and prepare a dataset.** This is an example of how to download and prepare a dataset for training/testing. Here we assume the current directory is the project root folder:
+The various methods can be trained using the following syntax:
+```
+python train.py --dataset="miniImagenet" --method="hyper_maml" --train_n_way=5 --test_n_way=5 --n_shot=1 --seed=1 --train_aug
+```
+
+You can run 
+```
+python train.py --h to list all the possible arguments.
+```
+
+The [train.py](./train.py) script performs the whole training and evaluation procedure. 
+
+### Methods
+
+This repository provides implementations of several few-shot learning methods:
+* `hyper_maml` - HyperMAML: Few-Shot Adaptation of Deep Models with Hypernetworks
+* `hyper_shot` - [HyperShot: Few-Shot Learning by Kernel HyperNetworks](https://arxiv.org/abs/2203.11378)
+* `hn_ppa` - [Few-Shot Image Recognition by Predicting Parameters from Activations
+](https://arxiv.org/abs/1706.03466)
+* `DKT` - [Bayesian Meta-Learning for the Few-Shot Setting via Deep Kernels
+](https://arxiv.org/abs/1910.05199)
+* `maml`, `maml_approx` - [Model-Agnostic Meta-Learning for Fast Adaptation of Deep Networks
+](https://arxiv.org/abs/1703.03400)
+* `protonet` - [Prototypical Networks for Few-shot Learning
+](https://arxiv.org/abs/1703.05175)
+* `relationnet` - [Learning to Compare: Relation Network for Few-Shot Learning
+](https://arxiv.org/abs/1711.06025)
+* `matchingnet` - [Matching Networks for One Shot Learning
+](https://arxiv.org/abs/1606.04080)
+* `baseline++` - [A Closer Look at Few-Shot Classification](https://arxiv.org/abs/1904.04232)
+* `baseline` - Feature Transfer
+
+You must use those exact strings at training and test time when you call the script (see below). 
+
+### Datasets
+
+
+This is an example of how to download and prepare a dataset for training/testing. Here we assume the current directory is the project root folder:
 
 ```
 cd filelists/DATASET_NAME/
 sh download_DATASET_NAME.sh
 ```
-
 Replace `DATASET_NAME` with one of the following: `omniglot`, `CUB`, `miniImagenet`, `emnist`, `QMUL`. Notice that mini-ImageNet is a large dataset that requires substantial storage, therefore you can save the dataset in another location and then change the entry in `configs.py` in accordance.
 
-**Methods.** There are a few available methods that you can use: `DKT`, `maml`, `maml_approx`, `protonet`, `relationnet`, `matchingnet`, `baseline`, `baseline++`. You must use those exact strings at training and test time when you call the script (see below). Note that our method is `DKT`, and that `baseline` corresponds to feature transfer in our paper. By default DKT has a `BNCosSim` kernel, to change this please edit the entry in `configs.py`.
+These are the instructions to train and test the methods reported in the paper in the various conditions.
 
-**Backbone.** The script allows training and testing on different backbone networks. By default the script will use the same backbone used in our experiments (`Conv4`). Check the file `backbone.py` for the available architectures, and use the parameter `--model=BACKBONE_STRING` where `BACKBONE_STRING` is one of the following: `Conv4`, `Conv6`, `ResNet10|18|34|50|101`.
+In addition, you can select `cross_char`  and `cross` datasets for **cross-domain classification** of 
+**Omnglot &rarr; EMNIST** and **mini-ImageNet &rarr; CUB**, respectively.
 
-Regression
------------
+### Backbones
 
-**QMUL Head Pose Trajectory Regression.** In order to run this experiment you first have to download and setup the QMUL dataset, this can be done automatically running the file `download_QMUL.sh` from the folder `filelists/QMUL`. Moreover, you have to change the kernel type, editing the entry in `configs.py` (default `BNCosSim`) to `rbf` or `spectral`. Please note that other kernels are not supported for this experiment and their use will raise an error. The methods that can be used for regression are `DKT` and `transfer` (feature transfer). In order to train these methods, use:
+The script allows training and testing on different backbone networks. By default the script will use the same backbone used in our experiments (`Conv4`). Check the file `backbone.py` for the available architectures, and use the parameter `--model=BACKBONE_STRING` where `BACKBONE_STRING` is one of the following: `Conv4`, `Conv6`, `ResNet10|18|34|50|101`.
 
-```
-python train_regression.py --method="DKT" --seed=1
-```
+### Neptune
 
-The number of training epochs can be set with `--stop_epoch`. The above command will  save a checkpoint to `save/checkpoints/QMUL/Conv3_DKT`, which you can test on the test set with:
+We provide logging the training / validation metrics and details to [Neptune](https://neptune.ai/). To do so, one must export the following env variables before running `train.py`.
 
-```
-python test_regression.py --method="DKT" --seed=1
-```
-
-You can additionally specify the size of the support set with `--n_support` (which defaults to 5), and the number of test epochs with `--n_test_epochs` (which defaults to 10). 
-
-
-Classification
----------------
-
-**Train classification.** The various methods can be trained using the following syntax:
-
-```
-python train.py --dataset="miniImagenet" --method="DKT" --train_n_way=5 --test_n_way=5 --n_shot=1 --seed=1 --train_aug
+```bash
+export NEPTUNE_PROJECT=...
+export NEPTUNE_API_TOKEN=...
 ```
 
-This will train DKT 5-way 1-shot on the mini-ImageNet dataset with seed 1. The `dataset` string can be one of the following: `CUB`, `miniImagenet`. At training time the best model is evaluated on the validation set and stored as `best_model.tar` in the folder `./save/checkpoints/DATASET_NAME`. The parameter `--train_aug` enables data augmentation. The parameter `seed` set the seed for pytorch, numpy, and random. Set `--seed=0` or remove the parameter for a random seed. Additional parameters are reported in the file `io_utils.py`.
-
-**Test classification.** For testing `DKT`, `maml` and `maml_approx` it is enough to repeat the train command replacing the call to `train.py` with the call to `test.py` as follows:
-
-```
-python test.py --dataset="miniImagenet" --method="DKT" --train_n_way=5 --test_n_way=5 --n_shot=1 --seed=1 --train_aug
-```
-
-Other methods require to store the features (for efficiency) before testing, this can be done running the script `save_features.py` before calling `test.py`. For instance, if you trained a `protonet`, you should call:
-
-```
-python save_features.py --dataset="miniImagenet" --method="protonet" --train_n_way=5 --test_n_way=5 --n_shot=1 --seed=1 --train_aug
-python test.py --dataset="miniImagenet" --method="protonet" --train_n_way=5 --test_n_way=5 --n_shot=1 --seed=1 --repeat=5 --train_aug
-```
-
-We noticed that the [original code](https://github.com/wyharveychen/CloserLookFewShot) has a large variance on test tasks. To reduce this variance we add the parameter `repeat=N`. It iterates N times with different seeds and take an average over the N tests, we used `N=5` (3000 tasks) in our experiments.
-
-
-Cross-domain classification
----------------------------
-
-For the cross-domain classification experiments the procedure is the same described previously. The only difference is that the available datasets are: `cross_char`, and `cross`. The former being `omniglot -> EMNIST`, and the latter `miniImagenet -> CUB`. Here an example of training procedure:
-
-```
-python train.py --dataset="cross_char" --method="DKT" --train_n_way=5 --test_n_way=5 --n_shot=1 --seed=1
-```
-
-Note that the parameter `--train_aug` (data augmentation) is not used for `cross_char` but only for `cross`.
 
 Acknowledgements
 ---------------
 
-This repository is a fork of: [https://github.com/wyharveychen/CloserLookFewShot](https://github.com/wyharveychen/CloserLookFewShot)
+This repository is a fork of: [https://github.com/BayesWatch/deep-kernel-transfer](https://github.com/BayesWatch/deep-kernel-transfer), which in turn is a fork of [https://github.com/wyharveychen/CloserLookFewShot](https://github.com/wyharveychen/CloserLookFewShot).

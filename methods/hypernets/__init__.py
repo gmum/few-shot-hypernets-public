@@ -3,15 +3,15 @@ from methods.hypernets.hypnettorch_wrapper import HypnettorchWrapper
 from methods.hypernets.deprecated import HNPocAdaptTN, HNPocWithUniversalFinal, HyperNetConvFromDKT, HyperNetSepJoint, \
     HyperNetSupportConv, HyperNetSupportKernel, NoHNConditioning
 from methods.hypernets.hypernet_kernel import (
-    HyperNetPocWithKernel, HyperNetPocSupportSupportKernel,
+    HyperNetPocWithKernel, HyperShot,
     HNKernelBetweenSupportAndQuery, NoHNKernelBetweenSupportAndQuery,
     HypernetSupSupPPA
 )
 hypernet_types = {
-    "hn_poc": HyperNetPOC,
+    "hyper_shot": HyperShot,
     "hn_ppa": HypernetPPA,
+    "hn_poc": HyperNetPOC,
     "hn_poc_kernel": HyperNetPocWithKernel,
-    "hn_poc_sup_sup_kernel": HyperNetPocSupportSupportKernel,
     "hn_ppa_sup_sup_kernel": HypernetSupSupPPA,
     "hn_sup_kernel": HNKernelBetweenSupportAndQuery,
     "no_hn_sup_kernel": NoHNKernelBetweenSupportAndQuery,

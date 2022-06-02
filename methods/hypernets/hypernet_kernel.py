@@ -15,7 +15,7 @@ from methods.transformer import TransformerEncoder
 from methods.kernel_convolutions import KernelConv
 
 
-class HyperNetPocSupportSupportKernel(HyperNetPOC):
+class HyperShot(HyperNetPOC):
     def __init__(
             self, model_func: nn.Module, n_way: int, n_support: int, n_query: int,
             params: "ArgparseHNParams", target_net_architecture: Optional[nn.Module] = None
@@ -52,7 +52,6 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
             else:
                 self.init_kernel_convolution_architecture(params)
 
-
         self.query_relations_size = self.n_way * self.n_support_size_context
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.init_hypernet_modules()
@@ -72,28 +71,10 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         else:
             if params.no_self_relations:
                 return support_embeddings_size + (
-                            ((self.n_way * self.n_support_size_context) ** 2) - (
-                                self.n_way * self.n_support_size_context))
+                        ((self.n_way * self.n_support_size_context) ** 2) - (
+                        self.n_way * self.n_support_size_context))
             else:
                 return support_embeddings_size + ((self.n_way * self.n_support_size_context) ** 2)
-
-
-    # def init_kernel_function(self, params):
-    #     if params.use_scalar_product:
-    #         return ScalarProductKernel()
-    #     elif params.use_cosine_distance:
-    #         return CosineDistanceKernel()
-    #     else:
-    #         # if (not self.use_scalar_product) and (not self.use_cosine_distance):
-    #         kernel_input_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
-    #         # kernel_output_dim = self.feat_dim + self.n_way if self.attention_embedding else self.feat_dim
-    #         kernel_output_dim = params.hn_kernel_out_size
-    #         kernel_layers_no = params.hn_kernel_layers_no
-    #         kernel_hidden_dim = params.hn_kernel_hidden_dim
-    #         if params.use_cosine_nn_kernel:
-    #             return CosineNNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
-    #         else:
-    #             return NNKernel(kernel_input_dim, kernel_output_dim, kernel_layers_no, kernel_hidden_dim)
 
     @property
     def n_support_size_context(self) -> int:
@@ -267,7 +248,6 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         metrics["accuracy/val_relational"] = accuracy_from_scores(relational_query_feature, self.n_way, self.n_query)
         return y_pred, metrics
 
-
     def set_forward_loss(
             self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False,
             train_on_support: bool = True,
@@ -327,7 +307,7 @@ class HyperNetPocSupportSupportKernel(HyperNetPOC):
         return self.loss_fn(y_pred, y_to_classify_gt)
 
 
-class HypernetSupSupPPA(PPAMixin, HyperNetPocSupportSupportKernel):
+class HypernetSupSupPPA(PPAMixin, HyperShot):
 
     def taskset_repeats(self, epoch: int):
         return 1
@@ -407,12 +387,12 @@ class HyperNetPocWithKernel(HyperNetPOC):
         if self.hn_kernel_invariance:
             if self.hn_kernel_invariance_type == 'attention':
                 self.embedding_size: int = self.feat_dim * self.n_way * self.n_support_size_context + (
-                            self.n_way * self.n_support_size_context)
+                        self.n_way * self.n_support_size_context)
             else:
                 self.embedding_size: int = self.feat_dim * self.n_way * self.n_support_size_context + self.hn_kernel_convolution_output_dim
         else:
             self.embedding_size: int = self.feat_dim * self.n_way * self.n_support_size_context + (
-                        (self.n_way * self.n_support_size_context) * (self.n_way * self.n_query))
+                    (self.n_way * self.n_support_size_context) * (self.n_way * self.n_query))
 
         # invariant operation type
         if self.hn_kernel_invariance:
@@ -475,10 +455,10 @@ class HyperNetPocWithKernel(HyperNetPOC):
 
                 if self.hn_kernel_invariance_pooling == 'min':
                     invariant_kernel_values = \
-                    torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                        torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 elif self.hn_kernel_invariance_pooling == 'max':
                     invariant_kernel_values = \
-                    torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                        torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 else:
                     invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor),
                                                          1)
@@ -490,10 +470,10 @@ class HyperNetPocWithKernel(HyperNetPOC):
 
                 if self.hn_kernel_invariance_pooling == 'min':
                     invariant_kernel_values = \
-                    torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                        torch.min(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 elif self.hn_kernel_invariance_pooling == 'max':
                     invariant_kernel_values = \
-                    torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
+                        torch.max(self.kernel_transformer_encoder.forward(kernel_values_tensor), 1)[0]
                 else:
                     invariant_kernel_values = torch.mean(self.kernel_transformer_encoder.forward(kernel_values_tensor),
                                                          1)
@@ -686,7 +666,6 @@ class HNKernelBetweenSupportAndQuery(HyperNetPOC):
         )
         target_net_architecture = ClassifierSupportQueryKernel(kernel)
         return target_net_architecture
-
 
     def taskset_repeats(self, epoch: int):
         return 1
