@@ -522,13 +522,7 @@ def Conv4SNP():
     return ConvNetSNopool(4)
 
 def ResNet10( flatten = True):
-    model =  ResNet(SimpleBlock, [1,1,1,1],[64,128,256,512], flatten).trunk[:-2]
-    # model = resnet12.ResNet12(1).features[:4]
-    img = torch.randn(2, 3, 224, 224)
-    out = model(img)
-    print(model)
-    print(out.shape)
-    assert False
+    return ResNet(SimpleBlock, [1,1,1,1],[64,128,256,512], flatten)
 
 def ResNet12(flatten=True):
     from learn2learn.vision.models import resnet12
