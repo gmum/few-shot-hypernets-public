@@ -54,7 +54,11 @@ class Linear_fw(nn.Linear): #used in MAML to forward input with fast weight
     def __init__(self, in_features, out_features):
         super(Linear_fw, self).__init__(in_features, out_features)
         self.weight.fast = None #Lazy hack to add fast weight link
+        self.weight.mu = None
+        self.weight.logvar = None
         self.bias.fast = None
+        self.bias.mu = None
+        self.bias.logvar = None
 
     def forward(self, x):
         if self.weight.fast is not None and self.bias.fast is not None:
