@@ -225,13 +225,13 @@ class HyperMAML(MAML):
 
     def _update_weight(self, weight, update_mean, logvar): # zmienione
         if weight.mu is None:
-            weight.mu = weight + update_mean # tak?
+            weight.mu = update_mean # tak?
         else:
             weight.mu = weight.mu + update_mean
 
         weight.logvar = logvar
 
-        weight.fast = reparameterize(weight.mu, logvar)
+        weight.fast = reparameterize(weight.mu, weight.logvar)
 
     def _get_p_value(self):
         if self.epoch < self.hm_maml_warmup_epochs:
@@ -404,8 +404,8 @@ class HyperMAML(MAML):
         support_data_labels = Variable( torch.from_numpy( np.repeat(range(self.n_way), self.n_support))).cuda()
 
         loss = self.loss_fn(scores, support_data_labels)
-        #for weight in self.classifier.parameters():
-        #   loss = loss + self.loss_kld(weight.mu, weight.logvar)
+        for weight in self.classifier.parameters():
+           loss = loss + self.loss_kld(weight.mu, weight.logvar)
 
 
         topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
@@ -531,6 +531,14 @@ class HyperMAML(MAML):
                     param2.fast = param1.fast.clone()
                 else:
                     param2.fast = None
+                if param1.mu is not None:
+                    param2.mu = param1.mu.clone()
+                else:
+                    param2.mu = None
+                if param1.logvar is not None:
+                    param2.logvar = param1.logvar.clone()
+                else:
+                    param2.logvar = None    
 
         metrics = {
             "accuracy/val@-0": self_copy.query_accuracy(x)
@@ -554,6 +562,8 @@ class HyperMAML(MAML):
         # free CUDA memory by deleting "fast" parameters
         for param in self_copy.parameters():
             param.fast = None
+            param.mu = None
+            param.logvar = None
 
         return metrics[f"accuracy/val@-{self.hn_val_epochs}"], metrics
 
