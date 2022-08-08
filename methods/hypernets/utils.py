@@ -60,3 +60,4 @@ def accuracy_from_scores(scores: torch.Tensor, n_way: int, n_query: int) -> floa
     correct_this = float(top1_correct)
     count_this = len(y_query)
     return correct_this / count_this
+    

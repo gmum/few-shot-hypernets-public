@@ -7,6 +7,9 @@ import math
 import numpy as np
 import torch.nn.functional as F
 from torch.nn.utils.weight_norm import WeightNorm
+
+from utils import kl_diag_gauss_with_standard_gauss, reparameterize
+
 # Basic ResNet model
 
 def init_layer(L):
@@ -59,6 +62,22 @@ class Linear_fw(nn.Linear): #used in MAML to forward input with fast weight
     def forward(self, x):
         if self.weight.fast is not None and self.bias.fast is not None:
             out = F.linear(x, self.weight.fast, self.bias.fast) #weight.fast (fast weight) is the temporaily adapted weight
+        else:
+            out = super(Linear_fw, self).forward(x)
+        return out
+
+class BayesLinear(nn.Linear): #bayesian linear layer
+    def __init__(self, in_features, out_features):
+        super(BayesLinear, self).__init__(in_features, out_features)
+        self.weight.mu = None
+        self.weight.logvar = None
+        self.bias.mu = None
+        self.bias.logvar = None
+
+    def forward(self, x):
+        if (self.weight.mu is not None and self.weight.logvar is not None) and (self.bias.mu is not None and self.bias.logvar is not None):
+            weight = reparameterize(self.weight.mu, self.weight.logvar)
+            out = F.linear(x, weight, (self.bias.mu and self.bias.logvar))
         else:
             out = super(Linear_fw, self).forward(x)
         return out

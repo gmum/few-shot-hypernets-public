@@ -1,8 +1,19 @@
+#TODO
+#1. Make HN return mu & logvar for each parameter -> DONE, although not by duplicating HN output,
+#                                                    but by adding parameters to target network layers
+#                                                    so HN will provide and learn them independently
+#2. Make target net choose randomly from given distribution for param -> DONE, overriden forward of this layer
+#3. Change loss function of this target network -> DONE
+#4. Look through this whole file and hyperpoc, see if it makes sense
+#5. Compare to Piotrs' implementation
+
 from copy import deepcopy
 from typing import Optional, Tuple
 
 import torch
 from torch import nn
+
+from backbone import BayesLinear
 
 from methods.hypernets import HyperNetPOC
 from methods.hypernets.utils import set_from_param_dict, accuracy_from_scores
@@ -19,6 +30,8 @@ class HyperShot(HyperNetPOC):
         super().__init__(
             model_func, n_way, n_support, n_query, params=params, target_net_architecture=target_net_architecture
         )
+
+        self.loss_kld = kl_diag_gauss_with_standard_gauss
 
         # TODO - check!!!
 
@@ -88,7 +101,7 @@ class HyperShot(HyperNetPOC):
             is_final = i == (params.hn_tn_depth - 1)
             insize = common_insize if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
-            layers.append(nn.Linear(insize, outsize))
+            layers.append(BayesLinear(insize, outsize))
             if not is_final:
                 layers.append(nn.ReLU())
 
@@ -203,6 +216,7 @@ class HyperShot(HyperNetPOC):
             name.replace("-", "."): param_net(root).reshape(self.target_net_param_shapes[name])
             for name, param_net in self.hypernet_heads.items()
         }
+
         tn = deepcopy(self.target_net_architecture)
         set_from_param_dict(tn, network_params)
         tn.support_feature = support_feature
@@ -300,5 +314,9 @@ class HyperShot(HyperNetPOC):
             relational_feature_to_classify = torch.cat((relational_feature_to_classify, feature_to_classify), 1)
 
         y_pred = classifier(relational_feature_to_classify)
-        return self.loss_fn(y_pred, y_to_classify_gt)
+
+        loss = self.loss_fn(y_pred, y_to_classify_gt)
+        for weight in self.classifier.parameters():
+             loss = loss + self.loss_kld(weight.mu, weight.logvar)
+        return loss
 
