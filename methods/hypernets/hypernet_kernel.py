@@ -4,8 +4,8 @@
 #                                                    so HN will provide and learn them independently
 #2. Make target net choose randomly from given distribution for param -> DONE, overriden forward of this layer
 #3. Change loss function of this target network -> DONE
-#4. Look through this whole file and hyperpoc, see if it makes sense
-#5. Compare to Piotrs' implementation
+#4. Look through this whole file and hyperpoc, see if it makes sense -> DONE
+#5. Compare to Piotrs' implementation -> DONE
 
 from copy import deepcopy
 from typing import Optional, Tuple
@@ -14,6 +14,7 @@ import torch
 from torch import nn
 
 from backbone import BayesLinear
+from utils import kl_diag_gauss_with_standard_gauss
 
 from methods.hypernets import HyperNetPOC
 from methods.hypernets.utils import set_from_param_dict, accuracy_from_scores

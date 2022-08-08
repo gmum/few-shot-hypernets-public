@@ -76,10 +76,10 @@ class BayesLinear(nn.Linear): #bayesian linear layer
 
     def forward(self, x):
         if (self.weight.mu is not None and self.weight.logvar is not None) and (self.bias.mu is not None and self.bias.logvar is not None):
-            weight = reparameterize(self.weight.mu, self.weight.logvar)
-            out = F.linear(x, weight, (self.bias.mu and self.bias.logvar))
+            weight = reparameterize(self.weight.mu+self.bias.mu, self.weight.logvar+self.bias.logvar)
+            out = F.linear(x, weight)
         else:
-            out = super(Linear_fw, self).forward(x)
+            out = super(BayesLinear, self).forward(x)
         return out
 
 class Conv2d_fw(nn.Conv2d): #used in MAML to forward input with fast weight
