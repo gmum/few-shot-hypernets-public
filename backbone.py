@@ -71,12 +71,13 @@ class BayesLinear(nn.Linear): #bayesian linear layer
         super(BayesLinear, self).__init__(2*in_features, out_features)
 
     def forward(self, x):
-        in_features = self.weight.size(dim=1)
+        cuda0 = torch.device('cuda:0')
+        in_features = int(self.weight.size(dim=1)/2)
         out_features = self.weight.size(dim=0)
-        w = torch.empty((out_features, in_features/2))
+        w = torch.empty((out_features, in_features), device=cuda0)
         for i in range(out_features):
-            for j in range(in_features/2):
-                w[i][j] = reparameterize(self.weight[j][j+in_features])
+            for j in range(in_features):
+                w[i][j] = reparameterize(self.weight[i][j], self.weight[i][j+in_features])
         out = F.linear(x, w, self.bias)
         return out
 

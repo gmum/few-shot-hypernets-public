@@ -317,7 +317,7 @@ class HyperShot(HyperNetPOC):
         y_pred = classifier(relational_feature_to_classify)
 
         loss = self.loss_fn(y_pred, y_to_classify_gt)
-        for weight in self.classifier.parameters():
+        for weight in classifier.parameters():
              loss = loss + self.loss_kld(weight.mu, weight.logvar)
         return loss
 
