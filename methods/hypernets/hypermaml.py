@@ -173,7 +173,7 @@ class HyperMAML(MAML):
     def get_support_data_labels(self):
         return torch.from_numpy(np.repeat(range(self.n_way), self.n_support)).cuda() # labels for support data
 
-    def get_hn_delta_params(self, support_embeddings): #zrobione
+    def get_hn_delta_params(self, support_embeddings):
         if self.hm_detach_before_hyper_net:
             support_embeddings = support_embeddings.detach()
 
@@ -202,7 +202,7 @@ class HyperMAML(MAML):
                 delta_params_list.extend([weights_logvar, bias_logvar])
 
             return delta_params_list
-        else: # zmienione
+        else:
             delta_params_list = []
 
             for name, param_net in self.hypernet_heads.items():
@@ -223,9 +223,9 @@ class HyperMAML(MAML):
             return delta_params_list
 
 
-    def _update_weight(self, weight, update_mean, logvar): # zmienione
+    def _update_weight(self, weight, update_mean, logvar):
         if weight.mu is None:
-            weight.mu = update_mean # tak?
+            weight.mu = update_mean
         else:
             weight.mu = weight.mu + update_mean
 
@@ -241,7 +241,7 @@ class HyperMAML(MAML):
         return 0.0
 
     def _update_network_weights(self, delta_params_list, support_embeddings, support_data_labels):
-        if self.hm_maml_warmup and not self.single_test: # co tu zrobic?
+        if self.hm_maml_warmup and not self.single_test: 
             p = self._get_p_value()
 
             if p > 0.0:
@@ -312,8 +312,11 @@ class HyperMAML(MAML):
 
             for weight in self.parameters():
                 weight.fast = None
+                
+            for weight in self.classifier.parameters():
                 weight.mu = None
-                weight.bias = None
+                weight.logvar = None
+
             self.zero_grad()
 
             support_embeddings = self.apply_embeddings_strategy(support_embeddings)
@@ -324,7 +327,7 @@ class HyperMAML(MAML):
                 self.delta_list = [{'delta_params': delta_params}]
 
             return delta_params
-        else: # co tu zrobic?
+        else: 
             return [torch.zeros(*i).cuda() for (_, i) in self.target_net_param_shapes.items()]
 
     def forward(self, x):
@@ -336,7 +339,7 @@ class HyperMAML(MAML):
         scores  = self.classifier.forward(out)
         return scores
 
-    def set_forward(self, x, is_feature = False, train_stage = False): #zrobione?
+    def set_forward(self, x, is_feature = False, train_stage = False): 
         assert is_feature == False, 'MAML do not support fixed feature'
 
         x = x.cuda()
@@ -376,7 +379,7 @@ class HyperMAML(MAML):
     def set_forward_adaptation(self,x, is_feature = False): #overwrite parrent function
         raise ValueError('MAML performs further adapation simply by increasing task_upate_num')
 
-    def set_forward_loss(self, x): #zmienione
+    def set_forward_loss(self, x): 
         scores, total_delta_sum = self.set_forward(x, is_feature = False, train_stage = True)
         query_data_labels = Variable(torch.from_numpy( np.repeat(range(self.n_way), self.n_query))).cuda()
 
@@ -399,7 +402,7 @@ class HyperMAML(MAML):
 
         return loss, task_accuracy
 
-    def set_forward_loss_with_adaptation(self, x): #zmienione
+    def set_forward_loss_with_adaptation(self, x): 
         scores, _ = self.set_forward(x, is_feature = False, train_stage = False)
         support_data_labels = Variable( torch.from_numpy( np.repeat(range(self.n_way), self.n_support))).cuda()
 
@@ -531,10 +534,12 @@ class HyperMAML(MAML):
                     param2.fast = param1.fast.clone()
                 else:
                     param2.fast = None
+            if hasattr(param1, 'mu'):
                 if param1.mu is not None:
                     param2.mu = param1.mu.clone()
                 else:
                     param2.mu = None
+            if hasattr(param1, 'logvar'):
                 if param1.logvar is not None:
                     param2.logvar = param1.logvar.clone()
                 else:
