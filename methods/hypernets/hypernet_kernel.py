@@ -6,6 +6,7 @@
 #3. Change loss function of this target network -> DONE
 #4. Look through this whole file and hyperpoc, see if it makes sense -> DONE
 #5. Compare to Piotrs' implementation -> DONE
+#6. DKL with constant
 
 from copy import deepcopy
 from typing import Optional, Tuple
@@ -317,7 +318,13 @@ class HyperShot(HyperNetPOC):
         y_pred = classifier(relational_feature_to_classify)
 
         loss = self.loss_fn(y_pred, y_to_classify_gt)
-        for weight in classifier.parameters():
-             loss = loss + self.loss_kld(weight.mu, weight.logvar)
+        kld_const = 0.0001
+
+        in_features = int(self.weight.size(dim=1)/2)
+        out_features = self.weight.size(dim=0)
+        for i in range(out_features):
+            for j in range(in_features):
+                loss = loss + kld_const*self.loss_kld(self.weight[i][j], self.weight[i][j+in_features])
+
         return loss
 
