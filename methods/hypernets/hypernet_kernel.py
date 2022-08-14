@@ -326,7 +326,7 @@ class HyperShot(HyperNetPOC):
                 out_features = m.weight.size(dim=0)
                 for i in range(out_features):
                     for j in range(in_features):
-                        loss = loss + kld_const*self.loss_kld(m.weight[i][j], m.weight[i][j+in_features])
+                        loss = loss + kld_const*self.loss_kld(m.weight[i][:j].flatten().chunk(in_features), m.weight[i][j+in_features:].flatten().chunk(in_features))
 
         return loss
 
