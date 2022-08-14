@@ -320,8 +320,8 @@ class HyperShot(HyperNetPOC):
         loss = self.loss_fn(y_pred, y_to_classify_gt)
         kld_const = 0.0001
 
-        for s in classifier.modules():
-            for m in s.modules():
+        for m in classifier.modules() :
+            if isinstance(m, (BayesLinear)):
                 in_features = int(m.weight.size(dim=1)/2)
                 out_features = m.weight.size(dim=0)
                 for i in range(out_features):
