@@ -320,11 +320,12 @@ class HyperShot(HyperNetPOC):
         loss = self.loss_fn(y_pred, y_to_classify_gt)
         kld_const = 0.0001
 
-        in_features = int(self.weight.size(dim=1)/2)
-        out_features = self.weight.size(dim=0)
-        for i in range(out_features):
-            for j in range(in_features):
-                loss = loss + kld_const*self.loss_kld(self.weight[i][j], self.weight[i][j+in_features])
+        for m in classifier.modules()[0].modules():
+            in_features = int(m.weight.size(dim=1)/2)
+            out_features = m.weight.size(dim=0)
+            for i in range(out_features):
+                for j in range(in_features):
+                    loss = loss + kld_const*self.loss_kld(m.weight[i][j], m.weight[i][j+in_features])
 
         return loss
 
