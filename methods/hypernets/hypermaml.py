@@ -47,6 +47,7 @@ class HyperMAML(MAML):
 
         self.loss_fn = nn.CrossEntropyLoss()
         self.loss_kld = kl_diag_gauss_with_standard_gauss
+        self.kl_w = 0.001
 
         self.hn_tn_hidden_size = params.hn_tn_hidden_size
         self.hn_tn_depth = params.hn_tn_depth
@@ -224,14 +225,10 @@ class HyperMAML(MAML):
 
 
     def _update_weight(self, weight, update_mean, logvar):
-        if weight.mu is None:
-            weight.mu = update_mean
-        else:
-            weight.mu = weight.mu + update_mean
-
+        weight.mu_fast = weight.mu + update_mean
         weight.logvar = logvar
 
-        weight.fast = reparameterize(weight.mu, weight.logvar)
+        weight.fast = reparameterize(weight.mu_fast, weight.logvar)
 
     def _get_p_value(self):
         if self.epoch < self.hm_maml_warmup_epochs:
@@ -312,10 +309,6 @@ class HyperMAML(MAML):
 
             for weight in self.parameters():
                 weight.fast = None
-                
-            for weight in self.classifier.parameters():
-                weight.mu = None
-                weight.logvar = None
 
             self.zero_grad()
 
@@ -389,7 +382,7 @@ class HyperMAML(MAML):
 
         loss = self.loss_fn(scores, query_data_labels)
         for weight in self.classifier.parameters():
-            loss = loss + self.loss_kld(weight.mu, weight.logvar)
+            loss = loss + self.kl_w * self.loss_kld(weight.mu_fast, weight.logvar)
 
         if self.hm_lambda != 0:
             loss = loss + self.hm_lambda * total_delta_sum
@@ -408,7 +401,7 @@ class HyperMAML(MAML):
 
         loss = self.loss_fn(scores, support_data_labels)
         for weight in self.classifier.parameters():
-           loss = loss + self.loss_kld(weight.mu, weight.logvar)
+           loss = loss + self.kl_w * self.loss_kld(weight.mu_fast, weight.logvar)
 
 
         topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
@@ -543,7 +536,12 @@ class HyperMAML(MAML):
                 if param1.logvar is not None:
                     param2.logvar = param1.logvar.clone()
                 else:
-                    param2.logvar = None    
+                    param2.logvar = None
+            if hasattr(param1, 'fast_mu'):
+                if param1.fast_mu is not None:
+                    param2.fast_mu = param1.fast_mu.clone()
+                else:
+                    param2.fast_mu = None
 
         metrics = {
             "accuracy/val@-0": self_copy.query_accuracy(x)
