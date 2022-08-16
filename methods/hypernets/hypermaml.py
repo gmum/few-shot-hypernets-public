@@ -550,10 +550,10 @@ class HyperMAML(MAML):
                 else:
                     param2.logvar = None
             if hasattr(param1, 'mu_fast'):
-                if param1.fast_mu is not None:
-                    param2.fast_mu = param1.fast_mu.clone()
+                if param1.mu_fast is not None:
+                    param2.mu_fast = param1.mu_fast.clone()
                 else:
-                    param2.fast_mu = None
+                    param2.mu_fast = None
 
         metrics = {
             "accuracy/val@-0": self_copy.query_accuracy(x)
