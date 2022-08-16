@@ -302,7 +302,7 @@ class HyperMAML(MAML):
                     update_value = delta_params_list[k]
                     self._update_weight(weight, update_value)
         else:
-            for k, (name, weight) in enumerate(self.classifier.named_parameters()):
+            for k, weight in enumerate(self.classifier.parameters()):
                 update_mean, logvar = delta_params_list[k]
                 self._update_weight(weight, update_mean, logvar)
 
@@ -412,8 +412,10 @@ class HyperMAML(MAML):
         support_data_labels = Variable( torch.from_numpy( np.repeat(range(self.n_way), self.n_support))).cuda()
 
         loss = self.loss_fn(scores, support_data_labels)
-        for weight in self.classifier.parameters():
-           loss = loss + self.kl_w * self.loss_kld(weight.mu_fast, weight.logvar)
+        for name, weight in self.classifier.named_parameters():
+            if name[-2:] == 'mu':
+                continue
+            loss = loss + self.kl_w * self.loss_kld(weight.mu_fast, weight.logvar)
 
 
         topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
@@ -577,7 +579,7 @@ class HyperMAML(MAML):
         # free CUDA memory by deleting "fast" parameters
         for param in self_copy.parameters():
             param.fast = None
-            param.mu = None
+            param.mu_fast = None
             param.logvar = None
 
         return metrics[f"accuracy/val@-{self.hn_val_epochs}"], metrics
