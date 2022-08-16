@@ -472,7 +472,7 @@ if __name__ == '__main__':
     for d in val_datasets:
         print("Evaluating on", d)
         params.dataset = d
-        for hn_val_epochs in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 25, 50, 100, 200]:
+        for hn_val_epochs in [0, 1, 2, 3, 4, 5]: #, 6, 7, 8, 9, 10, 25, 50, 100, 200]:
             params.hn_val_epochs = hn_val_epochs
             params.hm_set_forward_with_adaptation = True
             # add default test params
