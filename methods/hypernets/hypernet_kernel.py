@@ -324,8 +324,8 @@ class HyperShot(HyperNetPOC):
             if isinstance(m, (BayesLinear)):
                 in_features = int(m.weight.size(dim=1)/2)
                 out_features = m.weight.size(dim=0)
-                mean = torch.tensor([m.weight[i][:in_features] for i in range(out_features)])
-                logvar = torch.tensor([m.weight[i][in_features:] for i in range(out_features)])
+                mean = torch.tensor([[m.weight[i][j] for i in range(out_features)] for j in range(in_features)])
+                logvar = torch.tensor([[m.weight[i][j+in_features] for i in range(out_features)] for j in range(in_features)])
                 loss = loss + kld_const*self.loss_kld(mean, logvar)
 
         return loss
