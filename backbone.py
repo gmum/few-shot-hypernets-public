@@ -70,10 +70,9 @@ class Linear_fw(nn.Linear): #used in MAML to forward input with fast weight
             for w, b in zip(self.weight.fast, self.bias.fast):
                 preds.append(F.linear(x, w, b))
 
-            preds = [
-                F.log_softmax(pred) for pred in preds
-            ]
-
+            #preds = [
+            #    F.softmax(pred, dim = 1) for pred in preds
+            #]
             out = sum(preds) / len(preds)
         else:
             out = super(Linear_fw, self).forward(x)

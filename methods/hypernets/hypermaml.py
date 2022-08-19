@@ -387,12 +387,11 @@ class HyperMAML(MAML):
     def set_forward_loss(self, x): 
         scores, total_delta_sum = self.set_forward(x, is_feature = False, train_stage = True)
         query_data_labels = Variable(torch.from_numpy( np.repeat(range(self.n_way), self.n_query))).cuda()
-
         if self.hm_support_set_loss:
             support_data_labels = torch.from_numpy(np.repeat(range(self.n_way), self.n_support)).cuda()
             query_data_labels = torch.cat((support_data_labels, query_data_labels))
 
-        loss_ce = self.loss_fn(scores, support_data_labels)
+        loss_ce = self.loss_fn(scores, query_data_labels)
 
         loss_kld = 0
         for name, weight in self.classifier.named_parameters():
@@ -456,8 +455,8 @@ class HyperMAML(MAML):
             loss, loss_ce, loss_kld, task_accuracy = self.set_forward_loss(x)
             avg_loss = avg_loss+loss.item()#.data[0]
             loss_all.append(loss)
-            loss_ce_all.append(loss_ce)
-            loss_kld_all.append(loss_kld)
+            loss_ce_all.append(loss_ce.item())
+            loss_kld_all.append(loss_kld.item())
             acc_all.append(task_accuracy)
 
             task_count += 1
@@ -482,12 +481,12 @@ class HyperMAML(MAML):
         loss_ce_all = np.asarray(loss_ce_all)
         loss_ce_mean = np.mean(loss_ce_all)
 
-        metrics["loss_ce": loss_ce_mean]
+        metrics["loss_ce"] = loss_ce_mean
 
         loss_kld_all = np.asarray(loss_kld_all)
         loss_kld_mean = np.mean(loss_kld_all)
 
-        metrics["loss_kld": loss_kld_mean]
+        metrics["loss_kld"] = loss_kld_mean
 
         if self.hn_adaptation_strategy == 'increasing_alpha':
             metrics['alpha'] =  self.alpha
