@@ -27,7 +27,6 @@ model_dict = dict(
             ResNet101 = backbone.ResNet101,
             Conv4WithKernel = backbone.Conv4WithKernel,
             ResNetWithKernel = backbone.ResNetWithKernel,
-            WideResNet28 = backbone.WideResNet28,
 )
 
 class ParamHolder:

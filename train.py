@@ -15,7 +15,6 @@ import os
 import configs
 import backbone
 from data.datamgr import SimpleDataManager, SetDataManager
-from methods.activation_maml import ActivationMAML
 from methods.baselinetrain import BaselineTrain
 from methods.DKT import DKT
 from methods.hypernets.hypernet_poc import HyperNetPOC
