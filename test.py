@@ -70,6 +70,7 @@ def single_test(params):
     few_shot_params = dict(n_way = params.test_n_way , n_support = params.n_shot, n_query=n_query) 
 
     if params.dataset in ['omniglot', 'cross_char']:
+        print(params.model, params.train_aug)
         assert params.model == 'Conv4' and not params.train_aug ,'omniglot only support Conv4 without augmentation'
         # params.model = 'Conv4S'
 
@@ -169,7 +170,9 @@ def single_test(params):
             if params.dataset in ['omniglot', 'cross_char']:
                 image_size = 28
             else:
-                image_size = 84 
+                image_size = 84
+        elif params.model in ["ResNet12", "WideResNet28"]:
+            image_size = 84  # to mimic FEAT setting
         else:
             image_size = 224
 
@@ -184,10 +187,14 @@ def single_test(params):
             if split == 'base':
                 loadfile = configs.data_dir['omniglot'] + 'noLatin.json' 
             else:
-                loadfile  = configs.data_dir['emnist'] + split +'.json' 
+                loadfile  = configs.data_dir['emnist'] + split +'.json'
+        elif params.dataset == "omni_imagenet":
+            # base_file = configs.data_dir['omniglot'] + 'noLatin.json'
+            loadfile = configs.data_dir['miniImagenet'] + 'novel.json'
         else: 
             loadfile    = configs.data_dir[params.dataset] + split + '.json'
 
+        print("Using loadfile", loadfile)
         novel_loader     = datamgr.get_data_loader( loadfile, aug = False)
         if params.adaptation:
             model.task_update_num = 100 if params.hn_val_epochs == -1 else params.hn_val_epochs

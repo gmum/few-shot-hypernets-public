@@ -97,7 +97,6 @@ class HyperMAML(MAML):
         self._init_hypernet_modules(params)
         self._init_feature_net()
 
-        # print(self)
 
     def _init_feature_net(self):
         if self.hm_load_feature_net:
@@ -484,7 +483,6 @@ class HyperMAML(MAML):
 
         else:
             for i, (x,_) in enumerate(test_loader):
-                print(x.shape)
                 self.n_query = x.size(1) - self.n_support
                 assert self.n_way  ==  x.size(0), f"MAML do not support way change, {self.n_way=}, {x.size(0)=}"
                 s = time()

@@ -15,10 +15,12 @@ import os
 import configs
 import backbone
 from data.datamgr import SimpleDataManager, SetDataManager
+from methods.activation_maml import ActivationMAML
 from methods.baselinetrain import BaselineTrain
 from methods.DKT import DKT
 from methods.hypernets.hypernet_poc import HyperNetPOC
 from methods.hypernets import hypernet_types
+from methods.meta_template import MetaTemplate
 from methods.protonet import ProtoNet
 from methods.matchingnet import MatchingNet
 from methods.relationnet import RelationNet
@@ -47,7 +49,7 @@ def _set_seed(seed, verbose=True):
         if (verbose): print("[INFO] Setting SEED: None")
 
 
-def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params, *,
+def train(base_loader, val_loader, model: MetaTemplate, optimization, start_epoch, stop_epoch, params, *,
           neptune_run: Optional[Run] = None):
     print("Tot epochs: " + str(stop_epoch))
     if optimization == 'adam':
@@ -57,7 +59,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
     else:
         raise ValueError(f'Unknown optimization {optimization}, please define by yourself')
 
-    max_acc = 0
+    max_acc = -1
     max_train_acc = 0
     max_acc_adaptation_dict = {}
 
@@ -268,6 +270,9 @@ if __name__ == '__main__':
     elif params.dataset == 'cross_char':
         base_file = configs.data_dir['omniglot'] + 'noLatin.json'
         val_file = configs.data_dir['emnist'] + 'val.json'
+    elif params.dataset == "omni_imagenet":
+        base_file = configs.data_dir['omniglot'] + 'noLatin.json'
+        val_file = configs.data_dir['miniImagenet'] + 'val.json'
     else:
         base_file = configs.data_dir[params.dataset] + 'base.json'
         val_file = configs.data_dir[params.dataset] + 'val.json'
@@ -277,6 +282,8 @@ if __name__ == '__main__':
             image_size = 28
         else:
             image_size = 84
+    elif params.model in ["ResNet12", "WideResNet28"]:
+        image_size = 84 #84 # to mimic FEAT setting
     else:
         image_size = 224
 
@@ -386,6 +393,10 @@ if __name__ == '__main__':
     else:
         raise ValueError('Unknown method')
 
+    with open(str(type(model)), "w") as f:
+        print(model, file=f)
+        print(sum([np.prod(p.size()) for p in model.parameters()]), file=f)
+
     model = model.cuda()
 
     params.checkpoint_dir = '%s/checkpoints/%s/%s_%s' % (configs.save_dir, params.dataset, params.model, params.method)
@@ -404,6 +415,7 @@ if __name__ == '__main__':
     if params.method in ['maml', 'maml_approx', 'hyper_maml']:
         stop_epoch = params.stop_epoch * model.n_task  # maml use multiple tasks in one update
 
+    resume_file = None
     if params.resume:
         resume_file = get_resume_file(params.checkpoint_dir)
         print(resume_file)
@@ -413,7 +425,7 @@ if __name__ == '__main__':
             model.load_state_dict(tmp['state'])
             print("Resuming training from", resume_file, "epoch", start_epoch)
 
-    elif params.warmup:  # We also support warmup from pretrained baseline feature, but we never used in our paper
+    if resume_file is None and params.warmup:  # We also support warmup from pretrained baseline feature, but we never used in our paper
         baseline_checkpoint_dir = '%s/checkpoints/%s/%s_%s' % (
             configs.save_dir, params.dataset, params.model, 'baseline')
         if params.train_aug:
@@ -454,8 +466,9 @@ if __name__ == '__main__':
         neptune_run["model"] = str(model)
 
     if not params.evaluate_model:
+
         model = train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch, params,
-                      neptune_run=neptune_run)
+                              neptune_run=neptune_run)
 
     params.split = "novel"
     params.save_iter = -1
@@ -466,13 +479,11 @@ if __name__ == '__main__':
         print("Cannot save features bc of", e)
 
     val_datasets = [params.dataset]
-    if params.dataset in ["cross", "miniImagenet"]:
-        val_datasets = ["cross", "miniImagenet"]
 
     for d in val_datasets:
         print("Evaluating on", d)
         params.dataset = d
-        for hn_val_epochs in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 25, 50, 100, 200]:
+        for hn_val_epochs in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:#, 25, 50, 100, 200]:
             params.hn_val_epochs = hn_val_epochs
             params.hm_set_forward_with_adaptation = True
             # add default test params

@@ -27,6 +27,7 @@ model_dict = dict(
             ResNet101 = backbone.ResNet101,
             Conv4WithKernel = backbone.Conv4WithKernel,
             ResNetWithKernel = backbone.ResNetWithKernel,
+            WideResNet28 = backbone.WideResNet28,
 )
 
 class ParamHolder:
@@ -51,7 +52,7 @@ def parse_args(script):
     parser = argparse.ArgumentParser(description= 'few-shot script %s' %(script), formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      )
     parser.add_argument('--seed' , default=0, type=int,  help='Seed for Numpy and pyTorch. Default: 0 (None)')
-    parser.add_argument('--dataset'     , default='CUB',        help='CUB/miniImagenet/cross/omniglot/cross_char')
+    parser.add_argument('--dataset'     , default='CUB',        help='CUB/miniImagenet/cross/omniglot/cross_char/omni_imagenet')
     parser.add_argument('--model'       , default='Conv4',      help='model: Conv{4|6}{Pool} / ResNet{10|18|34|50|101}', choices=sorted(model_dict.keys())) # 50 and 101 are not used in the paper
     parser.add_argument('--method', default='baseline', choices=['baseline', 'baseline++', 'DKT', 'protonet', 'matchingnet', 'relationnet', 'relationnet_softmax', 'maml', 'maml_approx', 'hyper_maml'] + list(hypernet_types.keys()),
                         help='baseline/baseline++/protonet/matchingnet/relationnet{_softmax}/maml{_approx}/hn_poc/hyper_maml') #relationnet_softmax replace L2 norm with softmax to expedite training, maml_approx use first-order approximation in the gradient for efficiency
