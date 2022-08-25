@@ -13,6 +13,7 @@ import configs
 import backbone
 import data.feature_loader as feat_loader
 from data.datamgr import SetDataManager
+from methods.activation_maml import ActivationMAML
 from methods.baselinefinetune import BaselineFinetune
 from methods.hypernets.hypernet_poc import HyperNetPOC
 from methods.hypernets import hypernet_types
@@ -115,6 +116,9 @@ def single_test(params):
         if params.dataset in ['omniglot', 'cross_char']:  # maml use different parameter in omniglot
             model.n_task = 32
             model.train_lr = 0.1
+
+    elif params.method == "activation_maml":
+        model = ActivationMAML(model_dict[params.model], **few_shot_params)
     else:
        raise ValueError('Unknown method')
     

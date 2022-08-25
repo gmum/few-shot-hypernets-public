@@ -390,6 +390,9 @@ if __name__ == '__main__':
                 model.n_task = 32
                 model.task_update_num = 1
                 model.train_lr = 0.1
+
+        elif params.method == "activation_maml":
+            model = ActivationMAML(model_dict[params.model], **train_few_shot_params)
     else:
         raise ValueError('Unknown method')
 
