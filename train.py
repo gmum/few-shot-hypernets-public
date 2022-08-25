@@ -15,6 +15,7 @@ import os
 import configs
 import backbone
 from data.datamgr import SimpleDataManager, SetDataManager
+from methods.activation_maml import ActivationMAML
 from methods.baselinetrain import BaselineTrain
 from methods.DKT import DKT
 from methods.hypernets.hypernet_poc import HyperNetPOC
@@ -329,7 +330,7 @@ if __name__ == '__main__':
             model = BaselineTrain(model_dict[params.model], params.num_classes, loss_type='dist')
 
     elif params.method in ['DKT', 'protonet', 'matchingnet', 'relationnet', 'relationnet_softmax', 'maml',
-                           'maml_approx', 'hyper_maml'] + list(hypernet_types.keys()):
+                           'maml_approx', 'hyper_maml', "activation_maml"] + list(hypernet_types.keys()):
         n_query = max(1, int(
             16 * params.test_n_way / params.train_n_way))  # if test_n_way is smaller than train_n_way, reduce n_query to keep batch size small
         print("n_query", n_query)
