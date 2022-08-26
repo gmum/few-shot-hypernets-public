@@ -199,12 +199,13 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                 for m, v in metrics.items():
                     neptune_run[m].log(v, step=epoch)
 
-    neptune_run["best_model"].track_files(os.path.join(params.checkpoint_dir, 'best_model.tar'))
-    neptune_run["last_model"].track_files(os.path.join(params.checkpoint_dir, 'last_model.tar'))
+    if neptune_run is not None:
+        neptune_run["best_model"].track_files(os.path.join(params.checkpoint_dir, 'best_model.tar'))
+        neptune_run["last_model"].track_files(os.path.join(params.checkpoint_dir, 'last_model.tar'))
 
-    if params.maml_save_feature_network:
-        neptune_run["best_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'best_feature_net.tar'))
-        neptune_run["last_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'last_feature_net.tar'))
+        if params.maml_save_feature_network:
+            neptune_run["best_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'best_feature_net.tar'))
+            neptune_run["last_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'last_feature_net.tar'))
 
     if len(delta_params_list) > 0 and params.hm_save_delta_params:
         with (Path(params.checkpoint_dir) / f"delta_params_list_{len(delta_params_list)}.json").open("w") as f:
@@ -472,7 +473,7 @@ if __name__ == '__main__':
     for d in val_datasets:
         print("Evaluating on", d)
         params.dataset = d
-        for hn_val_epochs in [0, 1, 2, 3, 4, 5]: #, 6, 7, 8, 9, 10, 25, 50, 100, 200]:
+        for hn_val_epochs in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 25, 50, 100, 200]:
             params.hn_val_epochs = hn_val_epochs
             params.hm_set_forward_with_adaptation = True
             # add default test params
