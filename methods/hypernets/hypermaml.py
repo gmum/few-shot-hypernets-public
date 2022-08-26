@@ -141,10 +141,10 @@ class HyperMAML(MAML):
         self.hypernet_heads = nn.ModuleDict()
 
         for name, param in target_net_param_dict.items():
+            if self.hm_use_class_batch_input and (name[-4:] == 'bias' or name[-7:] == 'bias_mu'):
+                continue
             if name[-2:] == 'mu':
                 self.hypernet_heads[name] = None
-                continue
-            if self.hm_use_class_batch_input and name[-4:] == 'bias':
                 continue
 
             bias_size = param.shape[0] // self.n_way
@@ -187,7 +187,8 @@ class HyperMAML(MAML):
 
             for name, param_net in self.hypernet_heads.items():
                 if name[-2:] == 'mu':
-                    delta_params_list.extend([None, None])
+                    delta_params_list.append([None, None])
+                    delta_params_list.append([None, None])
                     continue
 
                 support_embeddings_resh = support_embeddings.reshape(
@@ -203,12 +204,12 @@ class HyperMAML(MAML):
 
                 weights_delta_mean = delta_params_mean[:, :-bias_neurons_num]
                 bias_delta_mean = delta_params_mean[: ,-bias_neurons_num:].flatten()
-                delta_params_list.extend([weights_delta_mean, bias_delta_mean])
 
                 weights_logvar = params_logvar[:, :-bias_neurons_num]
                 bias_logvar = params_logvar[: ,-bias_neurons_num:].flatten()
-                delta_params_list.extend([weights_logvar, bias_logvar])
-
+                
+                delta_params_list.append([weights_delta_mean, weights_logvar])
+                delta_params_list.append([bias_delta_mean, bias_logvar])
             return delta_params_list
         else:
             delta_params_list = []
@@ -231,7 +232,6 @@ class HyperMAML(MAML):
                     logvar = self.alpha * logvar
 
                 delta_params_list.append([delta_mean, logvar])
-
             return delta_params_list
 
 
