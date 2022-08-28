@@ -250,7 +250,7 @@ class HyperMAML(MAML):
                 for _ in range(self.weight_set_num_test): # sample fast parameters
                     weight.fast.append(reparameterize(weight.mu_fast, weight.logvar))
             else:
-                weight.fast.append(weight.mu) # return expected value
+                weight.fast.append(weight.mu_fast) # return expected value
 
     # def _get_p_value(self):
     #     if self.epoch < self.hm_maml_warmup_epochs:
