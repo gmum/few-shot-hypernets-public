@@ -39,6 +39,7 @@ class HyperNetPOC(MetaTemplate):
         self.hn_val_lr: float = params.hn_val_lr
         self.hn_val_optim: float = params.hn_val_optim
 
+        self.dataset_size = 0
         self.embedding_size = self.init_embedding_size(params)
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.loss_fn = nn.CrossEntropyLoss()
@@ -299,6 +300,7 @@ class HyperNetPOC(MetaTemplate):
         kld_losses = []
         metrics = defaultdict(list)
         ts_repeats = self.taskset_repeats(epoch)
+        self.dataset_size = len(train_loader.dataset.indices)
 
         for i, (x, _) in enumerate(train_loader):
             taskset.append(x)
