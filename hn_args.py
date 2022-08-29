@@ -48,8 +48,8 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hypershot_args.add_argument("--hn_val_lr", type=float, default=1e-4, help="LR for finetuning on support set during validation")
     hypershot_args.add_argument("--hn_val_optim", type=str, default="adam", choices=["adam", "sgd"], help="Optimizer for finetuning on support set during validation")
 
-    hypershot_args.add_argument("--hn_kld_const", typr=float, default=1.0, help="KLD_Loss multiplier constant.")
-    hypershot_args.add_argument("--hn_S", typr=int, default=5, help="Number of samples.")
+    hypershot_args.add_argument("--hn_kld_const", type=float, default=1.0, help="KLD_Loss multiplier constant.")
+    hypershot_args.add_argument("--hn_S", type=int, default=5, help="Number of samples.")
 
 
     hypermaml_args =  parser.add_argument_group("HyperMAML-related arguments")
