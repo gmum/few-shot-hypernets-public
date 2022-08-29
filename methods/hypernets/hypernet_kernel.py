@@ -1,13 +1,3 @@
-#TODO
-#1. Make HN return mu & logvar for each parameter -> DONE, although not by duplicating HN output,
-#                                                    but by adding parameters to target network layers
-#                                                    so HN will provide and learn them independently
-#2. Make target net choose randomly from given distribution for param -> DONE, overriden forward of this layer
-#3. Change loss function of this target network -> DONE
-#4. Look through this whole file and hyperpoc, see if it makes sense -> DONE
-#5. Compare to Piotrs' implementation -> DONE
-#6. DKL with constant
-
 from copy import deepcopy
 from typing import Optional, Tuple
 
