@@ -90,6 +90,27 @@ class BayesLinear(nn.Linear): #bayesian linear layer
         out = F.linear(x, w, b)
         return out
 
+class BayesLinear2(nn.Module): 
+    def __init__(self, in_features, out_features, bias=True):
+        super(BayesLinear, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        
+        self.weight_mu = nn.Parameter(torch.Tensor(out_features, in_features))
+        self.weight_log_var = nn.Parameter(torch.Tensor(out_features, in_features))
+
+        if self.bias:
+            self.bias_mu = nn.Parameter(torch.Tensor(out_features))
+            self.bias_log_var = nn.Parameter(torch.Tensor(out_features))
+
+    def forward(self, x):
+        if self.training:
+            weight = reparameterize(self.weight_mu, self.weight_log_var)
+            bias = reparameterize(self.bias_mu, self.bias_log_var)
+            return F.linear(x, weight, bias)
+        else:
+            return F.linear(x, self.weight_mu, self.bias_mu)
+
 class Conv2d_fw(nn.Conv2d): #used in MAML to forward input with fast weight
     def __init__(self, in_channels, out_channels, kernel_size, stride=1,padding=0, bias = True):
         super(Conv2d_fw, self).__init__(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias)
