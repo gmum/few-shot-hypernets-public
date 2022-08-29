@@ -76,7 +76,7 @@ class BayesLinear(nn.Linear): #bayesian linear layer
         out_features = int(self.weight.size(dim=0)/2)
 
         w_mean, w_logvar = torch.tensor_split(self.weight, 2, dim=1)
-        b_mean, b_logvar = torch.tensor_split(self.bias, 2, dim=1)
+        b_mean, b_logvar = torch.tensor_split(self.bias, 2, dim=0)
 
         w = torch.empty((out_features, in_features), device=cuda0)
         b = torch.empty((out_features, in_features), device=cuda0)
@@ -86,7 +86,7 @@ class BayesLinear(nn.Linear): #bayesian linear layer
         else:
             w = w_mean
             b = b_mean
-            
+
         out = F.linear(x, w, b)
         return out
 

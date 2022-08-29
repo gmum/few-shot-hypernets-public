@@ -321,7 +321,7 @@ class HyperShot(HyperNetPOC):
             for m in classifier.modules() :
                 if isinstance(m, (BayesLinear)):
                     w_mean, w_logvar = torch.tensor_split(m.weight, 2, dim=1)
-                    b_mean, b_logvar = torch.tensor_split(m.weight, 2, dim=1)
+                    b_mean, b_logvar = torch.tensor_split(m.bias, 2, dim=0)
                     kld_loss += self.loss_kld(w_mean, w_logvar) + self.loss_kld(b_mean, b_logvar)
 
             kld_loss *= self.kld_const/self.taskset_size
