@@ -74,10 +74,12 @@ class BayesLinear(nn.Linear): #bayesian linear layer
         cuda0 = torch.device('cuda:0')
         in_features = int(self.weight.size(dim=1)/2)
         out_features = self.weight.size(dim=0)
+        mean, logvar = torch.tensor_split(self.weight, 2, dim=1)
         w = torch.empty((out_features, in_features), device=cuda0)
-        for i in range(out_features):
-            for j in range(in_features):
-                w[i][j] = reparameterize(self.weight[i][j], self.weight[i][j+in_features])
+        if self.training:
+            w = reparameterize(mean, logvar)
+        else:
+            w = mean
         out = F.linear(x, w, self.bias)
         return out
 
