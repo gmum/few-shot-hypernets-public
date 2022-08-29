@@ -305,11 +305,11 @@ class HyperNetPOC(MetaTemplate):
 
             # TODO 3: perhaps the idea of tasksets is redundant and it's better to update weights at every task
             if i % self.taskset_size == (self.taskset_size - 1) or i == (n_train - 1):
-                loss_sum = torch.tensor(0).cuda()
-                kld_loss_sum = torch.tensor(0).cuda()
+                loss_sum = torch.tensor(0.0).cuda()
+                kld_loss_sum = torch.tensor(0.0).cuda()
                 for tr in range(ts_repeats):
-                    loss_sum = torch.tensor(0).cuda()
-                    kld_loss_sum = torch.tensor(0).cuda()
+                    loss_sum = torch.tensor(0.0).cuda()
+                    kld_loss_sum = torch.tensor(0.0).cuda()
 
                     for task in taskset:
                         if self.change_way:
