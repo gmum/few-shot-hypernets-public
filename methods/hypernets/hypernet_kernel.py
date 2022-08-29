@@ -1,4 +1,5 @@
 from copy import deepcopy
+from re import S
 from typing import Optional, Tuple
 
 import torch
@@ -24,6 +25,9 @@ class HyperShot(HyperNetPOC):
         )
 
         self.loss_kld = kl_diag_gauss_with_standard_gauss
+        self.kld_const: float = params.hn_kld_const
+
+        self.S: int = params.hn_S
 
         # TODO - check!!!
 
@@ -305,15 +309,28 @@ class HyperShot(HyperNetPOC):
         if self.hn_use_support_embeddings:
             relational_feature_to_classify = torch.cat((relational_feature_to_classify, feature_to_classify), 1)
 
-        y_pred = classifier(relational_feature_to_classify)
+        total_loss = 0
+        total_kld_loss = 0
 
-        loss = self.loss_fn(y_pred, y_to_classify_gt)
-        kld_const = 1.0
+        for _ in range(self.S):
+            y_pred = classifier(relational_feature_to_classify)
 
-        for m in classifier.modules() :
-            if isinstance(m, (BayesLinear)):
-                mean, logvar = torch.tensor_split(m.weight, 2, dim=1)
-                loss = loss + kld_const*self.loss_kld(mean, logvar)
+            loss = self.loss_fn(y_pred, y_to_classify_gt)
 
-        return loss
+            kld_loss = 0      
+            for m in classifier.modules() :
+                if isinstance(m, (BayesLinear)):
+                    w_mean, w_logvar = torch.tensor_split(m.weight, 2, dim=1)
+                    b_mean, b_logvar = torch.tensor_split(m.weight, 2, dim=1)
+                    kld_loss += self.loss_kld(w_mean, w_logvar) + self.loss_kld(b_mean, b_logvar)
+
+            kld_loss *= self.kld_const/self.taskset_size
+            loss += kld_loss
+
+            total_loss += loss
+            total_kld_loss += kld_loss
+
+        total_loss /= S
+        total_kld_loss /= S
+        return total_loss, total_kld_loss
 

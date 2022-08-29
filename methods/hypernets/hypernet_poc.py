@@ -296,6 +296,7 @@ class HyperNetPOC(MetaTemplate):
         n_train = len(train_loader)
         accuracies = []
         losses = []
+        kld_losses = []
         metrics = defaultdict(list)
         ts_repeats = self.taskset_repeats(epoch)
 
@@ -305,15 +306,18 @@ class HyperNetPOC(MetaTemplate):
             # TODO 3: perhaps the idea of tasksets is redundant and it's better to update weights at every task
             if i % self.taskset_size == (self.taskset_size - 1) or i == (n_train - 1):
                 loss_sum = torch.tensor(0).cuda()
+                kld_loss_sum = torch.tensor(0).cuda()
                 for tr in range(ts_repeats):
                     loss_sum = torch.tensor(0).cuda()
+                    kld_loss_sum = torch.tensor(0).cuda()
 
                     for task in taskset:
                         if self.change_way:
                             self.n_way = task.size(0)
                         self.n_query = task.size(1) - self.n_support
-                        loss = self.set_forward_loss(task)
-                        loss_sum = loss_sum + loss
+                        loss, kld_loss = self.set_forward_loss(task)
+                        loss_sum += loss
+                        kld_loss_sum += kld_loss
 
                     optimizer.zero_grad()
                     loss_sum.backward()
@@ -325,20 +329,23 @@ class HyperNetPOC(MetaTemplate):
                     optimizer.step()
 
                 losses.append(loss_sum.item())
+                kld_losses.append(kld_loss_sum.item())
                 accuracies.extend([
                     self.query_accuracy(task) for task in taskset
                 ])
+
                 acc_mean = np.mean(accuracies) * 100
                 acc_std = np.std(accuracies) * 100
 
                 if taskset_id % self.taskset_print_every == 0:
                     print(
-                        f"Epoch {epoch} | Taskset {taskset_id} | TS {len(taskset)} | TS epochs {ts_repeats} | Loss {loss_sum.item()} | Train acc {acc_mean:.2f} +- {acc_std:.2f} %")
+                        f"Epoch {epoch} | Taskset {taskset_id} | TS {len(taskset)} | TS epochs {ts_repeats} | Loss {loss_sum.item()} | KLD_Loss {kld_loss_sum.item()} | Train acc {acc_mean:.2f} +- {acc_std:.2f} %")
 
                 taskset_id += 1
                 taskset = []
 
         metrics["loss/train"] = np.mean(losses)
+        metrics["kld_loss/train"] = np.mean(kld_losses)
         metrics["accuracy/train"] = np.mean(accuracies) * 100
         return metrics
 

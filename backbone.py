@@ -68,19 +68,26 @@ class Linear_fw(nn.Linear): #used in MAML to forward input with fast weight
 
 class BayesLinear(nn.Linear): #bayesian linear layer
     def __init__(self, in_features, out_features):
-        super(BayesLinear, self).__init__(2*in_features, out_features)
+        super(BayesLinear, self).__init__(in_features, 2*out_features)
 
     def forward(self, x):
         cuda0 = torch.device('cuda:0')
-        in_features = int(self.weight.size(dim=1)/2)
-        out_features = self.weight.size(dim=0)
-        mean, logvar = torch.tensor_split(self.weight, 2, dim=1)
+        in_features = self.weight.size(dim=1)
+        out_features = int(self.weight.size(dim=0)/2)
+
+        w_mean, w_logvar = torch.tensor_split(self.weight, 2, dim=1)
+        b_mean, b_logvar = torch.tensor_split(self.bias, 2, dim=1)
+
         w = torch.empty((out_features, in_features), device=cuda0)
+        b = torch.empty((out_features, in_features), device=cuda0)
         if self.training:
-            w = reparameterize(mean, logvar)
+            w = reparameterize(w_mean, w_logvar)
+            b = reparameterize(b_mean, b_logvar)
         else:
-            w = mean
-        out = F.linear(x, w, self.bias)
+            w = w_mean
+            b = b_mean
+            
+        out = F.linear(x, w, b)
         return out
 
 class Conv2d_fw(nn.Conv2d): #used in MAML to forward input with fast weight
