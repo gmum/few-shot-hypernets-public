@@ -322,7 +322,7 @@ class HyperShot(HyperNetPOC):
                     w_mean, w_logvar = torch.tensor_split(m.weight, 2, dim=0)
                     b_mean, b_logvar = torch.tensor_split(m.bias, 2, dim=0)
                     kld_loss += self.loss_kld(w_mean, w_logvar) + self.loss_kld(b_mean, b_logvar)
-                    loss = self.loss_fn(y_pred, y_to_classify_gt)
+                    loss += self.loss_fn(y_pred, y_to_classify_gt)
 
             kld_loss *= self.kld_const/self.dataset_size
             loss *= 1/(self.n_query+self.n_support)
