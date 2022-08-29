@@ -300,7 +300,7 @@ class HyperNetPOC(MetaTemplate):
         kld_losses = []
         metrics = defaultdict(list)
         ts_repeats = self.taskset_repeats(epoch)
-        self.dataset_size = len(train_loader.dataset.indices)
+        self.dataset_size = len(train_loader.dataset)
 
         for i, (x, _) in enumerate(train_loader):
             taskset.append(x)
