@@ -325,7 +325,7 @@ class HyperShot(HyperNetPOC):
                     kld_loss += self.loss_kld(w_mean, w_logvar) + self.loss_kld(b_mean, b_logvar)
 
             kld_loss *= self.kld_const/self.taskset_size
-            loss += kld_loss
+            loss -= kld_loss
 
             total_loss += loss
             total_kld_loss += kld_loss
