@@ -315,16 +315,17 @@ class HyperShot(HyperNetPOC):
         for _ in range(self.S):
             y_pred = classifier(relational_feature_to_classify)
 
-            loss = self.loss_fn(y_pred, y_to_classify_gt)
-
+            loss = 0
             kld_loss = 0      
             for m in classifier.modules() :
                 if isinstance(m, (BayesLinear)):
                     w_mean, w_logvar = torch.tensor_split(m.weight, 2, dim=0)
                     b_mean, b_logvar = torch.tensor_split(m.bias, 2, dim=0)
                     kld_loss += self.loss_kld(w_mean, w_logvar) + self.loss_kld(b_mean, b_logvar)
+                    loss = self.loss_fn(y_pred, y_to_classify_gt)
 
             kld_loss *= self.kld_const/1000000000000000000000000
+            loss *= 1
             loss -= kld_loss
 
             total_loss += loss
