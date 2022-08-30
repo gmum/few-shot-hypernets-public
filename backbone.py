@@ -92,7 +92,7 @@ class BayesLinear(nn.Linear): #bayesian linear layer
 
 class BayesLinear2(nn.Module): 
     def __init__(self, in_features, out_features, bias=True):
-        super(BayesLinear, self).__init__()
+        super(BayesLinear2, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
         
