@@ -110,11 +110,15 @@ class BayesLinear2(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        torch.nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+        torch.nn.init.kaiming_uniform_(self.weight_mu, a=math.sqrt(5))
+        torch.nn.init.kaiming_uniform_(self.weight_log_var, a=math.sqrt(5))
         if self.bias is not None:
-            fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight)
+            fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight_mu)
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-            torch.nn.init.uniform_(self.bias, -bound, bound)
+            torch.nn.init.uniform_(self.bias_mu, -bound, bound)
+            fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight_log_var)
+            bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+            torch.nn.init.uniform_(self.bias_log_var, -bound, bound)
 
     def forward(self, x):
         if self.training:
