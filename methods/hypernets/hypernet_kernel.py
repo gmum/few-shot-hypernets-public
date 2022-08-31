@@ -28,6 +28,7 @@ class HyperShot(HyperNetPOC):
         self.kld_const: float = params.hn_kld_const
 
         self.S: int = params.hn_S
+        self.D:int = params.hn_D
 
         # TODO - check!!!
 
@@ -327,8 +328,8 @@ class HyperShot(HyperNetPOC):
                     kld_loss += self.loss_kld(m.weight_mu, m.weight_log_var) + self.loss_kld(m.bias_mu, m.bias_log_var)
                     loss += self.loss_fn(y_pred, y_to_classify_gt)
 
-            kld_loss *= self.kld_const/1000000000000000000000000 #self.dataset_size
-            loss *= 1/1 #(self.n_query+self.n_support)
+            kld_loss *= self.kld_const/self.D #self.dataset_size
+            #loss *= 1/(self.n_query+self.n_support)
             loss -= kld_loss
 
             total_loss += loss
