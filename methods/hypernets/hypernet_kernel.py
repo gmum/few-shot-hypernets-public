@@ -29,6 +29,7 @@ class HyperShot(HyperNetPOC):
 
         self.S: int = params.hn_S
         self.D:int = 10**params.hn_D
+        self.blayer:int = params.blayer
 
         # TODO - check!!!
 
@@ -98,7 +99,10 @@ class HyperShot(HyperNetPOC):
             is_final = i == (params.hn_tn_depth - 1)
             insize = common_insize if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
-            layers.append(BayesLinear2(insize, outsize))
+            if self.blayer == 1:
+                layers.append(BayesLinear(insize, outsize))
+            else:
+                layers.append(BayesLinear2(insize,outsize))
             if not is_final:
                 layers.append(nn.ReLU())
 
@@ -328,8 +332,8 @@ class HyperShot(HyperNetPOC):
                     kld_loss += self.loss_kld(m.weight_mu, m.weight_log_var) + self.loss_kld(m.bias_mu, m.bias_log_var)
                     loss += self.loss_fn(y_pred, y_to_classify_gt)
 
-            kld_loss *= self.kld_const/self.D #self.dataset_size
-            #loss *= 1/(self.n_query+self.n_support)
+            kld_loss *= self.kld_const/self.dataset_size
+            loss *= 1/(self.n_query+self.n_support)
             loss += kld_loss
 
             total_loss += loss
