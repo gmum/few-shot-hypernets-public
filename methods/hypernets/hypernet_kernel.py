@@ -330,7 +330,7 @@ class HyperShot(HyperNetPOC):
 
             kld_loss *= self.kld_const/self.D #self.dataset_size
             #loss *= 1/(self.n_query+self.n_support)
-            loss -= kld_loss
+            loss += kld_loss
 
             total_loss += loss
             total_kld_loss += kld_loss
