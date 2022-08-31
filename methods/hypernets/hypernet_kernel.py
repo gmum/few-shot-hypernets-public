@@ -28,7 +28,7 @@ class HyperShot(HyperNetPOC):
         self.kld_const: float = params.hn_kld_const
 
         self.S: int = params.hn_S
-        self.D:int = params.hn_D
+        self.D:int = 10**params.hn_D
 
         # TODO - check!!!
 
