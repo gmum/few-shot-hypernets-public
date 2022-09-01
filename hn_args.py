@@ -50,6 +50,8 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
 
     hypershot_args.add_argument("--hn_kld_const", type=float, default=1.0, help="KLD_Loss multiplier constant.")
     hypershot_args.add_argument("--hn_S", type=int, default=5, help="Number of samples.")
+    hypershot_args.add_argument("--hn_D", type=int, default=0, help="KLD_Loss scalling.")
+    hypershot_args.add_argument("--blayer", type=int, default=1, help="Choose between BayesLinear(1) and BayesLinear2(2)")
 
 
     hypermaml_args =  parser.add_argument_group("HyperMAML-related arguments")

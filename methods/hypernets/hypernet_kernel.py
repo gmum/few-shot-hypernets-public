@@ -5,7 +5,7 @@ from typing import Optional, Tuple
 import torch
 from torch import nn
 
-from backbone import BayesLinear
+from backbone import BayesLinear, BayesLinear2
 from utils import kl_diag_gauss_with_standard_gauss
 
 from methods.hypernets import HyperNetPOC
@@ -28,6 +28,8 @@ class HyperShot(HyperNetPOC):
         self.kld_const: float = params.hn_kld_const
 
         self.S: int = params.hn_S
+        self.D:int = 10**params.hn_D
+        self.blayer:int = params.blayer
 
         # TODO - check!!!
 
@@ -97,7 +99,10 @@ class HyperShot(HyperNetPOC):
             is_final = i == (params.hn_tn_depth - 1)
             insize = common_insize if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
-            layers.append(BayesLinear(insize, outsize))
+            if self.blayer == 1:
+                layers.append(BayesLinear(insize, outsize))
+            else:
+                layers.append(BayesLinear2(insize,outsize))
             if not is_final:
                 layers.append(nn.ReLU())
 
@@ -323,10 +328,13 @@ class HyperShot(HyperNetPOC):
                     b_mean, b_logvar = torch.tensor_split(m.bias, 2, dim=0)
                     kld_loss += self.loss_kld(w_mean, w_logvar) + self.loss_kld(b_mean, b_logvar)
                     loss += self.loss_fn(y_pred, y_to_classify_gt)
+                elif isinstance(m, (BayesLinear2)):
+                    kld_loss += self.loss_kld(m.weight_mu, m.weight_log_var) + self.loss_kld(m.bias_mu, m.bias_log_var)
+                    loss += self.loss_fn(y_pred, y_to_classify_gt)
 
             kld_loss *= self.kld_const/self.dataset_size
             loss *= 1/(self.n_query+self.n_support)
-            loss -= kld_loss
+            loss += kld_loss
 
             total_loss += loss
             total_kld_loss += kld_loss
