@@ -291,7 +291,7 @@ class HyperMAML(MAML):
                 for weight in self.classifier.parameters():
                     weight.fast = None
                     weight.mu = None
-                    weight.logvar = None
+                    #weight.logvar = None
                 self.classifier.zero_grad()
                 fast_parameters = fast_parameters + clf_fast_parameters
 
@@ -300,9 +300,12 @@ class HyperMAML(MAML):
 
                     set_loss = self.loss_fn(scores, support_data_labels)
                     reduction = 1 / support_data_labels.size(dim = 0)
-                    #for name, weight in self.classifier.named_parameters(): # jakie parametry do kld?
-                    #    if weight.mu is not None and weight.logvar is not None:
-                    #        set_loss = set_loss + self.kl_w * reduction * self.loss_kld(weight.mu, weight.logvar)
+                    for weight in self.classifier.parameters():
+                        if weight.logvar is not None:
+                            if weight.mu is not None:
+                                set_loss = set_loss + self.kl_w * reduction * self.loss_kld(weight.mu, weight.logvar)
+                            else:
+                                set_loss = set_loss + self.kl_w * reduction * self.loss_kld(weight, weight.logvar)
 
                     grad = torch.autograd.grad(set_loss, fast_parameters, create_graph=True, allow_unused=True) #build full graph support gradient of gradient
 
@@ -321,7 +324,8 @@ class HyperMAML(MAML):
                         # update weights of classifier network by adding gradient
                         for k, weight in enumerate(self.classifier.parameters()):
                             update_value = (self.train_lr * grad[classifier_offset + k])
-                            self._update_weight(weight, update_value, None, train_stage)
+                            update_mean, logvar = delta_params_list[k]
+                            self._update_weight(weight, update_value, logvar, train_stage)
 
                     elif 0.0 < p < 1.0:
                         # update weights of classifier network by adding gradient and output of hypernetwork
@@ -329,7 +333,7 @@ class HyperMAML(MAML):
                             update_value = self.train_lr * p * grad[classifier_offset + k]
                             update_mean, logvar = delta_params_list[k]
                             update_mean = (1 - p) * update_mean + update_value
-                            self._update_weight(weight, update_mean, (1 - p) * logvar, train_stage)
+                            self._update_weight(weight, update_mean, logvar, train_stage)
             else:
                 for k, weight in enumerate(self.classifier.parameters()):
                     update_mean, logvar = delta_params_list[k]
@@ -340,7 +344,7 @@ class HyperMAML(MAML):
                 self._update_weight(weight, update_mean, logvar, train_stage)
 
     def _get_list_of_delta_params(self, maml_warmup_used, support_embeddings, support_data_labels):
-        if not maml_warmup_used:
+        #if not maml_warmup_used:
 
             if self.enhance_embeddings:
                 with torch.no_grad():
@@ -354,7 +358,7 @@ class HyperMAML(MAML):
                 weight.fast = None
             for weight in self.classifier.parameters():
                 weight.mu = None
-                weight.logvar = None
+                #weight.logvar = None
             self.zero_grad()
 
             support_embeddings = self.apply_embeddings_strategy(support_embeddings)
@@ -365,8 +369,8 @@ class HyperMAML(MAML):
                 self.delta_list = [{'delta_params': delta_params}]
 
             return delta_params
-        else: 
-            return [torch.zeros(*i).cuda() for (_, i) in self.target_net_param_shapes.items()]
+        #else: 
+        #    return [torch.zeros(*i).cuda() for (_, i) in self.target_net_param_shapes.items()]
 
     def forward(self, x):
         out  = self.feature.forward(x)
