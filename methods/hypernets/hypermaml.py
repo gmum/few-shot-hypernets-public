@@ -266,6 +266,11 @@ class HyperMAML(MAML):
                 else:
                     weight.fast.append(weight.mu) # return expected value
 
+    def _get_l_value(self):
+        if self.epoch < self.hm_maml_warmup_epochs:
+            return self.epoch / self.hm_maml_warmup_epochs
+        return 1.0
+
     def _get_p_value(self):
         if self.epoch < self.hm_maml_warmup_epochs:
             return 1.0
@@ -299,14 +304,15 @@ class HyperMAML(MAML):
                     scores = self.classifier(support_embeddings)
 
                     set_loss = self.loss_fn(scores, support_data_labels)
-                    if p < 1.0:
-                        reduction = 1 / support_data_labels.size(dim = 0)
-                        for weight in self.classifier.parameters():
-                            if weight.logvar is not None:
-                                if weight.mu is not None:
-                                    set_loss = set_loss + self.kl_w * reduction * self.loss_kld(weight.mu, weight.logvar)
-                                else:
-                                    set_loss = set_loss + self.kl_w * reduction * self.loss_kld(weight, weight.logvar)
+                    reduction = 1 / support_data_labels.size(dim = 0)
+                    l = self._get_l_value()
+                    reduction = reduction * l
+                    for weight in self.classifier.parameters():
+                        if weight.logvar is not None:
+                            if weight.mu is not None:
+                                set_loss = set_loss + self.kl_w * reduction * self.loss_kld(weight.mu, weight.logvar)
+                            else:
+                                set_loss = set_loss + self.kl_w * reduction * self.loss_kld(weight, weight.logvar)
 
                     grad = torch.autograd.grad(set_loss, fast_parameters, create_graph=True, allow_unused=True) #build full graph support gradient of gradient
 
@@ -430,15 +436,15 @@ class HyperMAML(MAML):
             query_data_labels = torch.cat((support_data_labels, query_data_labels))
 
         reduction = 1 / query_data_labels.size(dim = 0)
-
+        l = self._get_l_value()
+        reduction = reduction * l
         loss_ce = self.loss_fn(scores, query_data_labels)
 
         loss_kld = torch.zeros_like(loss_ce)
-        p = self._get_p_value()
-        if p < 1.0:
-            for name, weight in self.classifier.named_parameters():
-                if weight.mu is not None and weight.logvar is not None:
-                    loss_kld = loss_kld + self.kl_w * reduction * self.loss_kld(weight.mu, weight.logvar)
+        
+        for name, weight in self.classifier.named_parameters():
+            if weight.mu is not None and weight.logvar is not None:
+                loss_kld = loss_kld + self.kl_w * reduction * self.loss_kld(weight.mu, weight.logvar)
 
         loss = loss_ce + loss_kld
 
@@ -458,16 +464,16 @@ class HyperMAML(MAML):
         support_data_labels = Variable( torch.from_numpy( np.repeat(range(self.n_way), self.n_support))).cuda()
 
         reduction = 1 / support_data_labels.size(dim = 0)
+        l = self._get_l_value()
+        reduction = reduction * l
 
         loss_ce = self.loss_fn(scores, support_data_labels)
 
         loss_kld = torch.zeros_like(loss_ce)
 
-        p = self._get_p_value()
-        if p < 1.0:
-            for name, weight in self.classifier.named_parameters():
-                if weight.mu is not None and weight.logvar is not None:
-                    loss_kld = loss_kld + self.kl_w * reduction * self.loss_kld(weight.mu, weight.logvar)
+        for name, weight in self.classifier.named_parameters():
+            if weight.mu is not None and weight.logvar is not None:
+                loss_kld = loss_kld + self.kl_w * reduction * self.loss_kld(weight.mu, weight.logvar)
 
         loss = loss_ce + loss_kld
 
