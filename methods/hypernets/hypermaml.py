@@ -436,8 +436,6 @@ class HyperMAML(MAML):
             query_data_labels = torch.cat((support_data_labels, query_data_labels))
 
         reduction = self.kl_scale
-        if self.epoch != self.stop_epoch:
-            self._scale_step()
             
         loss_ce = self.loss_fn(scores, query_data_labels)
 
@@ -523,6 +521,9 @@ class HyperMAML(MAML):
             if i % print_freq==0:
                 print('Epoch {:d}/{:d} | Batch {:d}/{:d} | Loss {:f}'.format(self.epoch, self.stop_epoch, i, len(train_loader), avg_loss/float(i+1)))
 
+        if self.epoch != self.stop_epoch:
+            self._scale_step()
+        
         acc_all  = np.asarray(acc_all)
         acc_mean = np.mean(acc_all)
 
