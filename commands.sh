@@ -32,7 +32,7 @@ python train.py --method hyper_shot --model Conv4 --dataset CUB --num_classes 20
   --n_shot 5 --test_n_way 5 --train_n_way 5 --train_aug \
   --stop_epoch 10000 --hn_val_epochs 0 --es_threshold 20 \
   --hn_tn_depth 2  --hn_head_len 2 --hn_neck_len 0 --hn_hidden_size 128 --hn_tn_hidden_size 64 \
-  --hn_sup_aggregation mean --use_cosine_distance
+  --hn_sup_aggregation mean --hn_use_cosine_distance
 
 
 # HyperMAML
