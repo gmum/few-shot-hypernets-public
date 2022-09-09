@@ -70,5 +70,6 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hypermaml_args.add_argument('--hm_kl_w', default=1.0, type=float, help='share of kld in loss func (default 1.0)')
     hypermaml_args.add_argument('--hm_weight_set_num_train', default=1, type=int, help='number of randomly generated weights for training (default 1)')
     hypermaml_args.add_argument('--hm_weight_set_num_test', default=20, type=int, help='number of randomly generated weights for test (default 20), if set to 0 expected value is generated')
+    hypermaml_args.add_argument('--kl_stop_val', default=1e-3, type=float, help='final value of kld_scale')
 
     return parser

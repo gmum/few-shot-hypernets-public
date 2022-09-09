@@ -26,6 +26,8 @@ from methods.maml import MAML
 from methods.hypernets.hypermaml import HyperMAML
 from io_utils import model_dict, parse_args, get_resume_file, setup_neptune
 
+from neptune.new.types import File
+
 import matplotlib.pyplot as plt
 from pathlib import Path
 
@@ -116,7 +118,22 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         model.stop_epoch = stop_epoch
 
         model.train()
-        metrics = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
+        if params.method in ['hyper_maml']:
+            metrics, sigma = model.train_loop(epoch, base_loader, optimizer)
+            if neptune_run is not None:
+                if sigma is not None:
+                    for name, value in sigma.items():
+                        fig = plt.figure()
+                        plt.plot(value, 's')
+                        neptune_run[f"sigma @ {epoch} / {name} / plot"].upload(File.as_image(fig))
+                        plt.close(fig)
+                        fig = plt.figure()
+                        plt.hist(value, edgecolor ="black")
+                        neptune_run[f"sigma @ {epoch} / {name} / histogram"].upload(File.as_image(fig))
+                        plt.close(fig)
+        else:
+            metrics = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
+
         scheduler.step()
         model.eval()
 
