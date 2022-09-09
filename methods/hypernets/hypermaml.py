@@ -47,7 +47,7 @@ class HyperMAML(MAML):
         self.loss_fn = nn.CrossEntropyLoss()
         self.loss_kld = kl_diag_gauss_with_standard_gauss
         self.kl_w = params.hm_kl_w
-        self.kl_scale = 1e-24
+        self.kl_scale = params.kl_scale
         self.kl_step = None
         self.kl_stop_val = params.kl_stop_val
 
@@ -270,7 +270,8 @@ class HyperMAML(MAML):
 
     def _scale_step(self):
         if self.kl_step is None:
-            self.kl_step = np.power(np.power(10, 24) * self.kl_stop_val, 1 / self.stop_epoch)
+            self.kl_step = np.power(1 / self.kl_scale * self.kl_stop_val, 1 / self.stop_epoch)
+
         self.kl_scale = self.kl_scale * self.kl_step
 
     def _get_p_value(self):
