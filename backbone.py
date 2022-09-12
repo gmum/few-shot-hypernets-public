@@ -263,7 +263,7 @@ class ConvNet(nn.Module):
             trunk.append(Flatten())
 
         self.trunk = nn.Sequential(*trunk)
-        self.final_feat_dim: int = 64 # outdim if pool else 1600
+        self.final_feat_dim: int = 1600 #64 # outdim if pool else 1600
 
     def forward(self,x):
         out = self.trunk(x)

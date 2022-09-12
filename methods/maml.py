@@ -1,6 +1,8 @@
 # This code is modified from https://github.com/dragen1860/MAML-Pytorch and https://github.com/katerakelly/pytorch-maml 
 
 import torch
+from tqdm import tqdm
+
 import backbone
 import numpy as np
 import torch.nn as nn
@@ -8,6 +10,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 from methods.meta_template import MetaTemplate
 from time import time
+from itertools import permutations
 
 class MAML(MetaTemplate):
     def __init__(self, model_func, n_way, n_support, n_query, params=None, approx = False):
@@ -22,14 +25,15 @@ class MAML(MetaTemplate):
         self.n_task     = 4
         self.task_update_num = 5
         self.train_lr = 0.01
-        self.approx = approx #first order approx.        
+        self.approx = approx #first order approx.
+        self.params = params
 
     def forward(self,x):
         out  = self.feature.forward(x)
         scores  = self.classifier.forward(out)
         return scores
 
-    def set_forward(self,x, is_feature = False):
+    def set_forward(self,x, is_feature = False, return_upd_res: bool = False):
         assert is_feature == False, 'MAML do not support fixed feature' 
         x = x.cuda()
         x_var = Variable(x)
@@ -45,6 +49,15 @@ class MAML(MetaTemplate):
             fast_parameters = list(self.parameters()) #the first gradient calcuated in line 45 is based on original weight
             for weight in self.parameters():
                 weight.fast = None
+
+        self.zero_grad()
+
+        original_parameters = {
+            k: p.detach().cpu().numpy()
+            for k, p in self.named_parameters()
+        }
+        original_activations = self.feature.forward(x_a_i)
+        original_scores = self.classifier.forward(original_activations)
 
         self.zero_grad()
 
@@ -64,7 +77,33 @@ class MAML(MetaTemplate):
                     weight.fast = weight.fast - self.train_lr * grad[k] #create an updated weight.fast, note the '-' is not merely minus value, but to create a new weight.fast 
                 fast_parameters.append(weight.fast) #gradients calculated in line 45 are based on newest fast weight, but the graph will retain the link to old weight.fasts
 
+
         scores = self.forward(x_b_i)
+
+        if return_upd_res:
+            updated_parameters = {
+                k: p.fast.detach().cpu().numpy()
+                for k, p in self.named_parameters()
+                if p.fast is not None
+            }
+            updated_activations = self.feature.forward(x_a_i)
+            updated_scores = self.classifier.forward(updated_activations)
+
+            results = {
+                "original": {
+                    "parameters": original_parameters,
+                    "activations": original_activations.detach().cpu().numpy(),
+                    "scores": original_scores.detach().cpu().numpy()
+                },
+                "updated": {
+                    "parameters": updated_parameters,
+                    "activations": updated_activations.detach().cpu().numpy(),
+                    "scores": updated_scores.detach().cpu().numpy()
+                }
+            }
+
+            return scores, results
+
         return scores
 
     def set_forward_adaptation(self,x, is_feature = False): #overwrite parrent function
@@ -122,20 +161,86 @@ class MAML(MetaTemplate):
         
         return metrics 
 
-    def test_loop(self, test_loader, return_std = False, return_time: bool = False): #overwrite parrent function
+    def correct(self, x, return_upd_res: bool):
+        if return_upd_res:
+            scores, update_results = self.set_forward(x, return_upd_res=True)
+        else:
+            scores = self.set_forward(x, return_upd_res=False)
+            update_results = dict(original=None)
+        y_query = np.repeat(range( self.n_way ), self.n_query )
+
+        topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
+        topk_ind = topk_labels.cpu().numpy()
+        top1_correct = np.sum(topk_ind[:,0] == y_query)
+        return float(top1_correct), len(y_query), update_results
+
+    def test_loop(self, test_loader, return_std = False, return_time: bool = False, save_upd_results: bool = False): #overwrite parrent function
         correct = 0
         count = 0
         acc_all = []
         eval_time = 0
-        iter_num = len(test_loader) 
-        for i, (x,_) in enumerate(test_loader):
+        iter_num = len(test_loader)
+        tq_loader = tqdm(enumerate(test_loader), total=iter_num)
+
+        records = []
+
+        for i, (x,y) in tq_loader:
             self.n_query = x.size(1) - self.n_support
             assert self.n_way  ==  x.size(0), "MAML do not support way change"
-            s = time()
-            correct_this, count_this = self.correct(x)
-            t = time()
-            eval_time += (t -s)
-            acc_all.append(correct_this/ count_this *100 )
+            labels = y.T[0].detach().cpu().numpy()
+
+            perm_records = []
+            perms_to_check = [[0,1,2,3,4]]
+            if save_upd_results:
+                perms_to_check = permutations([0,1,2,3,4])
+
+            for p, perm in enumerate(perms_to_check):
+                perm_tensor = torch.Tensor(perm).long()
+                x_ = x[perm_tensor]
+                y_ = y[perm_tensor]
+                original_labels = y_.T[0]
+
+                s = time()
+
+                correct_this, count_this, update_results = self.correct(x_, return_upd_res=save_upd_results)
+                t = time()
+                eval_time += (t -s)
+                acc = correct_this/ count_this *100
+                acc_all.append( acc)
+                tq_loader.set_description(f"{i=} {p=} {acc=:.2f}")
+                if perm == (0,1,2,3,4):
+                    original_record = update_results["original"]
+
+                del update_results["original"]
+
+                perm_record = {
+                    "original_labels": original_labels.detach().cpu().numpy(),
+                    "update_results": update_results,
+                    "accuracy": acc,
+                    "perm": perm,
+                }
+                perm_records.append(perm_record)
+
+
+
+
+
+            if save_upd_results:
+                record = {
+                    "original": original_record,
+                    "perm_records": perm_records,
+                    "labels": labels
+                }
+                from pathlib import Path
+                records_path = Path(self.params.checkpoint_dir) / "updates_records"
+                # records_path = Path("maml_minim_1_shot_perm")
+                # records_path = Path("maml_update_only_cls_minim_1_shot_perm")
+                records_path.mkdir(exist_ok=True, parents=True)
+                r_path = records_path / f"{i}.pkl"
+                with r_path.open("wb") as f:
+                    import pickle
+                    pickle.dump(record, f)
+
 
         num_tasks = len(acc_all)
         acc_all  = np.asarray(acc_all)

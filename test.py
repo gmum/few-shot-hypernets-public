@@ -158,6 +158,7 @@ def single_test(params):
         else:
             print("[WARNING] Cannot find 'best_file.tar' in: " + str(checkpoint_dir))
 
+    params.checkpoint_dir = checkpoint_dir
     split = params.split
     if params.save_iter != -1:
         split_str = split + "_" +str(params.save_iter)
@@ -204,7 +205,7 @@ def single_test(params):
         model.single_test = True
 
         if isinstance(model, (MAML, HyperMAML)):
-            acc_mean, acc_std, eval_time, *_ = model.test_loop( novel_loader, return_std = True, return_time=True)
+            acc_mean, acc_std, eval_time, *_ = model.test_loop( novel_loader, return_std = True, return_time=True, save_upd_results=True)
         else:
             acc_mean, acc_std, *_ = model.test_loop( novel_loader, return_std = True)
 
