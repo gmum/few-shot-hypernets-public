@@ -18,7 +18,6 @@ class HyperNet(nn.Module):
         super(HyperNet, self).__init__()
 
         self.hn_head_len = params.hn_head_len
-        self.hn_activation = params.hn_activation
 
         head = [nn.Linear(embedding_size, hn_hidden_size), nn.ReLU()]
 
@@ -479,7 +478,6 @@ class HyperMAML(MAML):
 
         else:
             for i, (x,_) in enumerate(test_loader):
-                print(x.shape)
                 self.n_query = x.size(1) - self.n_support
                 assert self.n_way  ==  x.size(0), f"MAML do not support way change, {self.n_way=}, {x.size(0)=}"
                 s = time()

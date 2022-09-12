@@ -40,16 +40,50 @@ python train.py --method hyper_shot --model Conv4 --dataset CUB --num_classes 20
 ## cross_char
 
 ### 1-shot
-python train.py --model Conv4 --dataset cross_char --num_classes 4112 \
-  --n_shot 1 --train_n_way 5 --method hyper_maml \
+python train.py --method hyper_maml --model Conv4 --dataset cross_char --num_classes 4112 \
+  --n_shot 1 ---test_n_way 5 --train_n_way 5 \
   --stop_epoch 64 --lr_scheduler multisteplr --lr 1e-2 \
   --hm_maml_warmup --hm_maml_warmup_epochs 50 --hm_maml_warmup_switch_epochs 500 --milestones 51 550 \
   --hn_head_len 3 --hn_hidden_size 512 --hm_enhance_embeddings True --hm_use_class_batch_input
 
 
 ### 5-shot
-python train.py --model Conv4 --dataset cross_char --num_classes 4112 \
-  --n_shot 1 --train_n_way 5 --method hyper_maml \
+python train.py --method hyper_maml --model Conv4 --dataset cross_char --num_classes 4112 \
+  --n_shot 5 --test_n_way 5 --train_n_way 5 \
   --stop_epoch 64 --lr_scheduler multisteplr --lr 1e-2 \
   --hm_maml_warmup --hm_maml_warmup_epochs 50 --hm_maml_warmup_switch_epochs 500 --milestones 51 550 \
   --hn_head_len 3 --hn_hidden_size 512 --hm_enhance_embeddings True --hm_use_class_batch_input --hn_sup_aggregation mean
+
+
+## CUB
+
+### 1-shot
+python train.py --method hyper_maml --model Conv4Pool --dataset CUB --num_classes 200 \
+  --n_shot 1 --test_n_way 5 --train_n_way 5 --train_aug \
+  --stop_epoch 1000  --es_threshold 20 --lr 1e-3 --lr_scheduler multisteplr \
+  --hm_maml_warmup --hm_maml_warmup_epochs 100  --hm_maml_warmup_switch_epochs 1000 --milestones 101 1100 \
+  --hn_head_len 3 --hn_hidden_size 256 --hm_enhance_embeddings True --hm_use_class_batch_input
+
+### 5-shot
+python train.py --method hyper_maml --model Conv4Pool --dataset CUB --num_classes 200 \
+  --n_shot 5 --test_n_way 5 --train_n_way 5 --train_aug \
+  --stop_epoch 1000  --es_threshold 20 --lr 1e-3 --lr_scheduler multisteplr \
+  --hm_maml_warmup --hm_maml_warmup_epochs 100  --hm_maml_warmup_switch_epochs 1000 --milestones 101 1100 \
+  --hn_head_len 3 --hn_hidden_size 256 --hm_enhance_embeddings True --hm_use_class_batch_input --hn_sup_aggregation mean
+
+
+## miniImagenet
+
+### 1-shot
+python train.py --method hyper_maml --model Conv4Pool --dataset miniImagenet --num_classes 200 \
+  --n_shot 1 --test_n_way 5 --train_n_way 5 --train_aug \
+  --stop_epoch 1000  --es_threshold 20 --lr 1e-3 --lr_scheduler multisteplr \
+  --hm_maml_warmup --hm_maml_warmup_epochs 100  --hm_maml_warmup_switch_epochs 1000 --milestones 101 1100 \
+  --hn_head_len 3 --hn_hidden_size 256 --hm_enhance_embeddings True --hm_use_class_batch_input
+
+### 5-shot
+python train.py --method hyper_maml --model Conv4Pool --dataset miniImagenet --num_classes 200 \
+  --n_shot 5 --test_n_way 5 --train_n_way 5 --train_aug \
+  --stop_epoch 1000  --es_threshold 20 --lr 1e-3 --lr_scheduler multisteplr \
+  --hm_maml_warmup --hm_maml_warmup_epochs 100  --hm_maml_warmup_switch_epochs 1000 --milestones 101 1100 \
+  --hn_head_len 3 --hn_hidden_size 256 --hm_enhance_embeddings True --hm_use_class_batch_input --hn_sup_aggregation mean
