@@ -119,7 +119,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
         model.train()
         if params.method in ['hyper_maml']:
-            metrics, sigma = model.train_loop(epoch, base_loader, optimizer)
+            metrics, sigma, mu = model.train_loop(epoch, base_loader, optimizer)
             if neptune_run is not None:
                 if sigma is not None:
                     for name, value in sigma.items():
@@ -130,6 +130,16 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                         fig = plt.figure()
                         plt.hist(value, edgecolor ="black")
                         neptune_run[f"sigma @ {epoch} / {name} / histogram"].upload(File.as_image(fig))
+                        plt.close(fig)
+                if mu is not None:
+                    for name, value in mu.items():
+                        fig = plt.figure()
+                        plt.plot(value, 's')
+                        neptune_run[f"mu @ {epoch} / {name} / plot"].upload(File.as_image(fig))
+                        plt.close(fig)
+                        fig = plt.figure()
+                        plt.hist(value, edgecolor ="black")
+                        neptune_run[f"mu @ {epoch} / {name} / histogram"].upload(File.as_image(fig))
                         plt.close(fig)
         else:
             metrics = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return

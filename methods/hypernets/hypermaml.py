@@ -409,18 +409,22 @@ class HyperMAML(MAML):
 
         if train_stage and calc_sigma and (self.epoch == self.stop_epoch - 1 or self.epoch % 100 == 0):
             sigma = {}
+            mu = {}
             for k, (name, _) in enumerate(self.classifier.named_parameters()):
-                _, logvar = delta_params_list[k]
+                m, logvar = delta_params_list[k]
                 logvar = torch.cat([t.view(-1) for t in logvar])
                 sigma[name] = torch.exp(0.5 * logvar).clone().data.cpu().numpy()
+                m = torch.cat([t.view(-1) for t in m])
+                mu[name] = m.clone().data.cpu().numpy()
         else:
+            mu = None
             sigma = None
 
         self._update_network_weights(delta_params_list, support_embeddings, support_data_labels, train_stage)
 
         if self.hm_set_forward_with_adaptation and not train_stage:
             scores = self.forward(support_data)
-            return scores, None, sigma
+            return scores, None, sigma, mu
         else:
             if self.hm_support_set_loss and train_stage and not maml_warmup_used:
                 query_data = torch.cat((support_data, query_data))
@@ -431,15 +435,15 @@ class HyperMAML(MAML):
             if self.hm_lambda != 0:
                 total_delta_sum = sum([delta_params.pow(2.0).sum() for delta_params in delta_params_list])
 
-                return scores, total_delta_sum, sigma
+                return scores, total_delta_sum, sigma, mu
             else:
-                return scores, None, sigma
+                return scores, None, sigma, mu
 
     def set_forward_adaptation(self, x, is_feature = False): #overwrite parrent function
         raise ValueError('MAML performs further adapation simply by increasing task_upate_num')
 
     def set_forward_loss(self, x, calc_sigma): 
-        scores, total_delta_sum, sigma = self.set_forward(x, is_feature = False, train_stage = True, calc_sigma = calc_sigma)
+        scores, total_delta_sum, sigma, mu = self.set_forward(x, is_feature = False, train_stage = True, calc_sigma = calc_sigma)
         query_data_labels = Variable(torch.from_numpy( np.repeat(range(self.n_way), self.n_query))).cuda()
         if self.hm_support_set_loss:
             support_data_labels = torch.from_numpy(np.repeat(range(self.n_way), self.n_support)).cuda()
@@ -469,10 +473,10 @@ class HyperMAML(MAML):
         top1_correct = np.sum(topk_ind == y_labels)
         task_accuracy = (top1_correct / len(query_data_labels)) * 100
 
-        return loss, loss_ce, loss_kld, loss_kld_no_scale, task_accuracy, sigma
+        return loss, loss_ce, loss_kld, loss_kld_no_scale, task_accuracy, sigma, mu
 
     def set_forward_loss_with_adaptation(self, x): 
-        scores, _, _ = self.set_forward(x, is_feature = False, train_stage = False)
+        scores, _, _, _ = self.set_forward(x, is_feature = False, train_stage = False)
         support_data_labels = Variable( torch.from_numpy( np.repeat(range(self.n_way), self.n_support))).cuda()
 
         reduction = self.kl_scale
@@ -515,7 +519,7 @@ class HyperMAML(MAML):
             assert self.n_way  ==  x.size(0), "MAML do not support way change"
 
             calc_sigma = i + 1 == len(train_loader)
-            loss, loss_ce, loss_kld, loss_kld_no_scale, task_accuracy, sigma = self.set_forward_loss(x, calc_sigma)
+            loss, loss_ce, loss_kld, loss_kld_no_scale, task_accuracy, sigma, mu = self.set_forward_loss(x, calc_sigma)
             avg_loss = avg_loss+loss.item()#.data[0]
             loss_all.append(loss)
             loss_ce_all.append(loss_ce.item())
@@ -570,7 +574,7 @@ class HyperMAML(MAML):
         if self.alpha < 1:
             self.alpha += self.hn_alpha_step
 
-        return metrics, sigma
+        return metrics, sigma, mu
 
     def test_loop(self, test_loader, return_std = False, return_time: bool = False): #overwrite parrent function
 
@@ -683,16 +687,16 @@ class HyperMAML(MAML):
         return metrics[f"accuracy/val@-{self.hn_val_epochs}"], metrics
 
     def query_accuracy(self, x: torch.Tensor) -> float:
-        scores, _, _ = self.set_forward(x, train_stage=True)
+        scores, _, _, _ = self.set_forward(x, train_stage=True)
         return 100 * accuracy_from_scores(scores, n_way=self.n_way, n_query=self.n_query)
 
     def get_logits(self, x):
         self.n_query = x.size(1) - self.n_support
-        logits, _, _ = self.set_forward(x)
+        logits, _, _, _ = self.set_forward(x)
         return logits
 
     def correct(self, x):
-        scores, _, _ = self.set_forward(x)
+        scores, _, _, _ = self.set_forward(x)
         y_query = np.repeat(range( self.n_way ), self.n_query)
 
         topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
