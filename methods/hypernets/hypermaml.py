@@ -389,7 +389,23 @@ class HyperMAML(MAML):
         scores  = self.classifier.forward(out)
         return scores
 
-    def set_forward(self, x, is_feature = False, train_stage = False, calc_sigma = False): 
+    def _mu_sigma(self, calc_sigma):
+        if calc_sigma:
+            sigma = {}
+            mu = {}
+            for name, weight in self.classifier.named_parameters():
+                m, logvar = weight.mu, weight.logvar
+                logvar = torch.cat([t.view(-1) for t in logvar])
+                sigma[name] = torch.exp(0.5 * logvar).clone().data.cpu().numpy()
+                m = torch.cat([t.view(-1) for t in m])
+                mu[name] = m.clone().data.cpu().numpy()
+        else:
+            mu = None
+            sigma = None
+        
+        return sigma, mu
+
+    def set_forward(self, x, is_feature = False, train_stage = False): 
         assert is_feature == False, 'MAML do not support fixed feature'
 
         x = x.cuda()
@@ -407,24 +423,11 @@ class HyperMAML(MAML):
 
         delta_params_list = self._get_list_of_delta_params(maml_warmup_used, support_embeddings, support_data_labels)
 
-        if train_stage and calc_sigma and (self.epoch == self.stop_epoch - 1 or self.epoch % 100 == 0):
-            sigma = {}
-            mu = {}
-            for k, (name, _) in enumerate(self.classifier.named_parameters()):
-                m, logvar = delta_params_list[k]
-                logvar = torch.cat([t.view(-1) for t in logvar])
-                sigma[name] = torch.exp(0.5 * logvar).clone().data.cpu().numpy()
-                m = torch.cat([t.view(-1) for t in m])
-                mu[name] = m.clone().data.cpu().numpy()
-        else:
-            mu = None
-            sigma = None
-
         self._update_network_weights(delta_params_list, support_embeddings, support_data_labels, train_stage)
 
         if self.hm_set_forward_with_adaptation and not train_stage:
             scores = self.forward(support_data)
-            return scores, None, sigma, mu
+            return scores, None
         else:
             if self.hm_support_set_loss and train_stage and not maml_warmup_used:
                 query_data = torch.cat((support_data, query_data))
@@ -435,15 +438,19 @@ class HyperMAML(MAML):
             if self.hm_lambda != 0:
                 total_delta_sum = sum([delta_params.pow(2.0).sum() for delta_params in delta_params_list])
 
-                return scores, total_delta_sum, sigma, mu
+                return scores, total_delta_sum
             else:
-                return scores, None, sigma, mu
+                return scores, None
 
     def set_forward_adaptation(self, x, is_feature = False): #overwrite parrent function
         raise ValueError('MAML performs further adapation simply by increasing task_upate_num')
 
     def set_forward_loss(self, x, calc_sigma): 
-        scores, total_delta_sum, sigma, mu = self.set_forward(x, is_feature = False, train_stage = True, calc_sigma = calc_sigma)
+        scores, total_delta_sum = self.set_forward(x, is_feature = False, train_stage = True)
+
+        calc_sigma = calc_sigma and (self.epoch == self.stop_epoch - 1 or self.epoch % 100 == 0)
+        sigma, mu = self._mu_sigma(calc_sigma)
+
         query_data_labels = Variable(torch.from_numpy( np.repeat(range(self.n_way), self.n_query))).cuda()
         if self.hm_support_set_loss:
             support_data_labels = torch.from_numpy(np.repeat(range(self.n_way), self.n_support)).cuda()
@@ -476,7 +483,7 @@ class HyperMAML(MAML):
         return loss, loss_ce, loss_kld, loss_kld_no_scale, task_accuracy, sigma, mu
 
     def set_forward_loss_with_adaptation(self, x): 
-        scores, _, _, _ = self.set_forward(x, is_feature = False, train_stage = False)
+        scores, _ = self.set_forward(x, is_feature = False, train_stage = False)
         support_data_labels = Variable( torch.from_numpy( np.repeat(range(self.n_way), self.n_support))).cuda()
 
         reduction = self.kl_scale
@@ -541,8 +548,7 @@ class HyperMAML(MAML):
             if i % print_freq==0:
                 print('Epoch {:d}/{:d} | Batch {:d}/{:d} | Loss {:f}'.format(self.epoch, self.stop_epoch, i, len(train_loader), avg_loss/float(i+1)))
 
-        if self.epoch != self.stop_epoch:
-            self._scale_step()
+        self._scale_step()
         
         acc_all  = np.asarray(acc_all)
         acc_mean = np.mean(acc_all)
@@ -687,16 +693,16 @@ class HyperMAML(MAML):
         return metrics[f"accuracy/val@-{self.hn_val_epochs}"], metrics
 
     def query_accuracy(self, x: torch.Tensor) -> float:
-        scores, _, _, _ = self.set_forward(x, train_stage=True)
+        scores, _ = self.set_forward(x, train_stage=True)
         return 100 * accuracy_from_scores(scores, n_way=self.n_way, n_query=self.n_query)
 
     def get_logits(self, x):
         self.n_query = x.size(1) - self.n_support
-        logits, _, _, _ = self.set_forward(x)
+        logits, _ = self.set_forward(x)
         return logits
 
     def correct(self, x):
-        scores, _, _, _ = self.set_forward(x)
+        scores, _ = self.set_forward(x)
         y_query = np.repeat(range( self.n_way ), self.n_query)
 
         topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
