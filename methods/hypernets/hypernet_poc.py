@@ -310,7 +310,7 @@ class HyperNetPOC(MetaTemplate):
 
 
         self._scale_step()
-        reduction = self.kl_scale
+        reduction = self.hn_scale
 
         for i, (x, _) in enumerate(train_loader):
             taskset.append(x)
