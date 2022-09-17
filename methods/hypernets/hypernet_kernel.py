@@ -357,12 +357,11 @@ class HyperShot(HyperNetPOC):
         sigma_bias = []
 
         for module in classifier.modules():
-            print(module)
-            mu_weight.append(module.weight_mu.clone().data.cpu().numpy().flatten())
-            mu_bias.append(module.bias_mu.clone().data.cpu().numpy().flatten())
-
-            sigma_weight.append(torch.exp(0.5 * module.weight_log_var).clone().data.cpu().numpy().flatten())
-            sigma_bias.append(torch.exp(0.5 * module.bias_log_var).clone().data.cpu().numpy().flatten())
+            if isinstance(module, (BayesLinear2)):
+                mu_weight.append(module.weight_mu.clone().data.cpu().numpy().flatten())
+                mu_bias.append(module.bias_mu.clone().data.cpu().numpy().flatten())
+                sigma_weight.append(torch.exp(0.5 * module.weight_log_var).clone().data.cpu().numpy().flatten())
+                sigma_bias.append(torch.exp(0.5 * module.bias_log_var).clone().data.cpu().numpy().flatten())
 
 
         mu_weight = np.concatenate(mu_weight)
