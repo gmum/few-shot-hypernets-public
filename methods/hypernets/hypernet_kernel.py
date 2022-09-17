@@ -280,6 +280,7 @@ class HyperShot(HyperNetPOC):
             query_feature_to_hn = query_feature
 
         classifier = self.generate_target_net(feature_to_hn)
+        self.get_mu_and_sigma(classifier=classifier)
 
         feature_to_classify = []
         y_to_classify_gt = []
@@ -340,3 +341,11 @@ class HyperShot(HyperNetPOC):
         total_kld_loss /= S
         return total_crossentropy_loss, total_kld_loss
 
+    def get_mu_and_sigma(self, classifier : nn.Module):
+        mu = {}
+        sigma = {}
+
+        print("PARAMS NAMES")
+
+        for name, weight in classifier.named_parameters():
+            print(name)
