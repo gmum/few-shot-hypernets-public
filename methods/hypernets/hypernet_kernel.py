@@ -357,6 +357,7 @@ class HyperShot(HyperNetPOC):
         sigma_bias = []
 
         for module in classifier.modules():
+            print(module)
             mu_weight.append(module.weight_mu.clone().data.cpu().numpy().flatten())
             mu_bias.append(module.bias_mu.clone().data.cpu().numpy().flatten())
 
