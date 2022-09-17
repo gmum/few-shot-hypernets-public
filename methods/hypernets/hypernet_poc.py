@@ -366,10 +366,10 @@ class HyperNetPOC(MetaTemplate):
         return metrics
 
     def _scale_step(self):
-        if self.kl_step is None:
-            self.kl_step = np.power(1 / self.kl_scale * self.kl_stop_val, 1 / self.stop_epoch)
+        if self.hn_step is None:
+            self.hn_step = np.power(1 / self.hn_scale * self.hn_stop_val, 1 / self.stop_epoch)
             
-        self.kl_scale = self.kl_scale * self.kl_step
+        self.hn_scale = self.hn_scale * self.hn_step
 
 
 class PPAMixin(HyperNetPOC):
