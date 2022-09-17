@@ -27,6 +27,7 @@ from methods.hypernets.hypermaml import HyperMAML
 from io_utils import model_dict, parse_args, get_resume_file, setup_neptune
 
 import matplotlib.pyplot as plt
+from neptune.new.types import File
 from pathlib import Path
 
 from save_features import do_save_fts
@@ -116,7 +117,33 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         model.stop_epoch = stop_epoch
 
         model.train()
-        metrics = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
+        metrics, hist_data = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
+
+        if hist_data:
+            # mu weight 
+            fig = plt.figure()
+            plt.hist(hist_data["mu_weight"], edgecolor ="black")
+            neptune_run[f"mu_weight @ {epoch} / histogram"].upload(File.as_image(fig))
+            plt.close(fig)
+
+            # mu bias
+            fig = plt.figure()
+            plt.hist(hist_data["mu_bias"], edgecolor ="black")
+            neptune_run[f"mu_bias @ {epoch} / histogram"].upload(File.as_image(fig))
+            plt.close(fig)
+
+            # sigma weight
+            fig = plt.figure()
+            plt.hist(hist_data["sigma_weight"], edgecolor ="black")
+            neptune_run[f"sigma_weight @ {epoch} / histogram"].upload(File.as_image(fig))
+            plt.close(fig)
+
+            # sigma bias
+            fig = plt.figure()
+            plt.hist(hist_data["sigma_bias"], edgecolor ="black")
+            neptune_run[f"sigma_bias @ {epoch} / histogram"].upload(File.as_image(fig))
+            plt.close(fig)
+
         scheduler.step()
         model.eval()
 

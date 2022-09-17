@@ -5,6 +5,10 @@ from typing import Optional, Tuple
 import torch
 from torch import nn
 
+import numpy as np
+
+from matplotlib import pyplot as plt
+
 from backbone import BayesLinear, BayesLinear2
 from utils import kl_diag_gauss_with_standard_gauss
 
@@ -259,7 +263,8 @@ class HyperShot(HyperNetPOC):
     def set_forward_loss(
             self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False,
             train_on_support: bool = True,
-            train_on_query: bool = True
+            train_on_query: bool = True,
+            epoch: int = -1,
     ):
         nw, ne, c, h, w = x.shape
 
@@ -280,7 +285,6 @@ class HyperShot(HyperNetPOC):
             query_feature_to_hn = query_feature
 
         classifier = self.generate_target_net(feature_to_hn)
-        self.get_mu_and_sigma(classifier=classifier)
 
         feature_to_classify = []
         y_to_classify_gt = []
@@ -339,13 +343,36 @@ class HyperShot(HyperNetPOC):
         # divide by number of sampled predictions
         total_crossentropy_loss /= S
         total_kld_loss /= S
-        return total_crossentropy_loss, total_kld_loss
+        return total_crossentropy_loss, total_kld_loss, self.upload_mu_and_sigma_histogram(classifier, epoch)
 
-    def get_mu_and_sigma(self, classifier : nn.Module):
-        mu = {}
-        sigma = {}
+    def upload_mu_and_sigma_histogram(self, classifier : nn.Module, epoch : int):
 
-        print("PARAMS NAMES")
+        if epoch % 100 != 0:
+            return None
 
-        for name, weight in classifier.named_parameters():
-            print(name)
+        mu_weight = []
+        mu_bias = []
+
+        sigma_weight = []
+        sigma_bias = []
+
+        for module in classifier.modules():
+            mu_weight.append(module.weight_mu.clone().data.cpu().numpy().flatten())
+            mu_bias.append(module.bias_mu.clone().data.cpu().numpy().flatten())
+
+            sigma_weight.append(torch.exp(0.5 * module.weight_log_var).clone().data.cpu().numpy().flatten())
+            sigma_bias.append(torch.exp(0.5 * module.bias_log_var).clone().data.cpu().numpy().flatten())
+
+
+        mu_weight = np.concatenate(mu_weight)
+        mu_bias = np.concatenate(mu_bias)
+        sigma_weight = np.concatenate(sigma_weight)
+        sigma_bias = np.concatenate(sigma_bias)
+
+        return {
+            "mu_weight": mu_weight,
+            "mu_bias": mu_bias,
+            "sigma_weight": sigma_weight,
+            "sigma_bias": sigma_bias
+        }
+

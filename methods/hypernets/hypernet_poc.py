@@ -327,7 +327,7 @@ class HyperNetPOC(MetaTemplate):
                         if self.change_way:
                             self.n_way = task.size(0)
                         self.n_query = task.size(1) - self.n_support
-                        crossentropy_loss, kld_loss = self.set_forward_loss(task)
+                        crossentropy_loss, kld_loss, hist_data = self.set_forward_loss(task, epoch=epoch)
                         crossentropy_loss_sum += crossentropy_loss
                         kld_loss_sum += kld_loss
 
@@ -363,7 +363,7 @@ class HyperNetPOC(MetaTemplate):
         metrics["kld_loss_scaled/train"] = np.mean(kld_losses) * reduction * self.hn_w
         metrics["crossentropy_loss/train"] = np.mean(crossentropy_losses)
         metrics["accuracy/train"] = np.mean(accuracies) * 100
-        return metrics
+        return metrics, hist_data
 
     def _scale_step(self):
         if self.hn_step is None:
