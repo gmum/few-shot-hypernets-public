@@ -39,6 +39,11 @@ class HyperNetPOC(MetaTemplate):
         self.hn_val_lr: float = params.hn_val_lr
         self.hn_val_optim: float = params.hn_val_optim
 
+        self.hn_scale = params.hn_scale
+        self.hn_w = params.hn_w
+        self.hn_step = None
+        self.hn_stop_val = params.hn_stop_val
+
         self.dataset_size = 0
         self.embedding_size = self.init_embedding_size(params)
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
@@ -296,31 +301,37 @@ class HyperNetPOC(MetaTemplate):
         taskset = []
         n_train = len(train_loader)
         accuracies = []
-        losses = []
-        kld_losses = []
+        losses = [] # kld_scaled + crossentropy
+        kld_losses = [] # kld
+        crossentropy_losses = [] # crossentropy
         metrics = defaultdict(list)
         ts_repeats = self.taskset_repeats(epoch)
         self.dataset_size = len(train_loader.dataset)
+
+
+        self._scale_step()
+        reduction = self.kl_scale
 
         for i, (x, _) in enumerate(train_loader):
             taskset.append(x)
 
             # TODO 3: perhaps the idea of tasksets is redundant and it's better to update weights at every task
             if i % self.taskset_size == (self.taskset_size - 1) or i == (n_train - 1):
-                loss_sum = torch.tensor(0.0).cuda()
+                crossentropy_loss_sum = torch.tensor(0.0).cuda()
                 kld_loss_sum = torch.tensor(0.0).cuda()
                 for tr in range(ts_repeats):
-                    loss_sum = torch.tensor(0.0).cuda()
+                    crossentropy_loss_sum = torch.tensor(0.0).cuda()
                     kld_loss_sum = torch.tensor(0.0).cuda()
 
                     for task in taskset:
                         if self.change_way:
                             self.n_way = task.size(0)
                         self.n_query = task.size(1) - self.n_support
-                        loss, kld_loss = self.set_forward_loss(task)
-                        loss_sum += loss
+                        crossentropy_loss, kld_loss = self.set_forward_loss(task)
+                        crossentropy_loss_sum += crossentropy_loss
                         kld_loss_sum += kld_loss
 
+                    loss_sum = crossentropy_loss_sum + kld_loss_sum * reduction * self.hn_w
                     optimizer.zero_grad()
                     loss_sum.backward()
 
@@ -332,6 +343,7 @@ class HyperNetPOC(MetaTemplate):
 
                 losses.append(loss_sum.item())
                 kld_losses.append(kld_loss_sum.item())
+                crossentropy_losses.append(crossentropy_loss_sum.item())
                 accuracies.extend([
                     self.query_accuracy(task) for task in taskset
                 ])
@@ -348,8 +360,16 @@ class HyperNetPOC(MetaTemplate):
 
         metrics["loss/train"] = np.mean(losses)
         metrics["kld_loss/train"] = np.mean(kld_losses)
+        metrics["kld_loss_scaled/train"] = np.mean(kld_losses) * reduction * self.hn_w
+        metrics["crossentropy_loss/train"] = np.mean(crossentropy_losses)
         metrics["accuracy/train"] = np.mean(accuracies) * 100
         return metrics
+
+    def _scale_step(self):
+        if self.kl_step is None:
+            self.kl_step = np.power(1 / self.kl_scale * self.kl_stop_val, 1 / self.stop_epoch)
+            
+        self.kl_scale = self.kl_scale * self.kl_step
 
 
 class PPAMixin(HyperNetPOC):

@@ -25,10 +25,7 @@ class HyperShot(HyperNetPOC):
         )
 
         self.loss_kld = kl_diag_gauss_with_standard_gauss
-        self.kld_const: float = params.hn_kld_const
-
-        self.S: int = params.hn_S
-        self.D:int = 10**params.hn_D
+        self.S: int = params.hn_S # sampling
 
         # TODO - check!!!
 
@@ -98,7 +95,11 @@ class HyperShot(HyperNetPOC):
             is_final = i == (params.hn_tn_depth - 1)
             insize = common_insize if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
-            layers.append(BayesLinear2(insize, outsize))
+            if params.hn_blayer == 1:
+                layers.append(BayesLinear2(insize, outsize))
+            else:
+                layers.append(BayesLinear(insize, outsize))
+
             if not is_final:
                 layers.append(nn.ReLU())
 
@@ -310,32 +311,32 @@ class HyperShot(HyperNetPOC):
         if self.hn_use_support_embeddings:
             relational_feature_to_classify = torch.cat((relational_feature_to_classify, feature_to_classify), 1)
 
-        total_loss = 0
+        total_crossentropy_loss = 0
         total_kld_loss = 0
 
         for _ in range(self.S):
             y_pred = classifier(relational_feature_to_classify)
 
-            loss = 0
+            crossentropy_loss = 0
             kld_loss = 0      
             for m in classifier.modules() :
                 if isinstance(m, (BayesLinear)):
                     w_mean, w_logvar = torch.tensor_split(m.weight, 2, dim=0)
                     b_mean, b_logvar = torch.tensor_split(m.bias, 2, dim=0)
                     kld_loss += self.loss_kld(w_mean, w_logvar) + self.loss_kld(b_mean, b_logvar)
-                    loss += self.loss_fn(y_pred, y_to_classify_gt)
                 elif isinstance(m, (BayesLinear2)):
                     kld_loss += self.loss_kld(m.weight_mu, m.weight_log_var) + self.loss_kld(m.bias_mu, m.bias_log_var)
-                    loss += self.loss_fn(y_pred, y_to_classify_gt)
+                crossentropy_loss += self.loss_fn(y_pred, y_to_classify_gt)
 
-            kld_loss *= self.kld_const/self.D #self.dataset_size
+            # deprecated scaling (moved to hypernet_poc.py)
+            #kld_loss *= self.kld_const/self.D #self.dataset_size
             #loss *= 1/(self.n_query+self.n_support)
-            loss += kld_loss
 
-            total_loss += loss
+            total_crossentropy_loss += crossentropy_loss
             total_kld_loss += kld_loss
 
-        total_loss /= S
+        # divide by number of sampled predictions
+        total_crossentropy_loss /= S
         total_kld_loss /= S
-        return total_loss, total_kld_loss
+        return total_crossentropy_loss, total_kld_loss
 
