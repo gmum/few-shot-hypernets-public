@@ -191,7 +191,6 @@ class HyperMAML(MAML):
                 )
 
                 delta_params_mean, params_logvar = param_net(support_embeddings_resh)
-                print(delta_params_mean.size(), params_logvar.size())
                 bias_neurons_num = self.target_net_param_shapes[name][0] // self.n_way
 
                 if self.hn_adaptation_strategy == 'increasing_alpha' and self.alpha < 1:
@@ -251,8 +250,6 @@ class HyperMAML(MAML):
             weight.mu = weight - update_mean
         else:
             weight.mu = weight.mu - update_mean
-
-        print(update_mean.size(), logvar.size())
 
         if logvar is None: #used in maml warmup
             weight.fast = []
