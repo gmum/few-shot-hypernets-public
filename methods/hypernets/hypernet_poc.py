@@ -43,6 +43,7 @@ class HyperNetPOC(MetaTemplate):
         self.hn_w = params.hn_w
         self.hn_step = None
         self.hn_stop_val = params.hn_stop_val
+        self.hn_use_kld_from = params.hn_use_kld_from
 
         self.dataset_size = 0
         self.embedding_size = self.init_embedding_size(params)
@@ -331,7 +332,11 @@ class HyperNetPOC(MetaTemplate):
                         crossentropy_loss_sum += crossentropy_loss
                         kld_loss_sum += kld_loss
 
-                    loss_sum = crossentropy_loss_sum + kld_loss_sum * reduction * self.hn_w
+                    if epoch >= self.hn_use_kld_from:
+                        loss_sum = crossentropy_loss_sum + kld_loss_sum * reduction * self.hn_w
+                    else:
+                        loss_sum = crossentropy_loss_sum
+                    
                     optimizer.zero_grad()
                     loss_sum.backward()
 

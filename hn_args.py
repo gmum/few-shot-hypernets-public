@@ -53,6 +53,7 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hypershot_args.add_argument('--hn_w', default=1.0, type=float, help='share of kld in loss func (default 1.0)')
     hypershot_args.add_argument('--hn_stop_val', default=1e-3, type=float, help='final value of kld_scale')
     hypershot_args.add_argument('--hn_scale', default=1e-24, type=float, help='initial value of kld_scale')
+    hypershot_args.add_argument('--hn_use_kld_from', default=0, type=int, help='Include kld from epoch passed with parameter')
 
     # choose between BayesLinear and BayesLinear2
     hypershot_args.add_argument('--hn_blayer', default=1, type=int, help="Choose between BayesLinear and BayesLinear2(default=1 is for BayesLinear2)")
