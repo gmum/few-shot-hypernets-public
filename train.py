@@ -127,8 +127,8 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             plt.close(fig)
 
             fig = plt.figure()
-            plt.violinplot(hist_data["mu_weight_v"], edgecolor="black")
-            neptune_run[f"mu_weight @ {epoch} / histogram"].upload(File.as_image(fig))
+            plt.violinplot(hist_data["mu_weight"], edgecolor="black")
+            neptune_run[f"mu_weight @ {epoch} / violinplot"].upload(File.as_image(fig))
             plt.close(fig)
 
             # mu bias
@@ -138,8 +138,8 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             plt.close(fig)
 
             fig = plt.figure()
-            plt.violinplot(hist_data["mu_bias_v"], edgecolor="black")
-            neptune_run[f"mu_bias @ {epoch} / histogram"].upload(File.as_image(fig))
+            plt.violinplot(hist_data["mu_bias"], edgecolor="black")
+            neptune_run[f"mu_bias @ {epoch} / violinplot"].upload(File.as_image(fig))
             plt.close(fig)
 
             # sigma weight
@@ -149,8 +149,8 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             plt.close(fig)
 
             fig = plt.figure()
-            plt.violinplot(hist_data["sigma_weight_v"], edgecolor="black")
-            neptune_run[f"sigma_weight @ {epoch} / histogram"].upload(File.as_image(fig))
+            plt.violinplot(hist_data["sigma_weight"], edgecolor="black")
+            neptune_run[f"sigma_weight @ {epoch} / violinplot"].upload(File.as_image(fig))
             plt.close(fig)
 
             # sigma bias
@@ -160,8 +160,8 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             plt.close(fig)
 
             fig = plt.figure()
-            plt.violinplot(hist_data["sigma_bias_v"], edgecolor="black")
-            neptune_run[f"sigma_bias @ {epoch} / histogram"].upload(File.as_image(fig))
+            plt.violinplot(hist_data["sigma_bias"], edgecolor="black")
+            neptune_run[f"sigma_bias @ {epoch} / violinplot"].upload(File.as_image(fig))
             plt.close(fig)
 
         scheduler.step()
