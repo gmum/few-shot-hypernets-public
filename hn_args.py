@@ -48,10 +48,15 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hypershot_args.add_argument("--hn_val_lr", type=float, default=1e-4, help="LR for finetuning on support set during validation")
     hypershot_args.add_argument("--hn_val_optim", type=str, default="adam", choices=["adam", "sgd"], help="Optimizer for finetuning on support set during validation")
 
-    hypershot_args.add_argument("--hn_kld_const", type=float, default=1.0, help="KLD_Loss multiplier constant.")
     hypershot_args.add_argument("--hn_S", type=int, default=5, help="Number of samples.")
-    hypershot_args.add_argument("--hn_D", type=int, default=0, help="KLD_Loss scalling.")
-    hypershot_args.add_argument("--blayer", type=int, default=1, help="Choose between BayesLinear(1) and BayesLinear2(2)")
+    # new arguments for scheduler
+    hypershot_args.add_argument('--hn_w', default=1.0, type=float, help='share of kld in loss func (default 1.0)')
+    hypershot_args.add_argument('--hn_stop_val', default=1e-3, type=float, help='final value of kld_scale')
+    hypershot_args.add_argument('--hn_scale', default=1e-24, type=float, help='initial value of kld_scale')
+    hypershot_args.add_argument('--hn_use_kld_from', default=0, type=int, help='Include kld from epoch passed with parameter')
+
+    # choose between BayesLinear and BayesLinear2
+    hypershot_args.add_argument('--hn_blayer', default=1, type=int, help="Choose between BayesLinear and BayesLinear2(default=1 is for BayesLinear2)")
 
 
     hypermaml_args =  parser.add_argument_group("HyperMAML-related arguments")
