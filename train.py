@@ -122,25 +122,45 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         if hist_data:
             # mu weight 
             fig = plt.figure()
-            plt.hist(hist_data["mu_weight"], edgecolor ="black")
+            plt.hist(hist_data["mu_weight"], edgecolor="black", bins=20)
+            neptune_run[f"mu_weight @ {epoch} / histogram"].upload(File.as_image(fig))
+            plt.close(fig)
+
+            fig = plt.figure()
+            plt.violinplot(hist_data["mu_weight"], edgecolor="black")
             neptune_run[f"mu_weight @ {epoch} / histogram"].upload(File.as_image(fig))
             plt.close(fig)
 
             # mu bias
             fig = plt.figure()
-            plt.hist(hist_data["mu_bias"], edgecolor ="black")
+            plt.hist(hist_data["mu_bias"], edgecolor="black", bins=20)
+            neptune_run[f"mu_bias @ {epoch} / histogram"].upload(File.as_image(fig))
+            plt.close(fig)
+
+            fig = plt.figure()
+            plt.violinplot(hist_data["mu_bias"], edgecolor="black")
             neptune_run[f"mu_bias @ {epoch} / histogram"].upload(File.as_image(fig))
             plt.close(fig)
 
             # sigma weight
             fig = plt.figure()
-            plt.hist(hist_data["sigma_weight"], edgecolor ="black")
+            plt.hist(hist_data["sigma_weight"], edgecolor="black", bins=20)
+            neptune_run[f"sigma_weight @ {epoch} / histogram"].upload(File.as_image(fig))
+            plt.close(fig)
+
+            fig = plt.figure()
+            plt.violinplot(hist_data["sigma_weight"], edgecolor="black")
             neptune_run[f"sigma_weight @ {epoch} / histogram"].upload(File.as_image(fig))
             plt.close(fig)
 
             # sigma bias
             fig = plt.figure()
-            plt.hist(hist_data["sigma_bias"], edgecolor ="black")
+            plt.hist(hist_data["sigma_bias"], edgecolor="black", bins=20)
+            neptune_run[f"sigma_bias @ {epoch} / histogram"].upload(File.as_image(fig))
+            plt.close(fig)
+
+            fig = plt.figure()
+            plt.violinplot(hist_data["sigma_bias"], edgecolor="black")
             neptune_run[f"sigma_bias @ {epoch} / histogram"].upload(File.as_image(fig))
             plt.close(fig)
 
