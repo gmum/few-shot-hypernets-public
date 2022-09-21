@@ -39,10 +39,10 @@ class HyperNetPOC(MetaTemplate):
         self.hn_val_lr: float = params.hn_val_lr
         self.hn_val_optim: float = params.hn_val_optim
 
-        self.hn_scale = params.hn_scale
+        self.hn_scale = 10**params.hn_scale
         self.hn_w = params.hn_w
         self.hn_step = None
-        self.hn_stop_val = params.hn_stop_val
+        self.hn_stop_val = 10**params.hn_stop_val
         self.hn_use_kld_from = params.hn_use_kld_from
 
         self.dataset_size = 0
