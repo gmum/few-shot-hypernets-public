@@ -342,7 +342,8 @@ class HyperNetPOC(MetaTemplate):
 
                     if tr == 0:
                         for k, p in get_param_dict(self).items():
-                            metrics[f"grad_norm/{k}"] = p.grad.abs().mean().item() if p.grad is not None else 0
+                            if(k.split('.')[0] != "target_net_architecture"):
+                                metrics[f"grad_norm/{k}"] = p.grad.abs().mean().item() if p.grad is not None else 0
 
                     optimizer.step()
 
