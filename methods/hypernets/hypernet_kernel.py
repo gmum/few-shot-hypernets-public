@@ -334,7 +334,7 @@ class HyperShot(HyperNetPOC):
                 elif isinstance(m, (BayesLinear2)):
                     if self.bayesian_model:
                         kld_loss += self.loss_kld(m.weight_mu, m.weight_log_var) + self.loss_kld(m.bias_mu, m.bias_log_var)
-                crossentropy_loss += self.loss_fn(y_pred, y_to_classify_gt)
+            crossentropy_loss += self.loss_fn(y_pred, y_to_classify_gt)
 
             # deprecated scaling (moved to hypernet_poc.py)
             #kld_loss *= self.kld_const/self.D #self.dataset_size
