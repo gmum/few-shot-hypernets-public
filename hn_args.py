@@ -62,6 +62,11 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hypershot_args.add_argument('--hn_bayesian_model', action='store_true', help='Uses reparametrization with this flag. Otherwise behaves like non bayesian Hyper Shot')
     hypershot_args.add_argument('--hn_use_kld', action='store_true', help="..")
 
+
+    # reparam scheduler
+    hypershot_args.add_argument('--hn_start_reparam', default=0, type=int, help="...")
+    hypershot_args.add_argument('--hn_steps_reparam', default=0, type=int, help="...")
+
     hypermaml_args =  parser.add_argument_group("HyperMAML-related arguments")
 
     hypermaml_args.add_argument('--hm_use_class_batch_input', action='store_true', help='Strategy for handling query set embeddings as an input of hyper network')

@@ -1,5 +1,6 @@
 # This code is modified from https://github.com/facebookresearch/low-shot-shrink-hallucinate
 
+from asyncio import start_server
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
@@ -91,7 +92,7 @@ class BayesLinear(nn.Linear): #bayesian linear layer
         return out
 
 class BayesLinear2(nn.Module): 
-    def __init__(self, in_features, out_features, bias=True, bayesian=False):
+    def __init__(self, in_features, out_features, bias=True, bayesian=False, start_reparam = 0, steps_reparam = 0):
         super(BayesLinear2, self).__init__()
 
         self.bayesian = bayesian
@@ -110,6 +111,13 @@ class BayesLinear2(nn.Module):
             self.bias_mu = None
             self.bias_log_var = None
 
+        self.calls_counter = 0
+
+        self.start_reparam = start_reparam 
+        self.step_reparam = None if steps_reparam == 0 else 1.0 / steps_reparam
+
+        self.param_scale = 1.0 if self.step_reparam is None else 0.0
+
         #self.reset_parameters()
 
     # def reset_parameters(self):
@@ -123,10 +131,25 @@ class BayesLinear2(nn.Module):
     #         bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
     #         torch.nn.init.uniform_(self.bias_log_var, -bound, bound)
 
+    def update_scale(self):
+        if self.step_reparam is None:
+            self.param_scale = 1.0
+
+        if self.param_scale + self.step_reparam > 1.0:
+            self.param_scale += self.step_reparam
+        else:
+            1.0
+
     def forward(self, x):
+
+        if self.start_reparam <= self.calls_counter:
+            self.update_scale()
+
+        self.calls_counter = self.calls_counter + 1
+
         if self.training and self.bayesian:
-            weight = reparameterize(self.weight_mu, self.weight_log_var)
-            bias = reparameterize(self.bias_mu, self.bias_log_var)
+            weight = reparameterize(self.weight_mu, self.weight_log_var, self.param_scale)
+            bias = reparameterize(self.bias_mu, self.bias_log_var, self.param_scale)
             return F.linear(x, weight, bias)
         else:
             return F.linear(x, self.weight_mu, self.bias_mu)
