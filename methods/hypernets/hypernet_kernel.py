@@ -30,6 +30,7 @@ class HyperShot(HyperNetPOC):
 
         self.loss_kld = kl_diag_gauss_with_standard_gauss
         self.S: int = params.hn_S # sampling
+        self.bayesian_model = params.hn_bayesian_model
 
         # TODO - check!!!
 
@@ -100,7 +101,7 @@ class HyperShot(HyperNetPOC):
             insize = common_insize if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
             if params.hn_blayer == 1:
-                layers.append(BayesLinear2(insize, outsize))
+                layers.append(BayesLinear2(insize, outsize, bias=True, bayesian=params.hn_bayesian_model))
             else:
                 layers.append(BayesLinear(insize, outsize))
 
@@ -328,9 +329,11 @@ class HyperShot(HyperNetPOC):
                 if isinstance(m, (BayesLinear)):
                     w_mean, w_logvar = torch.tensor_split(m.weight, 2, dim=0)
                     b_mean, b_logvar = torch.tensor_split(m.bias, 2, dim=0)
-                    kld_loss += self.loss_kld(w_mean, w_logvar) + self.loss_kld(b_mean, b_logvar)
+                    if self.bayesian_model:
+                        kld_loss += self.loss_kld(w_mean, w_logvar) + self.loss_kld(b_mean, b_logvar)
                 elif isinstance(m, (BayesLinear2)):
-                    kld_loss += self.loss_kld(m.weight_mu, m.weight_log_var) + self.loss_kld(m.bias_mu, m.bias_log_var)
+                    if self.bayesian_model:
+                        kld_loss += self.loss_kld(m.weight_mu, m.weight_log_var) + self.loss_kld(m.bias_mu, m.bias_log_var)
                 crossentropy_loss += self.loss_fn(y_pred, y_to_classify_gt)
 
             # deprecated scaling (moved to hypernet_poc.py)
@@ -343,7 +346,11 @@ class HyperShot(HyperNetPOC):
         # divide by number of sampled predictions
         total_crossentropy_loss /= S
         total_kld_loss /= S
-        return total_crossentropy_loss, total_kld_loss, self.upload_mu_and_sigma_histogram(classifier, epoch)
+
+        if self.bayesian_model:
+            return total_crossentropy_loss, total_kld_loss, self.upload_mu_and_sigma_histogram(classifier, epoch)
+        else:
+            return total_crossentropy_loss, 0, self.upload_mu_and_sigma_histogram(classifier, epoch)
 
     def upload_mu_and_sigma_histogram(self, classifier : nn.Module, epoch : int):
 

@@ -40,4 +40,4 @@ def kl_diag_gauss_with_standard_gauss(mean, logvar):
 def reparameterize(mu, logvar):
     std = torch.exp(0.5 * logvar)
     eps = torch.randn_like(std)
-    return eps * std + mu 
+    return eps * std + mu
