@@ -103,7 +103,7 @@ class HyperShot(HyperNetPOC):
             insize = common_insize if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
             if params.hn_blayer == 1:
-                layers.append(BayesLinear2(insize, outsize, bias=True, bayesian=params.hn_bayesian_model, start_reparam = self.hn_start_reparam, steps_reparam = self.hn_steps_reparam))
+                layers.append(BayesLinear2(insize, outsize, bias=True, bayesian=params.hn_bayesian_model, start_reparam = params.hn_start_reparam, steps_reparam = params.hn_steps_reparam))
             else:
                 layers.append(BayesLinear(insize, outsize))
 
