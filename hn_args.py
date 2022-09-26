@@ -58,6 +58,14 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     # choose between BayesLinear and BayesLinear2
     hypershot_args.add_argument('--hn_blayer', default=1, type=int, help="Choose between BayesLinear and BayesLinear2(default=1 is for BayesLinear2)")
 
+    # Bayesian Hyper Shot or non bayesian Hyper Shot
+    hypershot_args.add_argument('--hn_bayesian_model', action='store_true', help='Uses reparametrization with this flag. Otherwise behaves like non bayesian Hyper Shot')
+    hypershot_args.add_argument('--hn_use_kld', action='store_true', help="..")
+
+
+    # reparam scheduler
+    hypershot_args.add_argument('--hn_start_reparam', default=0, type=int, help="...")
+    hypershot_args.add_argument('--hn_steps_reparam', default=0, type=int, help="...")
 
     hypermaml_args =  parser.add_argument_group("HyperMAML-related arguments")
 
