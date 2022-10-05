@@ -205,12 +205,12 @@ class HyperMAML(MAML):
                     delta_params_mean = delta_params_mean * self.alpha
                     params_logvar = params_logvar * self.alpha
 
-                weights_delta_mean = delta_params_mean[:, :-bias_neurons_num]
-                bias_delta_mean = delta_params_mean[:, -bias_neurons_num:].flatten()
+                weights_delta_mean = delta_params_mean[:, :-bias_neurons_num].contiguous().view(*self.target_net_param_shapes[name])
+                bias_delta_mean = delta_params_mean[: ,-bias_neurons_num:].flatten()
 
-                weights_logvar = params_logvar[:, :-bias_neurons_num]
-                bias_logvar = params_logvar[:, -bias_neurons_num:].flatten()
-
+                weights_logvar = params_logvar[:, :-bias_neurons_num].contiguous().view(*self.target_net_param_shapes[name])
+                bias_logvar = params_logvar[: ,-bias_neurons_num:].flatten()
+                
                 delta_params_list.append([weights_delta_mean, weights_logvar])
                 delta_params_list.append([bias_delta_mean, bias_logvar])
             return delta_params_list
