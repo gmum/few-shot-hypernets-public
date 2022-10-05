@@ -81,7 +81,7 @@ class BayesHMAML(MAML):
         self.hm_maml_warmup = params.hm_maml_warmup
         self.hm_maml_warmup_epochs = params.hm_maml_warmup_epochs
         self.hm_maml_warmup_switch_epochs = params.hm_maml_warmup_switch_epochs
-        self.hm_maml_update_feature_net = params.hm_maml_update_feature_net
+        # self.hm_maml_update_feature_net = params.hm_maml_update_feature_net
         self.hm_update_operator = params.hm_update_operator
         self.hm_load_feature_net = params.hm_load_feature_net
         self.hm_feature_net_path = params.hm_feature_net_path
@@ -233,22 +233,22 @@ class BayesHMAML(MAML):
                 delta_params_list.append([delta_mean, logvar])
             return delta_params_list
 
-    def _update_weight(self, weight, update_value):
-        if self.hm_update_operator == 'minus':
-            if weight.fast is None:
-                weight.fast = weight - update_value
-            else:
-                weight.fast = weight.fast - update_value
-        elif self.hm_update_operator == 'plus':
-            if weight.fast is None:
-                weight.fast = weight + update_value
-            else:
-                weight.fast = weight.fast + update_value
-        elif self.hm_update_operator == 'multiply':
-            if weight.fast is None:
-                weight.fast = weight * update_value
-            else:
-                weight.fast = weight.fast * update_value
+    # def _update_weight(self, weight, update_value):
+    #     if self.hm_update_operator == 'minus':
+    #         if weight.fast is None:
+    #             weight.fast = weight - update_value
+    #         else:
+    #             weight.fast = weight.fast - update_value
+    #     elif self.hm_update_operator == 'plus':
+    #         if weight.fast is None:
+    #             weight.fast = weight + update_value
+    #         else:
+    #             weight.fast = weight.fast + update_value
+    #     elif self.hm_update_operator == 'multiply':
+    #         if weight.fast is None:
+    #             weight.fast = weight * update_value
+    #         else:
+    #             weight.fast = weight.fast * update_value
 
     def _update_weight(self, weight, update_mean, logvar, train_stage=False):
 
@@ -299,12 +299,12 @@ class BayesHMAML(MAML):
             if p > 0.0:
                 fast_parameters = []
 
-                if self.hm_maml_update_feature_net:
-                    fet_fast_parameters = list(self.feature.parameters())
-                    for weight in self.feature.parameters():
-                        weight.fast = None
-                    self.feature.zero_grad()
-                    fast_parameters = fast_parameters + fet_fast_parameters
+                # if self.hm_maml_update_feature_net:
+                #     fet_fast_parameters = list(self.feature.parameters())
+                #     for weight in self.feature.parameters():
+                #         weight.fast = None
+                #     self.feature.zero_grad()
+                #     fast_parameters = fast_parameters + fet_fast_parameters
 
                 clf_fast_parameters = list(self.classifier.parameters())
                 for weight in self.classifier.parameters():
@@ -333,13 +333,14 @@ class BayesHMAML(MAML):
                         grad = [g.detach() for g in
                                 grad]  # do not calculate gradient of gradient if using first order approximation
 
-                    if self.hm_maml_update_feature_net:
-                        # update weights of feature network
-                        for k, weight in enumerate(self.feature.parameters()):
-                            update_value = self.train_lr * p * grad[k]
-                            self._update_weight(weight, update_value)
+                    # if self.hm_maml_update_feature_net:
+                    #     # update weights of feature network. We never use it in the paper
+                    #     for k, weight in enumerate(self.feature.parameters()):
+                    #         update_value = self.train_lr * p * grad[k]
+                    #         self._update_weight(weight, update_value)
 
-                    classifier_offset = len(fet_fast_parameters) if self.hm_maml_update_feature_net else 0
+                    # classifier_offset = len(fet_fast_parameters) if self.hm_maml_update_feature_net else 0
+                    classifier_offset = 0
 
                     if p == 1:
                         # update weights of classifier network by adding gradient
