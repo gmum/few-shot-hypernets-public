@@ -3,6 +3,9 @@
 filelists
 !filelists/*/*.[sh|py]
 
+# filelist configs
+.configs.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -140,5 +143,7 @@ filelists/QMUL/*.json
 # neptune logs
 .neptune/
 .neptune/*
+
+record/
 
 .vscode/

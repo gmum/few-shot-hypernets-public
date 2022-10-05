@@ -2,7 +2,8 @@
 
 Official PyTorch implementation of the papers: 
 
-* *HyperMAML: Few-Shot Adaptation of Deep Models with Hypernetworks* (2022)
+* *Hypernetwork approach to Bayesian MAML* (2022) Borycki P., Kubacki P., Przewięźlikowski M., Kuśmierczyk T., Tabor J., Spurek P., preprint
+* *[BayesHMAML: Few-Shot Adaptation of Deep Models with Hypernetworks](https://arxiv.org/abs/2205.15745)* (2022)
 Przewięźlikowski M., Przybysz P. , Tabor J., Zięba M., Spurek P., preprint
 
 * *[HyperShot: Few-Shot Learning by Kernel HyperNetworks](https://arxiv.org/abs/2203.11378)* (2022) 
@@ -28,8 +29,7 @@ Sendera M., Przewięźlikowski M., Karanowski K., Zięba M. Tabor J., Spurek P.,
 
 Few-shot models aim at making predictions using a minimal number of labeled examples from a given task. The main challenge in this area is the one-shot setting where only one element represents each class. We propose HyperShot - the fusion of kernels and hypernetwork paradigm. Compared to reference approaches that apply a gradient-based adjustment of the parameters, our model aims to switch the classification module parameters depending on the task's embedding. In practice, we utilize a hypernetwork, which takes the aggregated information from support data and returns the classifier's parameters handcrafted for the considered problem. Moreover, we introduce the kernel-based representation of the support examples delivered to hypernetwork to create the parameters of the classification module. Consequently, we rely on relations between embeddings of the support examples instead of direct feature values provided by the backbone models. Thanks to this approach, our model can adapt to highly different tasks.
 
-### HyperMAML 
-
+### BayesHMAML
 The aim of Few-Shot learning methods is to train models which can easily adapt to
 previously unseen tasks, based on small amounts of data. One of the most popular
 and elegant Few-Shot learning approaches is Model-Agnostic Meta-Learning
@@ -40,14 +40,38 @@ procedure is realized by gradient-based optimisation. In consequence, MAML
 cannot always modify weights to the essential level in one or even a few gradient
 iterations. On the other hand, using many gradient steps results in a complex
 and time-consuming optimization procedure, which is hard to train in practice,
-and may lead to overfitting. In this paper, we propose HyperMAML, a novel
+and may lead to overfitting. In this paper, we propose BayesHMAML, a novel
 generalization of MAML, where the training of the update procedure is also part
-of the model. Namely, in HyperMAML, instead of updating the weights with
+of the model. Namely, in BayesHMAML, instead of updating the weights with
 gradient descent, we use for this purpose a trainable Hypernetwork. Consequently,
 in this framework, the model can generate significant updates whose range is not
-limited to a fixed number of gradient steps. Experiments show that HyperMAML
+limited to a fixed number of gradient steps. Experiments show that BayesHMAML
 consistently outperforms MAML and performs comparably to other state-of-the-art
 techniques in a number of standard Few-Shot learning benchmarks.
+
+### BayesHMAML
+The main goal of Few-Shot learning algorithms is to enable learning from small
+amounts of data. One of the most popular and elegant Few-Shot learning ap-
+proaches is Model-Agnostic Meta-Learning (MAML). The main idea behind this
+method is to learn shared universal weights of a meta-model, which then are
+adapted for specific tasks. However, due to limited data size, the method suffers
+from over-fitting and poorly quantifies uncertainty. Bayesian approaches could, in
+principle, alleviate these shortcomings by learning weight distributions in place of
+point-wise weights. Unfortunately, previous Bayesian modifications of MAML are
+limited in a way similar to the classic MAML, e.g., task-specific adaptations must
+share the same structure and can not diverge much from the universal meta-model.
+Additionally, task-specific distributions are considered as posteriors to the universal
+distributions working as priors and optimizing them jointly with gradients is hard
+and poses a risk of getting stuck in local optima.
+In this paper, we propose BayesHMAML, a novel generalization of Bayesian
+MAML, which employs Bayesian principles along with Hypernetworks for MAML.
+We achieve better convergence than the previous methods by classically learning
+universal weights. Furthermore, Bayesian treatment of the specific tasks enables
+uncertainty quantification, and high flexibility of task adaptations is achieved using
+Hypernetworks instead of gradient-based updates. Consequently, the proposed
+approach not only improves over the previous methods, both classic and Bayesian
+MAML in several standard Few-Shot learning benchmarks but also benefits from
+the properties of the Bayesian framework.
 
 ## Requirements
 
@@ -68,7 +92,8 @@ pip install numpy torch torchvision gpytorch h5py pillow
 ## Code of our method
 
 * HyperShot: [hypernet_kernel.py](./methods/hypernets/hypernet_kernel.py)
-* HyperMAML: [hypermaml.py](./methods/hypernets/hypermaml.py)
+* BayesHMAML: [hypermaml.py](./methods/hypernets/bayeshmaml.py)
+* BayesHMAML [bayeshmaml.py](./methods/hypernets/bayeshmaml.py)
 
 
 
@@ -89,7 +114,8 @@ The [train.py](./train.py) script performs the whole training and evaluation pro
 ### Methods
 
 This repository provides implementations of several few-shot learning methods:
-* `hyper_maml` - HyperMAML: Few-Shot Adaptation of Deep Models with Hypernetworks
+* `bayes_hmaml` - Hypernetwork approach to Bayesian MAML
+* `hyper_maml` - [BayesHMAML: Few-Shot Adaptation of Deep Models with Hypernetworks](https://arxiv.org/abs/2205.15745)
 * `hyper_shot` - [HyperShot: Few-Shot Learning by Kernel HyperNetworks](https://arxiv.org/abs/2203.11378)
 * `hn_ppa` - [Few-Shot Image Recognition by Predicting Parameters from Activations
 ](https://arxiv.org/abs/1706.03466)
