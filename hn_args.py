@@ -48,7 +48,7 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hypershot_args.add_argument("--hn_val_lr", type=float, default=1e-4, help="LR for finetuning on support set during validation")
     hypershot_args.add_argument("--hn_val_optim", type=str, default="adam", choices=["adam", "sgd"], help="Optimizer for finetuning on support set during validation")
 
-    hypermaml_args =  parser.add_argument_group("HyperMAML and BayesHMAML-related arguments")
+    hypermaml_args =  parser.add_argument_group("HyperMAML and BayesHMAML- related arguments")
 
     hypermaml_args.add_argument('--hm_use_class_batch_input', action='store_true', help='Strategy for handling query set embeddings as an input of hyper network')
     hypermaml_args.add_argument("--hm_enhance_embeddings", type=bool, default=False, help="Flag that indicates if embeddings should be concatenated with logits and labels")
@@ -67,11 +67,13 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hypermaml_args.add_argument("--hm_support_set_loss", action='store_true', help="Use both query and support data when calculating loss")
     hypermaml_args.add_argument("--hm_set_forward_with_adaptation", action='store_true', help="Adapt network before test")
 
+
     # BHMAML only
-    hypermaml_args.add_argument('--hm_kl_w', default=1.0, type=float, help='Fixed limiter of share of kld in loss func (default 1.0)')
-    hypermaml_args.add_argument('--hm_weight_set_num_train', default=1, type=int, help='number of randomly generated weights for training (default 1)')
-    hypermaml_args.add_argument('--hm_weight_set_num_test', default=20, type=int, help='number of randomly generated weights for test (default 20), if set to 0 expected value is generated')
-    hypermaml_args.add_argument('--kl_stop_val', default=1e-3, type=float, help='final value of kld_scale (default 1e-3)')
-    hypermaml_args.add_argument('--kl_scale', default=1e-24, type=float, help='initial value of kld_scale (default 1e-24)')
+    bhypermaml_args = parser.add_argument_group("BayesHMAML (only) related arguments")
+    bhypermaml_args.add_argument('--hm_kl_w', default=1.0, type=float, help='Fixed limiter of share of kld in loss func (default 1.0)')
+    bhypermaml_args.add_argument('--hm_weight_set_num_train', default=1, type=int, help='number of randomly generated weights for training (default 1)')
+    bhypermaml_args.add_argument('--hm_weight_set_num_test', default=20, type=int, help='number of randomly generated weights for test (default 20), if set to 0 expected value is generated')
+    bhypermaml_args.add_argument('--kl_stop_val', default=1e-3, type=float, help='final value of kld_scale (default 1e-3)')
+    bhypermaml_args.add_argument('--kl_scale', default=1e-24, type=float, help='initial value of kld_scale (default 1e-24)')
 
     return parser

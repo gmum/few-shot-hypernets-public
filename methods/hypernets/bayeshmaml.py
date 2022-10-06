@@ -422,6 +422,10 @@ class BayesHMAML(MAML):
     #     return sigma, mu
 
     def set_forward(self, x, is_feature=False, train_stage=False):
+        """ 1. Get delta params from hypernetwork with support data.
+        2. Update target- network weights.
+        3. Forward with query data.
+        4. Return scores"""
         assert is_feature == False, 'MAML do not support fixed feature'
 
         x = x.cuda()
@@ -466,6 +470,7 @@ class BayesHMAML(MAML):
 
     # def set_forward_loss(self, x, calc_sigma):
     def set_forward_loss(self, x):
+        """Adapt and forward using x. Return scores and total losses"""
         scores, total_delta_sum = self.set_forward(x, is_feature=False, train_stage=True)
 
         # calc_sigma = calc_sigma and (self.epoch == self.stop_epoch - 1 or self.epoch % 100 == 0)
@@ -503,7 +508,8 @@ class BayesHMAML(MAML):
         return loss, loss_ce, loss_kld, loss_kld_no_scale, task_accuracy  # , sigma, mu
 
     def set_forward_loss_with_adaptation(self, x):
-        scores, _ = self.set_forward(x, is_feature=False, train_stage=False)
+        """returns loss and accuracy from adapted model (copy)"""
+        scores, _ = self.set_forward(x, is_feature=False, train_stage=False)    # scores from adapted copy
         support_data_labels = Variable(torch.from_numpy(np.repeat(range(self.n_way), self.n_support))).cuda()
 
         reduction = self.kl_scale
