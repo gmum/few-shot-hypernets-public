@@ -94,7 +94,7 @@ pip install numpy torch torchvision gpytorch h5py pillow
 ## Code of our method
 
 * HyperShot: [hypernet_kernel.py](./methods/hypernets/hypernet_kernel.py)
-* BayesHMAML: [hypermaml.py](./methods/hypernets/bayeshmaml.py)
+* HyperMAML: [hypermaml.py](./methods/hypernets/hypermaml.py)
 * BayesHMAML [bayeshmaml.py](./methods/hypernets/bayeshmaml.py)
 
 
