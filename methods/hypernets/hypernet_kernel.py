@@ -225,12 +225,12 @@ class HyperShot(HyperNetPOC):
         tn = deepcopy(self.target_net_architecture)
         set_from_param_dict(tn, network_params)
         tn.support_feature = support_feature
-        return tn.cuda()
+        return tn.cuda(), network_params
 
     def set_forward(self, x: torch.Tensor, is_feature: bool = False, permutation_sanity_check: bool = False):
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
-        classifier = self.generate_target_net(support_feature)
+        classifier, _ = self.generate_target_net(support_feature)
         query_feature = query_feature.reshape(
             -1, query_feature.shape[-1]
         )
@@ -287,7 +287,7 @@ class HyperShot(HyperNetPOC):
             feature_to_hn = support_feature.detach() if detach_ft_hn else support_feature
             query_feature_to_hn = query_feature
 
-        classifier = self.generate_target_net(feature_to_hn)
+        classifier, hn_out = self.generate_target_net(feature_to_hn)
 
         feature_to_classify = []
         y_to_classify_gt = []
@@ -348,6 +348,8 @@ class HyperShot(HyperNetPOC):
         # divide by number of sampled predictions
         total_crossentropy_loss /= S
         total_kld_loss /= S
+
+        print(f'Epoch {epoch}: {hn_out}')
 
         if self.use_kld:
             return total_crossentropy_loss, total_kld_loss, self.upload_mu_and_sigma_histogram(classifier, epoch)
