@@ -358,9 +358,6 @@ class HyperShot(HyperNetPOC):
 
     def upload_mu_and_sigma_histogram(self, classifier : nn.Module, epoch : int):
 
-        if epoch % 100 != 0:
-            return None
-
         mu_weight = []
         mu_bias = []
 
