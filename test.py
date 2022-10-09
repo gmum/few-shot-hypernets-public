@@ -71,7 +71,9 @@ def single_test(params):
     few_shot_params = dict(n_way = params.test_n_way , n_support = params.n_shot, n_query=n_query) 
 
     if params.dataset in ['omniglot', 'cross_char']:
-        assert params.model == 'Conv4' and not params.train_aug ,'omniglot only support Conv4 without augmentation'
+
+        assert params.model == 'Conv4' and not params.train_aug ,f'model = {params.model}, train_aug= {params.train_aug} ' \
+                                                                 f'omniglot only support Conv4 without augmentation'
         # params.model = 'Conv4S'
 
     if params.method == 'baseline':
