@@ -26,29 +26,27 @@ def plot_mu_sigma(neptune_run, model, i, save_numeric_data=save_numeric_data):
     sigma, mu = model.sigma_mu()
     # plotting to neptune
     if sigma is not None:
-        for name, value in sigma.items():
-            fig = plt.figure()
-            plt.plot(value, 's')
-            neptune_run[f"sigma / {i} / {name} / plot"].upload(File.as_image(fig))
-            plt.close(fig)
-            fig = plt.figure()
-            plt.hist(value, edgecolor="black")
-            neptune_run[f"sigma / {i} / {name} / histogram"].upload(File.as_image(fig))
-            plt.close(fig)
-            if save_numeric_data:
-                neptune_run[f"sigma / {i} / {name} / data"].upload(File.as_pickle(value))
+        fig = plt.figure()
+        plt.plot(sigma, 's')
+        neptune_run[f"sigma / {i} / - / plot"].upload(File.as_image(fig))
+        plt.close(fig)
+        fig = plt.figure()
+        plt.hist(sigma, edgecolor="black")
+        neptune_run[f"sigma / {i} / - / histogram"].upload(File.as_image(fig))
+        plt.close(fig)
+        if save_numeric_data:
+            neptune_run[f"sigma / {i} / - / data"].upload(File.as_pickle(sigma))
     if mu is not None:
-        for name, value in mu.items():
-            fig = plt.figure()
-            plt.plot(value, 's')
-            neptune_run[f"mu / {i} / {name} / plot"].upload(File.as_image(fig))
-            plt.close(fig)
-            fig = plt.figure()
-            plt.hist(value, edgecolor="black")
-            neptune_run[f"mu / {i} / {name} / histogram"].upload(File.as_image(fig))
-            plt.close(fig)
-            if save_numeric_data:
-                neptune_run[f"mu / {i} / {name} / data"].upload(File.as_pickle(value))
+        fig = plt.figure()
+        plt.plot(mu, 's')
+        neptune_run[f"mu / {i} / - / plot"].upload(File.as_image(mu))
+        plt.close(fig)
+        fig = plt.figure()
+        plt.hist(mu, edgecolor="black")
+        neptune_run[f"mu / {i} / - / histogram"].upload(File.as_image(fig))
+        plt.close(fig)
+        if save_numeric_data:
+            neptune_run[f"mu / {i} / - / data"].upload(File.as_pickle(mu))
 
 # plot uncertainty in classification
 def plot_histograms(neptune_run, s1, s2, q1, q2, save_numeric_data=save_numeric_data):
