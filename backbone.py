@@ -132,13 +132,10 @@ class BayesLinear2(nn.Module):
     #         torch.nn.init.uniform_(self.bias_log_var, -bound, bound)
 
     def update_scale(self):
-        if self.step_reparam is None:
-            self.param_scale = 1.0
-
-        if self.param_scale + self.step_reparam > 1.0:
+        if self.param_scale is not None and self.param_scale + self.step_reparam < 1.0:
             self.param_scale += self.step_reparam
         else:
-            1.0
+            self.param_scale = 1.0
 
     def forward(self, x):
 
