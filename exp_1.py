@@ -23,7 +23,7 @@ from methods.hypernets.utils import reparameterize
 save_numeric_data = True
 def plot_mu_sigma(neptune_run, model, i, save_numeric_data=save_numeric_data):
     # get flattened mu and sigma
-    sigma, mu = model._mu_sigma(True)
+    sigma, mu = model.sigma_mu()
     # plotting to neptune
     if sigma is not None:
         for name, value in sigma.items():

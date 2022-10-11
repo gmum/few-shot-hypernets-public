@@ -288,6 +288,7 @@ class HyperShot(HyperNetPOC):
             query_feature_to_hn = query_feature
 
         classifier, hn_out = self.generate_target_net(feature_to_hn)
+        self.last_classifier = classifier
 
         feature_to_classify = []
         y_to_classify_gt = []
@@ -355,6 +356,32 @@ class HyperShot(HyperNetPOC):
             return total_crossentropy_loss, total_kld_loss, self.upload_mu_and_sigma_histogram(classifier, epoch)
         else:
             return total_crossentropy_loss, 0, self.upload_mu_and_sigma_histogram(classifier, epoch)
+
+
+    def sigma_mu(self):
+
+        if self.last_classifier is None:
+            return None, None
+
+        mu_weight = []
+        mu_bias = []
+        sigma_weight = []
+        sigma_bias = []
+
+        for module in self.last_classifier.modules():
+            if isinstance(module, (BayesLinear2)):
+                mu_weight.append(module.weight_mu.clone().data.cpu().numpy().flatten())
+                mu_bias.append(module.bias_mu.clone().data.cpu().numpy().flatten())
+                sigma_weight.append(torch.exp(0.5 * module.weight_log_var).clone().data.cpu().numpy().flatten())
+                sigma_bias.append(torch.exp(0.5 * module.bias_log_var).clone().data.cpu().numpy().flatten())
+
+
+        mu_weight = np.concatenate(mu_weight)
+        mu_bias = np.concatenate(mu_bias)
+        sigma_weight = np.concatenate(sigma_weight)
+        sigma_bias = np.concatenate(sigma_bias)
+
+        return np.concatenate(mu_weight, mu_bias), np.concatenate(sigma_weight, sigma_bias)
 
     def upload_mu_and_sigma_histogram(self, classifier : nn.Module, epoch : int):
 
