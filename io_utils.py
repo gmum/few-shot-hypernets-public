@@ -70,7 +70,26 @@ def parse_args(script):
     parser.add_argument("--maml_adapt_classifier", action="store_true", help="Adapt only the classifier during second gradient calculation")
     parser.add_argument("--evaluate_model", action="store_true", help="Skip train phase and perform final test")
 
-    if script == 'train':
+    if script == 'experiment1':
+        # train args
+        parser.add_argument('--num_classes' , default=200, type=int, help='total number of classes in softmax, only used in baseline') #make it larger than the maximum label value in base class
+        parser.add_argument('--save_freq'   , default=50, type=int, help='Save frequency')
+        parser.add_argument('--start_epoch' , default=0, type=int,help ='Starting epoch')
+        parser.add_argument('--stop_epoch'  , default=-1, type=int, help ='Stopping epoch') #for meta-learning methods, each epoch contains 100 episodes. The default epoch number is dataset dependent. See train.py
+        parser.add_argument('--resume'      , action='store_true', help='continue from previous trained model with largest epoch')
+        parser.add_argument('--warmup'      , action='store_true', help='continue from baseline, neglected if resume is true') #never used in the paper
+        parser.add_argument("--es_epoch", type=int, default=250,
+                             help="Check if val accuracy threshold achieved at this epoch, stop if not.")
+        parser.add_argument("--es_threshold", type=float, default=70.0,
+                             help="Val accuracy threshold for early stopping")
+        parser.add_argument("--eval_freq", type=int, default=1, help="Evaluation frequency")
+
+        # for experiment1
+        parser.add_argument('--num_batches_seen', default=1, type=int, help='Num n of batches seen by hypermaml model ')
+        parser.add_argument('--num_batches_unseen', default=1, type=int, help='Num n of batches unseen by hypermaml model ')
+        parser.add_argument('--n_way', default=5, type=int, help='num of classes to classify for testing and training')
+        parser.add_argument('--num_samples', default=1000, type=int, help='num of samples from classifier for histograms')
+    elif script == 'train':
         parser.add_argument('--num_classes' , default=200, type=int, help='total number of classes in softmax, only used in baseline') #make it larger than the maximum label value in base class
         parser.add_argument('--save_freq'   , default=50, type=int, help='Save frequency')
         parser.add_argument('--start_epoch' , default=0, type=int,help ='Starting epoch')
