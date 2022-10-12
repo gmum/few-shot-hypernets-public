@@ -2,7 +2,7 @@
 
 Official PyTorch implementation of the papers: 
 
-* *Hypernetwork approach to Bayesian MAML* (2022) Borycki P., Kubacki P., Przewięźlikowski M., Kuśmierczyk T., Tabor J., Spurek P., preprint
+* *[Hypernetwork approach to Bayesian MAML](https://arxiv.org/abs/2210.02796)* (2022) Borycki P., Kubacki P., Przewięźlikowski M., Kuśmierczyk T., Tabor J., Spurek P., preprint
 * *[HyperMAML: Few-Shot Adaptation of Deep Models with Hypernetworks](https://arxiv.org/abs/2205.15745)* (2022)
 Przewięźlikowski M., Przybysz P. , Tabor J., Zięba M., Spurek P., preprint
 
@@ -118,7 +118,7 @@ Check out [commands.sh](./commands.sh) for our best grid test arguments
 ### Methods
 
 This repository provides implementations of several few-shot learning methods:
-* `bayes_hmaml` - Hypernetwork approach to Bayesian MAML
+* `bayes_hmaml` - [Hypernetwork approach to Bayesian MAML](https://arxiv.org/abs/2210.02796)
 * `hyper_maml` - [BayesHMAML: Few-Shot Adaptation of Deep Models with Hypernetworks](https://arxiv.org/abs/2205.15745)
 * `hyper_shot` - [HyperShot: Few-Shot Learning by Kernel HyperNetworks](https://arxiv.org/abs/2203.11378)
 * `hn_ppa` - [Few-Shot Image Recognition by Predicting Parameters from Activations
