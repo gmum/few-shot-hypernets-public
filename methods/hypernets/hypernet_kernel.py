@@ -323,6 +323,8 @@ class HyperShot(HyperNetPOC):
         total_crossentropy_loss = 0
         total_kld_loss = 0
 
+        total_sigma = 0
+
         for _ in range(self.S):
             y_pred = classifier(relational_feature_to_classify)
 
@@ -337,6 +339,7 @@ class HyperShot(HyperNetPOC):
                 elif isinstance(m, (BayesLinear2)):
                     if self.use_kld:
                         kld_loss += self.loss_kld(m.weight_mu, m.weight_log_var) + self.loss_kld(m.bias_mu, m.bias_log_var)
+                        total_sigma += m.bias_log_var+m.weight_log_var
             crossentropy_loss += self.loss_fn(y_pred, y_to_classify_gt)
 
             # deprecated scaling (moved to hypernet_poc.py)
@@ -351,6 +354,9 @@ class HyperShot(HyperNetPOC):
         total_kld_loss /= S
 
         print(f'Epoch {epoch}: {hn_out}')
+
+        if epoch <= 2:
+            return total_sigma/2, total_sigma/2, self.upload_mu_and_sigma_histogram(classifier, epoch)
 
         if self.use_kld:
             return total_crossentropy_loss, total_kld_loss, self.upload_mu_and_sigma_histogram(classifier, epoch)
