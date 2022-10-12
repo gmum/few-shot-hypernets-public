@@ -18,7 +18,7 @@ from data.datamgr import SetDataManager
 
 from methods.hypernets.hypermaml import HyperMAML
 from io_utils import model_dict, parse_args, get_best_file, setup_neptune
-from methods.hypernets.utils import reparameterize
+from utils import reparameterize
 
 save_numeric_data = True
 def plot_mu_sigma(neptune_run, model, i, save_numeric_data=save_numeric_data):
@@ -36,7 +36,7 @@ def plot_mu_sigma(neptune_run, model, i, save_numeric_data=save_numeric_data):
         plt.close(fig)
         if save_numeric_data:
             neptune_run[f"{name} / data"].upload(File.as_pickle(value))
-            
+
 # plot uncertainty in classification
 def plot_histograms(neptune_run, s1, s2, q1, q2, save_numeric_data=save_numeric_data):
 
