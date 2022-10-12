@@ -339,7 +339,7 @@ class HyperShot(HyperNetPOC):
                 elif isinstance(m, (BayesLinear2)):
                     if self.use_kld:
                         kld_loss += self.loss_kld(m.weight_mu, m.weight_log_var) + self.loss_kld(m.bias_mu, m.bias_log_var)
-                        total_sigma += torch.sum(torch.abs(m.bias_log_var))+torch.sum(torch.abs(m.weight_log_var))
+                        total_sigma += torch.sum(torch.abs(torch.exp(0.5*m.bias_log_var)))+torch.sum(torch.abs(torch.exp(0.5*m.weight_log_var)))
             crossentropy_loss += self.loss_fn(y_pred, y_to_classify_gt)
 
             # deprecated scaling (moved to hypernet_poc.py)
