@@ -270,6 +270,7 @@ def experiment(params_experiment):
         # if there are repetitions between batches get another batch
         while reduce(np.intersect1d, (*labels, labels2)).size > 0:
             features2, labels2 = next(iter(val_loader))
+        print("="*20)
         print(labels2)
         labels.append(labels2)
         features_unseen.append(features2)
