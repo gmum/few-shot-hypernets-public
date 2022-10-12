@@ -51,11 +51,11 @@ def plot_histograms(neptune_run, s1, s2, q1, q2, save_numeric_data=save_numeric_
             score = np.array(score)
             # print(f"score shape {score.shape}")
             fig = plt.figure()
-            plt.violinplot(score)
+            plt.hist(score, edgecolor="black", range=[0, 1], bins=25)
             mu = np.mean(score)
             std = np.std(score)
             plt.title(f'$\mu = {mu:.3}, \sigma = {std:.3}$')
-            neptune_run[f"Seen / Support / {i} / Class {k} violinplot"].upload(File.as_image(fig))
+            neptune_run[f"Seen / Support / {i} / Class {k} histogram"].upload(File.as_image(fig))
             plt.close(fig)
             # save on neptune
             if save_numeric_data:
@@ -73,11 +73,11 @@ def plot_histograms(neptune_run, s1, s2, q1, q2, save_numeric_data=save_numeric_
         for k, score in enumerate(scores):
             score = np.array(score)
             fig = plt.figure()
-            plt.violinplot(score)
+            plt.hist(score, edgecolor="black", range=[0, 1], bins=25)
             mu = np.mean(score)
             std = np.std(score)
             plt.title(f'$\mu = {mu:.3}, \sigma = {std:.3}$')
-            neptune_run[f"Seen / Query / {i} / Class {k} violinplot"].upload(File.as_image(fig))
+            neptune_run[f"Seen / Query / {i} / Class {k} histogram"].upload(File.as_image(fig))
             plt.close(fig)
             # save on neptune
             if save_numeric_data:
@@ -95,11 +95,11 @@ def plot_histograms(neptune_run, s1, s2, q1, q2, save_numeric_data=save_numeric_
         for k, score in enumerate(scores):
             score = np.array(score)
             fig = plt.figure()
-            plt.violinplot(score)
+            plt.hist(score, edgecolor="black", range=[0, 1], bins=25)
             mu = np.mean(score)
             std = np.std(score)
             plt.title(f'$\mu = {mu:.3}, \sigma = {std:.3}$')
-            neptune_run[f"Unseen / Support / {i} / Class {k} violinplot"].upload(File.as_image(fig))
+            neptune_run[f"Unseen / Support / {i} / Class {k} histogram"].upload(File.as_image(fig))
             plt.close(fig)
             if save_numeric_data:
                 # save on neptune
@@ -117,11 +117,11 @@ def plot_histograms(neptune_run, s1, s2, q1, q2, save_numeric_data=save_numeric_
         for k, score in enumerate(scores):
             score = np.array(score)
             fig = plt.figure()
-            plt.violinplot(score)
+            plt.hist(score, edgecolor="black", range=[0, 1], bins=25)
             mu = np.mean(score)
             std = np.std(score)
             plt.title(f'$\mu = {mu:.3}, \sigma = {std:.3}$')
-            neptune_run[f"Unseen / Query / {i} / Class {k} violinplot"].upload(File.as_image(fig))
+            neptune_run[f"Unseen / Query / {i} / Class {k} histogram"].upload(File.as_image(fig))
             plt.close(fig)
             if save_numeric_data:
                 # save on neptune
