@@ -41,7 +41,7 @@ python train.py --method hyper_shot --model Conv4 --dataset CUB --num_classes 20
 
 ### 1-shot
 python train.py --method hyper_maml --model Conv4 --dataset cross_char --num_classes 4112 \
-  --n_shot 1 ---test_n_way 5 --train_n_way 5 \
+  --n_shot 1 --test_n_way 5 --train_n_way 5 \
   --stop_epoch 64 --lr_scheduler multisteplr --lr 1e-2 \
   --hm_maml_warmup --hm_maml_warmup_epochs 50 --hm_maml_warmup_switch_epochs 500 --milestones 51 550 \
   --hn_head_len 3 --hn_hidden_size 512 --hm_enhance_embeddings True --hm_use_class_batch_input
@@ -102,7 +102,7 @@ python train.py --hm_weight_set_num_test 0 --es_threshold 10 --dataset cross_cha
 python train.py --model Conv4 --dataset cross_char --num_classes 4112 --n_shot 5 --train_n_way 5 --method bayes_hmaml \
   --stop_epoch 64 --lr_scheduler multisteplr --hm_maml_warmup --hm_maml_warmup_epochs 50 --hm_maml_warmup_switch_epochs 500 \
   --milestones 51 550 --hn_head_len 3 --hn_hidden_size 512 --hm_enhance_embeddings True --hm_use_class_batch_input \
-  --hn_sup_aggregation mean --hm_weight_set_num_test 0 --es_threshold 0.0 --kl_scale=1e-24 --checkpoint_suffix 5 0.01 0.001 \
+  --hn_sup_aggregation mean --hm_weight_set_num_test 0 --es_threshold 0.0 --kl_scale=1e-24  \
   --hm_weight_set_num_train 5 --kl_stop_val 0.001 --lr 0.01
 
 ## CUB
@@ -117,7 +117,7 @@ python train.py --hm_weight_set_num_test 0 --method bayes_hmaml --model Conv4Poo
 python train.py --method bayes_hmaml --model Conv4Pool --dataset CUB --num_classes 200 --n_shot 5 --test_n_way 5 --train_n_way 5 \
   --train_aug --stop_epoch 1000 --es_threshold 20 --lr 1e-3 --lr_scheduler multisteplr --hm_maml_warmup --hm_maml_warmup_epochs 100 \
   --hm_maml_warmup_switch_epochs 1000 --milestones 101 1100 --hn_head_len 3 --hn_hidden_size 256 --hm_enhance_embeddings True \
-  --hm_use_class_batch_input --hn_sup_aggregation mean --hm_weight_set_num_test 0 --checkpoint_suffix cub lr=1e-3 stop_val=1e-5 \
+  --hm_use_class_batch_input --hn_sup_aggregation mean --hm_weight_set_num_test 0 \
   --hm_weight_set_num_train 5 --kl_stop_val 1e-5
 
 ## miniImageNet
@@ -133,4 +133,4 @@ python train.py --method bayes_hmaml --model Conv4Pool --dataset miniImagenet --
   --train_n_way 5 --train_aug --stop_epoch 1000 --es_threshold 20 --lr 1e-3 --lr_scheduler multisteplr --hm_maml_warmup \
   --hm_maml_warmup_epochs 100 --hm_maml_warmup_switch_epochs 1000 --milestones 101 1100 --hn_head_len 3 --hn_hidden_size 256 \
   --hm_enhance_embeddings True --hm_use_class_batch_input --hn_sup_aggregation mean --resume --hm_weight_set_num_test 0 \
-  --checkpoint_suffix miniImg lr=1e-3 stop_val=1e-5 --hm_weight_set_num_train 5 --kl_stop_val 1e-5
+  --hm_weight_set_num_train 5 --kl_stop_val 1e-5

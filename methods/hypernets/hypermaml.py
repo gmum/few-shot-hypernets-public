@@ -234,7 +234,7 @@ class HyperMAML(MAML):
                         self.hm_maml_warmup_switch_epochs + 1)
         return 0.0
 
-    def _update_network_weights(self, delta_params_list, support_embeddings, support_data_labels):
+    def _update_network_weights(self, delta_params_list, support_embeddings, support_data_labels, train_stage=False):
         if self.hm_maml_warmup and not self.single_test:
             p = self._get_p_value()
 
@@ -356,7 +356,7 @@ class HyperMAML(MAML):
 
         delta_params_list = self._get_list_of_delta_params(maml_warmup_used, support_embeddings, support_data_labels)
 
-        self._update_network_weights(delta_params_list, support_embeddings, support_data_labels)
+        self._update_network_weights(delta_params_list, support_embeddings, support_data_labels, train_stage)
 
         if self.hm_set_forward_with_adaptation and not train_stage:
             scores = self.forward(support_data)
