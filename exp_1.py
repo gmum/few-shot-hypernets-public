@@ -23,32 +23,19 @@ from methods.hypernets.utils import reparameterize
 save_numeric_data = True
 def plot_mu_sigma(neptune_run, model, i, save_numeric_data=save_numeric_data):
     # get flattened mu and sigma
-    sigma, mu = model.sigma_mu()
+    param_dict = model.get_mu_and_sigma()
     # plotting to neptune
-    if sigma is not None:
-        for name, value in sigma.items():
-            fig = plt.figure()
-            plt.plot(value, 's')
-            neptune_run[f"sigma / {i} / {name} / plot"].upload(File.as_image(fig))
-            plt.close(fig)
-            fig = plt.figure()
-            plt.hist(value, edgecolor="black")
-            neptune_run[f"sigma / {i} / {name} / histogram"].upload(File.as_image(fig))
-            plt.close(fig)
-            if save_numeric_data:
-                neptune_run[f"sigma / {i} / {name} / data"].upload(File.as_pickle(value))
-    if mu is not None:
-        for name, value in mu.items():
-            fig = plt.figure()
-            plt.plot(value, 's')
-            neptune_run[f"mu / {i} / {name} / plot"].upload(File.as_image(fig))
-            plt.close(fig)
-            fig = plt.figure()
-            plt.hist(value, edgecolor="black")
-            neptune_run[f"mu / {i} / {name} / histogram"].upload(File.as_image(fig))
-            plt.close(fig)
-            if save_numeric_data:
-                neptune_run[f"mu / {i} / {name} / data"].upload(File.as_pickle(value))
+    for name, value in param_dict.items():
+        fig = plt.figure()
+        plt.plot(value, 's')
+        neptune_run[f"{name} / plot"].upload(File.as_image(fig))
+        plt.close(fig)
+        fig = plt.figure()
+        plt.hist(value, edgecolor="black")
+        neptune_run[f"{name} / histogram"].upload(File.as_image(fig))
+        plt.close(fig)
+        if save_numeric_data:
+            neptune_run[f"{name} / data"].upload(File.as_pickle(value))
 
 # plot uncertainty in classification
 def plot_histograms(neptune_run, s1, s2, q1, q2, save_numeric_data=save_numeric_data):

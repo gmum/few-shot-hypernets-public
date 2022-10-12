@@ -357,32 +357,6 @@ class HyperShot(HyperNetPOC):
         else:
             return total_crossentropy_loss, 0, self.upload_mu_and_sigma_histogram(classifier, epoch)
 
-
-    def sigma_mu(self):
-
-        if self.last_classifier is None:
-            return None, None
-
-        mu_weight = []
-        mu_bias = []
-        sigma_weight = []
-        sigma_bias = []
-
-        for module in self.last_classifier.modules():
-            if isinstance(module, (BayesLinear2)):
-                mu_weight.append(module.weight_mu.clone().data.cpu().numpy().flatten())
-                mu_bias.append(module.bias_mu.clone().data.cpu().numpy().flatten())
-                sigma_weight.append(torch.exp(0.5 * module.weight_log_var).clone().data.cpu().numpy().flatten())
-                sigma_bias.append(torch.exp(0.5 * module.bias_log_var).clone().data.cpu().numpy().flatten())
-
-
-        mu_weight = np.concatenate(mu_weight)
-        mu_bias = np.concatenate(mu_bias)
-        sigma_weight = np.concatenate(sigma_weight)
-        sigma_bias = np.concatenate(sigma_bias)
-
-        return np.concatenate(mu_weight, mu_bias), np.concatenate(sigma_weight, sigma_bias)
-
     def upload_mu_and_sigma_histogram(self, classifier : nn.Module, epoch : int):
 
         mu_weight = []
@@ -411,3 +385,21 @@ class HyperShot(HyperNetPOC):
             "sigma_bias": sigma_bias
         }
 
+    def get_mu_and_sigma(self):
+
+        param_dict = {}
+
+        for i, module in enumerate(self.last_classifier.modules()):
+            if isinstance(module, (BayesLinear2)):
+
+                weight_mu = module.weight_mu.clone().data.cpu().numpy().flatten()
+                bias_mu = module.bias_mu.clone().data.cpu().numpy().flatten()
+                weight_sigma = torch.exp(0.5 * module.weight_log_var).clone().data.cpu().numpy().flatten()
+                bias_sigma = torch.exp(0.5 * module.bias_log_var).clone().data.cpu().numpy().flatten()
+
+                param_dict[f"Layer {i+1} / weight_mu"] = weight_mu
+                param_dict[f"Layer {i+1} / bias_mu"] = bias_mu
+                param_dict[f"Layer {i+1} / weight_sigma"] = weight_sigma
+                param_dict[f"Layer {i+1} / bias_sigma"] = bias_sigma
+        
+        return param_dict
