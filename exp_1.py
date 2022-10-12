@@ -293,8 +293,6 @@ def experiment(params_experiment):
     model.weight_set_num_test = 1
 
     for _ in range(num_samples):
-        for weight in model.classifier.parameters():
-            weight.fast = [reparameterize(weight.mu, weight.logvar)]
         for i, support_data1 in enumerate(support_datas1):
             if i not in s1:
                 s1[i] = []
@@ -313,7 +311,6 @@ def experiment(params_experiment):
             q2[i].append(F.softmax(model(query_data2), dim=1)[0].clone().data.cpu().numpy())
 
     plot_histograms(neptune_run, s1, s2, q1, q2)
-
 
 def main():
     # params_experiment = parse_args('train')
