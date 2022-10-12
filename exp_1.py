@@ -26,6 +26,7 @@ def plot_mu_sigma(neptune_run, model, i, save_numeric_data=save_numeric_data):
     param_dict = model.get_mu_and_sigma()
     # plotting to neptune
     for name, value in param_dict.items():
+        name = f"FEATURE_NUM {i+1} / " + name
         fig = plt.figure()
         plt.plot(value, 's')
         neptune_run[f"{name} / plot"].upload(File.as_image(fig))

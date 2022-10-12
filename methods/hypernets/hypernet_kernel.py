@@ -389,7 +389,9 @@ class HyperShot(HyperNetPOC):
 
         param_dict = {}
 
-        for i, module in enumerate(self.last_classifier.modules()):
+        i = 0
+
+        for module in self.last_classifier.modules():
             if isinstance(module, (BayesLinear2)):
 
                 weight_mu = module.weight_mu.clone().data.cpu().numpy().flatten()
@@ -401,5 +403,6 @@ class HyperShot(HyperNetPOC):
                 param_dict[f"Layer {i+1} / bias_mu"] = bias_mu
                 param_dict[f"Layer {i+1} / weight_sigma"] = weight_sigma
                 param_dict[f"Layer {i+1} / bias_sigma"] = bias_sigma
+                i = i + 1
         
         return param_dict
