@@ -60,3 +60,15 @@ def accuracy_from_scores(scores: torch.Tensor, n_way: int, n_query: int) -> floa
     correct_this = float(top1_correct)
     count_this = len(y_query)
     return correct_this / count_this
+
+def kl_diag_gauss_with_standard_gauss(mean, logvar):
+    mean_flat = torch.cat([t.view(-1) for t in mean])
+    logvar_flat = torch.cat([t.view(-1) for t in logvar])
+    var_flat = logvar_flat.exp()
+
+    return -0.5 * torch.sum(1 + logvar_flat - mean_flat.pow(2) - var_flat)
+
+def reparameterize(mu, logvar):
+    std = torch.exp(0.5 * logvar)
+    eps = torch.randn_like(std)
+    return eps * std + mu

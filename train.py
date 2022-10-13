@@ -23,8 +23,11 @@ from methods.protonet import ProtoNet
 from methods.matchingnet import MatchingNet
 from methods.relationnet import RelationNet
 from methods.maml import MAML
+from methods.hypernets.bayeshmaml import BayesHMAML
 from methods.hypernets.hypermaml import HyperMAML
 from io_utils import model_dict, parse_args, get_resume_file, setup_neptune
+
+from neptune.new.types import File
 
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -116,7 +119,11 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         model.stop_epoch = stop_epoch
 
         model.train()
-        metrics = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
+        if params.method in ['hyper_maml','bayes_hmaml']:
+            metrics = model.train_loop(epoch, base_loader, optimizer)
+        else:
+            metrics = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
+
         scheduler.step()
         model.eval()
 
@@ -173,14 +180,14 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                 outfile = os.path.join(params.checkpoint_dir, 'best_model.tar')
                 torch.save({'epoch': epoch, 'state': model.state_dict()}, outfile)
 
-                if params.maml_save_feature_network and params.method in ['maml', 'hyper_maml']:
+                if params.maml_save_feature_network and params.method in ['maml', 'hyper_maml','bayes_hmaml']:
                     outfile = os.path.join(params.checkpoint_dir, 'best_feature_net.tar')
                     torch.save({'epoch': epoch, 'state': model.feature.state_dict()}, outfile)
 
             outfile = os.path.join(params.checkpoint_dir, 'last_model.tar')
             torch.save({'epoch': epoch, 'state': model.state_dict()}, outfile)
 
-            if params.maml_save_feature_network and params.method in ['maml', 'hyper_maml']:
+            if params.maml_save_feature_network and params.method in ['maml', 'hyper_maml','bayes_hmaml']:
                 outfile = os.path.join(params.checkpoint_dir, 'last_feature_net.tar')
                 torch.save({'epoch': epoch, 'state': model.feature.state_dict()}, outfile)
 
@@ -199,12 +206,13 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                 for m, v in metrics.items():
                     neptune_run[m].log(v, step=epoch)
 
-    neptune_run["best_model"].track_files(os.path.join(params.checkpoint_dir, 'best_model.tar'))
-    neptune_run["last_model"].track_files(os.path.join(params.checkpoint_dir, 'last_model.tar'))
+    if neptune_run is not None:
+        neptune_run["best_model"].track_files(os.path.join(params.checkpoint_dir, 'best_model.tar'))
+        neptune_run["last_model"].track_files(os.path.join(params.checkpoint_dir, 'last_model.tar'))
 
-    if params.maml_save_feature_network:
-        neptune_run["best_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'best_feature_net.tar'))
-        neptune_run["last_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'last_feature_net.tar'))
+        if params.maml_save_feature_network:
+            neptune_run["best_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'best_feature_net.tar'))
+            neptune_run["last_feature_net"].track_files(os.path.join(params.checkpoint_dir, 'last_feature_net.tar'))
 
     if len(delta_params_list) > 0 and params.hm_save_delta_params:
         with (Path(params.checkpoint_dir) / f"delta_params_list_{len(delta_params_list)}.json").open("w") as f:
@@ -323,7 +331,7 @@ if __name__ == '__main__':
             model = BaselineTrain(model_dict[params.model], params.num_classes, loss_type='dist')
 
     elif params.method in ['DKT', 'protonet', 'matchingnet', 'relationnet', 'relationnet_softmax', 'maml',
-                           'maml_approx', 'hyper_maml'] + list(hypernet_types.keys()):
+                           'maml_approx', 'hyper_maml','bayes_hmaml'] + list(hypernet_types.keys()):
         n_query = max(1, int(
             16 * params.test_n_way / params.train_n_way))  # if test_n_way is smaller than train_n_way, reduce n_query to keep batch size small
         print("n_query", n_query)
@@ -372,13 +380,17 @@ if __name__ == '__main__':
         elif params.method in hypernet_types.keys():
             hn_type: Type[HyperNetPOC] = hypernet_types[params.method]
             model = hn_type(model_dict[params.model], params=params, **train_few_shot_params)
-        elif params.method == "hyper_maml":
+        elif params.method == "hyper_maml" or params.method == 'bayes_hmaml':
             backbone.ConvBlock.maml = True
             backbone.SimpleBlock.maml = True
             backbone.BottleneckBlock.maml = True
             backbone.ResNet.maml = True
-            model = HyperMAML(model_dict[params.model], params=params, approx=(params.method == 'maml_approx'),
-                              **train_few_shot_params)
+            if params.method == 'bayes_hmaml':
+                model = BayesHMAML(model_dict[params.model], params=params, approx=(params.method == 'maml_approx'),
+                               **train_few_shot_params)
+            else:
+                model = HyperMAML(model_dict[params.model], params=params, approx=(params.method == 'maml_approx'),
+                               **train_few_shot_params)
             if params.dataset in ['omniglot', 'cross_char']:  # maml use different parameter in omniglot
                 model.n_task = 32
                 model.task_update_num = 1
@@ -401,7 +413,7 @@ if __name__ == '__main__':
     print(params.checkpoint_dir)
     start_epoch = params.start_epoch
     stop_epoch = params.stop_epoch
-    if params.method in ['maml', 'maml_approx', 'hyper_maml']:
+    if params.method in ['maml', 'maml_approx', 'hyper_maml','bayes_hmaml']:
         stop_epoch = params.stop_epoch * model.n_task  # maml use multiple tasks in one update
 
     if params.resume:
@@ -472,6 +484,7 @@ if __name__ == '__main__':
     for d in val_datasets:
         print("Evaluating on", d)
         params.dataset = d
+        # num of epochs for finetuning on testing.
         for hn_val_epochs in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 25, 50, 100, 200]:
             params.hn_val_epochs = hn_val_epochs
             params.hm_set_forward_with_adaptation = True

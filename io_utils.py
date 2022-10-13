@@ -52,13 +52,14 @@ def parse_args(script):
     parser.add_argument('--seed' , default=0, type=int,  help='Seed for Numpy and pyTorch. Default: 0 (None)')
     parser.add_argument('--dataset'     , default='CUB',        help='CUB/miniImagenet/cross/omniglot/cross_char')
     parser.add_argument('--model'       , default='Conv4',      help='model: Conv{4|6}{Pool} / ResNet{10|18|34|50|101}', choices=sorted(model_dict.keys())) # 50 and 101 are not used in the paper
-    parser.add_argument('--method', default='baseline', choices=['baseline', 'baseline++', 'DKT', 'protonet', 'matchingnet', 'relationnet', 'relationnet_softmax', 'maml', 'maml_approx', 'hyper_maml'] + list(hypernet_types.keys()),
-                        help='baseline/baseline++/protonet/matchingnet/relationnet{_softmax}/maml{_approx}/hn_poc/hyper_maml') #relationnet_softmax replace L2 norm with softmax to expedite training, maml_approx use first-order approximation in the gradient for efficiency
+    parser.add_argument('--method', default='baseline', choices=['baseline', 'baseline++', 'DKT', 'protonet', 'matchingnet', 'relationnet', 'relationnet_softmax', 'maml', 'maml_approx', 'hyper_maml','bayes_hmaml'] + list(hypernet_types.keys()),
+                        help='baseline/baseline++/protonet/matchingnet/relationnet{_softmax}/maml{_approx}/hn_poc/hyper_maml/bayes_hmaml') #relationnet_softmax replace L2 norm with softmax to expedite training, maml_approx use first-order approximation in the gradient for efficiency
     parser.add_argument('--train_n_way' , default=5, type=int,  help='class num to classify for training') #baseline and baseline++ would ignore this parameter
     parser.add_argument('--test_n_way'  , default=5, type=int,  help='class num to classify for testing (validation) ') #baseline and baseline++ only use this parameter in finetuning
     parser.add_argument('--n_shot'      , default=5, type=int,  help='number of labeled data in each class, same as n_support') #baseline and baseline++ only use this parameter in finetuning
     parser.add_argument('--train_aug'   , action='store_true',  help='perform data augmentation or not during training ') #still required for save_features.py and test.py to find the model path correctly
     parser.add_argument("--checkpoint_suffix", type=str,default="", help="Suffix for custom experiment differentiation" )
+    # saved in save/checkpoints/[dataset]
     parser.add_argument("--lr", type=float, default=1e-3, help="Learning rate")
     parser.add_argument("--optim", type=str, choices=["adam", "sgd"], help="Optimizer", default="adam")
     parser.add_argument("--n_val_perms", type=int, default=1, help="Number of task permutations in evaluation.")
@@ -69,17 +70,18 @@ def parse_args(script):
     parser.add_argument("--maml_save_feature_network", action="store_true", help="if to save feature net used in MAML")
     parser.add_argument("--maml_adapt_classifier", action="store_true", help="Adapt only the classifier during second gradient calculation")
     parser.add_argument("--evaluate_model", action="store_true", help="Skip train phase and perform final test")
+    # to eval model pass suffix to --checkpoint_suffix
 
     if script == 'train':
         parser.add_argument('--num_classes' , default=200, type=int, help='total number of classes in softmax, only used in baseline') #make it larger than the maximum label value in base class
-        parser.add_argument('--save_freq'   , default=500, type=int, help='Save frequency')
+        parser.add_argument('--save_freq'   , default=50, type=int, help='Save frequency')
         parser.add_argument('--start_epoch' , default=0, type=int,help ='Starting epoch')
         parser.add_argument('--stop_epoch'  , default=-1, type=int, help ='Stopping epoch') #for meta-learning methods, each epoch contains 100 episodes. The default epoch number is dataset dependent. See train.py
         parser.add_argument('--resume'      , action='store_true', help='continue from previous trained model with largest epoch')
         parser.add_argument('--warmup'      , action='store_true', help='continue from baseline, neglected if resume is true') #never used in the paper
         parser.add_argument("--es_epoch", type=int, default=250,
                              help="Check if val accuracy threshold achieved at this epoch, stop if not.")
-        parser.add_argument("--es_threshold", type=float, default=50.0,
+        parser.add_argument("--es_threshold", type=float, default=70.0,
                              help="Val accuracy threshold for early stopping")
         parser.add_argument("--eval_freq", type=int, default=1, help="Evaluation frequency")
 
