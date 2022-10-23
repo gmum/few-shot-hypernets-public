@@ -353,7 +353,7 @@ class HyperShot(HyperNetPOC):
         total_crossentropy_loss /= S
         total_kld_loss /= S
 
-        print(f'Epoch {epoch}: {hn_out}')
+        #print(f'Epoch {epoch}: {hn_out}')
 
         if epoch <= 2:
             return total_sigma/2, total_sigma/2, self.upload_mu_and_sigma_histogram(classifier, epoch)
