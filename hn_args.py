@@ -48,26 +48,35 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hypershot_args.add_argument("--hn_val_lr", type=float, default=1e-4, help="LR for finetuning on support set during validation")
     hypershot_args.add_argument("--hn_val_optim", type=str, default="adam", choices=["adam", "sgd"], help="Optimizer for finetuning on support set during validation")
 
+    #######################################
+    #######################################
     # START OF BAYESIAN HYPERSHOT ARGUMENTS
+    #######################################
+    #######################################
 
-    hypershot_args.add_argument("--hn_use_mu_in_kld", action='store true', help="Include mu in kld cost")
 
     # describes number of forwards in target networtk for one input sample (later results are averaged)
     hypershot_args.add_argument("--hn_S", type=int, default=5, help="Number of samples.")
 
     # arguments for kld constant scaling and dynamic scaling
     hypershot_args.add_argument('--hn_kld_const_scaler', default=0, type=int, help='Example: for value=-3 scaling equals 10e-3')
+
     hypershot_args.add_argument('--hn_use_kld_scheduler', action='store_true', help="Only with this flag we can use remaining two. Otherwise scaling is constant")
     hypershot_args.add_argument('--hn_kld_stop_val', default=-3, type=int, help='final value of kld_scale')
     hypershot_args.add_argument('--hn_kld_start_val', default=-24, type=int, help='initial value of kld_scale')
+
     hypershot_args.add_argument('--hn_use_kld_from', default=0, type=int, help='Include kld from epoch passed with parameter')
 
     # Bayesian Hyper Shot or non bayesian Hyper Shot
     hypershot_args.add_argument('--hn_bayesian_model', action='store_true', help='Uses reparametrization with this flag. Otherwise behaves like non bayesian Hyper Shot')
     hypershot_args.add_argument('--hn_use_kld', action='store_true', help="Includes KLD in cost function")
+    hypershot_args.add_argument("--hn_use_mu_in_kld", action='store true', help="Include mu in kld cost")
 
-
+    #####################################
+    #####################################
     # END OF BAYESIAN HYPERSHOT ARGUMENTS
+    #####################################
+    #####################################
 
     hypermaml_args =  parser.add_argument_group("HyperMAML-related arguments")
 

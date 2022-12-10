@@ -29,11 +29,16 @@ class HyperShot(HyperNetPOC):
             model_func, n_way, n_support, n_query, params=params, target_net_architecture=target_net_architecture
         )
 
+        #################################################
+        ########### BAYESIAN PARAMS #####################
+        #################################################
         self.loss_kld = kl_diag_gauss_with_standard_gauss
         self.S: int = params.hn_S # sampling
-        self.bayesian_model = params.hn_bayesian_model
         self.use_kld = params.hn_use_kld
         self.hn_use_mu_in_kld = params.hn_use_mu_in_kld
+        ################################################
+        ################################################
+        ################################################
 
         # TODO - check!!!
 
