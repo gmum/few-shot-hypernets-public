@@ -169,8 +169,6 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         model.epoch_state_dict["from_epoch"] = 10
         model.epoch_state_dict["to_epoch"] = 50
 
-        metrics["reparam_scaling"] = min(1,(epoch-10) / (50-10)) if epoch >= 10 else 0
-
         model.train()
         metrics, hist_data = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
 
@@ -201,6 +199,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             metrics["accuracy/val"] = acc
             metrics["accuracy/val_max"] = max_acc
             metrics["accuracy/train_max"] = max_train_acc
+            metrics["reparam_scaling"] = min(1,(epoch-10) / (50-10)) if epoch >= 10 else 0
             metrics = {
                 **metrics,
                 **test_loop_metrics,
