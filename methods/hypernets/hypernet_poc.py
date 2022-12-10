@@ -41,7 +41,7 @@ class HyperNetPOC(MetaTemplate):
 
         self.hn_kld_const_scaler = 10**(params.hn_kld_const_scaler)
         self.hn_kld_dynamic_scale = 10**(params.hn_kld_start_val)
-        self.hn_kld_stop_val = 10**(params.hn_stop_val)
+        self.hn_kld_stop_val = 10**(params.hn_kld_stop_val)
         self.hn_step = None
         self.hn_use_kld_from = params.hn_use_kld_from
         self.hn_use_kld_scheduler = params.hn_use_kld_scheduler
