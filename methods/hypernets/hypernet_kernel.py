@@ -337,8 +337,8 @@ class HyperShot(HyperNetPOC):
                             kld_loss += self.loss_kld(m.weight_mu, m.weight_log_var) + self.loss_kld(m.bias_mu, m.bias_log_var)
                         else:
                             # substitute mu weight and bias with zero tensors to prevent flow of gradient through those tensors
-                            zero_weight = torch.zero(m.weight_mu.size()).cuda()
-                            zero_bias = torch.zero(m.bias_mu.size()).cuda()
+                            zero_weight = torch.zeros(m.weight_mu.size()).cuda()
+                            zero_bias = torch.zeros(m.bias_mu.size()).cuda()
                             kld_loss += self.loss_kld(zero_weight, m.weight_log_var) + self.loss_kld(zero_bias, m.bias_log_var)
 
             crossentropy_loss += self.loss_fn(y_pred, y_to_classify_gt)
