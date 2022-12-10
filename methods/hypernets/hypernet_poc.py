@@ -333,7 +333,7 @@ class HyperNetPOC(MetaTemplate):
                         kld_loss_sum += kld_loss
 
                     if epoch >= self.hn_use_kld_from:
-                        loss_sum = crossentropy_loss_sum + kld_loss_sum * reduction * self.hn_w
+                        loss_sum = crossentropy_loss_sum + kld_loss_sum * reduction * 10e-3
                     else:
                         loss_sum = crossentropy_loss_sum
                     
@@ -366,7 +366,7 @@ class HyperNetPOC(MetaTemplate):
 
         metrics["loss/train"] = np.mean(losses)
         metrics["kld_loss/train"] = np.mean(kld_losses)
-        metrics["kld_loss_scaled/train"] = np.mean(kld_losses) * reduction * self.hn_w
+        metrics["kld_loss_scaled/train"] = np.mean(kld_losses) * reduction * 10e-3
         metrics["crossentropy_loss/train"] = np.mean(crossentropy_losses)
         metrics["accuracy/train"] = np.mean(accuracies) * 100
         return metrics, hist_data
