@@ -46,6 +46,8 @@ class HyperNetPOC(MetaTemplate):
         self.hn_use_kld_from = params.hn_use_kld_from
         self.hn_use_kld_scheduler = params.hn_use_kld_scheduler
 
+        self.epoch_state_dict = {}
+
         self.dataset_size = 0
         self.embedding_size = self.init_embedding_size(params)
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)

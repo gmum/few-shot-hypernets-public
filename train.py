@@ -165,11 +165,9 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         model.start_epoch = start_epoch
         model.stop_epoch = stop_epoch
 
-        model.epoch_state_dict = {
-            "cur_epoch": epoch,
-            "from_epoch": 10,
-            "to_epoch": 50
-        }
+        model.epoch_state_dict["cur_epoch"] = 50 
+        model.epoch_state_dict["from_epoch"] = 10
+        model.epoch_state_dict["to_epoch"] = 50
 
         metrics["reparam_scaling"] = min(1,(epoch-10) / (50-10)) if epoch >= 10 else 0
 
