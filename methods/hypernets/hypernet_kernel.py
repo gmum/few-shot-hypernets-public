@@ -36,6 +36,8 @@ class HyperShot(HyperNetPOC):
         self.S: int = params.hn_S # sampling
         self.use_kld = params.hn_use_kld
         self.hn_use_mu_in_kld = params.hn_use_mu_in_kld
+
+        self.hn_reparam_scaling_length = params.hn_reparam_scaling_length
         ################################################
         ################################################
         ################################################
@@ -108,7 +110,7 @@ class HyperShot(HyperNetPOC):
             is_final = i == (params.hn_tn_depth - 1)
             insize = common_insize if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
-            layers.append(BayesLinear(insize, outsize, bias=True, bayesian=params.hn_bayesian_model))
+            layers.append(BayesLinear(insize, outsize, bias=True, bayesian=params.hn_bayesian_model, epoch_state_dict=self.epoch_state_dict))
             if not is_final:
                 layers.append(nn.ReLU())
 
@@ -272,6 +274,8 @@ class HyperShot(HyperNetPOC):
             epoch: int = -1,
     ):
         nw, ne, c, h, w = x.shape
+
+        self.epoch_state_dict["cur_epoch"] = epoch
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
