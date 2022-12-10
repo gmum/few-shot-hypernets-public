@@ -91,11 +91,20 @@ class BayesLinear(nn.Module):
 
     def get_scale(self):
         if self.epoch_state_dict["cur_epoch"] is None:
+            cur = self.epoch_state_dict["cur_epoch"]
+            print(f"BAYESIAN REPARAM SCALING AT EPOCH {cur} is 0")
+            return 0
+
+        if self.epoch_state_dict["cur_epoch"] < self.epoch_state_dict["from_epoch"]:
+            cur = self.epoch_state_dict["cur_epoch"]
+            print(f"BAYESIAN REPARAM SCALING AT EPOCH {cur} is 0")
             return 0
             
         beg = self.epoch_state_dict["from_epoch"]
         end = self.epoch_state_dict["to_epoch"]
         cur = self.epoch_state_dict["cur_epoch"]
+
+        print(f"BAYESIAN REPARAM SCALING AT EPOCH {cur} is {min(1, float(cur-beg) / float(end-beg))}")
 
         return min(1, float(cur-beg) / float(end-beg))
 
