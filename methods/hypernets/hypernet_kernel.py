@@ -10,7 +10,7 @@ import numpy as np
 
 from matplotlib import pyplot as plt
 
-from backbone import BayesLinear, BayesLinear2
+from backbone import BayesLinear
 from utils import kl_diag_gauss_with_standard_gauss
 
 from methods.hypernets import HyperNetPOC
@@ -33,6 +33,7 @@ class HyperShot(HyperNetPOC):
         self.S: int = params.hn_S # sampling
         self.bayesian_model = params.hn_bayesian_model
         self.use_kld = params.hn_use_kld
+        self.hn_use_mu_in_kld = params.hn_use_mu_in_kld
 
         # TODO - check!!!
 
@@ -102,11 +103,7 @@ class HyperShot(HyperNetPOC):
             is_final = i == (params.hn_tn_depth - 1)
             insize = common_insize if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
-            if params.hn_blayer == 1:
-                layers.append(BayesLinear2(insize, outsize, bias=True, bayesian=params.hn_bayesian_model, start_reparam = params.hn_start_reparam, steps_reparam = params.hn_steps_reparam))
-            else:
-                layers.append(BayesLinear(insize, outsize))
-
+            layers.append(BayesLinear(insize, outsize, bias=True, bayesian=params.hn_bayesian_model))
             if not is_final:
                 layers.append(nn.ReLU())
 
@@ -323,8 +320,6 @@ class HyperShot(HyperNetPOC):
         total_crossentropy_loss = 0
         total_kld_loss = 0
 
-        total_sigma = 0
-
         for _ in range(self.S):
             y_pred = classifier(relational_feature_to_classify)
 
@@ -332,21 +327,16 @@ class HyperShot(HyperNetPOC):
             kld_loss = 0      
             for m in classifier.modules() :
                 if isinstance(m, (BayesLinear)):
-                    w_mean, w_logvar = torch.tensor_split(m.weight, 2, dim=0)
-                    b_mean, b_logvar = torch.tensor_split(m.bias, 2, dim=0)
                     if self.use_kld:
-                        kld_loss += self.loss_kld(w_mean, w_logvar) + self.loss_kld(b_mean, b_logvar)
-                elif isinstance(m, (BayesLinear2)):
-                    if self.use_kld:
-                        zero_weight = torch.zero(m.weight_mu.size()).cuda()
-                        zero_bias = torch.zero(m.bias_mu.size()).cuda()
-                        kld_loss += self.loss_kld(m.weight_mu, m.weight_log_var) + self.loss_kld(m.bias_mu, m.bias_log_var)
-                        total_sigma += torch.sum(torch.abs(torch.exp(0.5*m.bias_log_var)))+torch.sum(torch.abs(torch.exp(0.5*m.weight_log_var)))
-            crossentropy_loss += self.loss_fn(y_pred, y_to_classify_gt)
+                        if self.hn_use_mu_in_kld:
+                            kld_loss += self.loss_kld(m.weight_mu, m.weight_log_var) + self.loss_kld(m.bias_mu, m.bias_log_var)
+                        else:
+                            # substitute mu weight and bias with zero tensors to prevent flow of gradient through those tensors
+                            zero_weight = torch.zero(m.weight_mu.size()).cuda()
+                            zero_bias = torch.zero(m.bias_mu.size()).cuda()
+                            kld_loss += self.loss_kld(zero_weight, m.weight_log_var) + self.loss_kld(zero_bias, m.bias_log_var)
 
-            # deprecated scaling (moved to hypernet_poc.py)
-            #kld_loss *= self.kld_const/self.D #self.dataset_size
-            #loss *= 1/(self.n_query+self.n_support)
+            crossentropy_loss += self.loss_fn(y_pred, y_to_classify_gt)
 
             total_crossentropy_loss += crossentropy_loss
             total_kld_loss += kld_loss
@@ -355,16 +345,13 @@ class HyperShot(HyperNetPOC):
         total_crossentropy_loss /= S
         total_kld_loss /= S
 
-        #print(f'Epoch {epoch}: {hn_out}')
-
-       # if epoch <= 2:
-       #     return total_sigma/2, total_sigma/2, self.upload_mu_and_sigma_histogram(classifier, epoch)
-
         if self.use_kld:
             return total_crossentropy_loss, total_kld_loss, self.upload_mu_and_sigma_histogram(classifier, epoch)
         else:
             return total_crossentropy_loss, 0, self.upload_mu_and_sigma_histogram(classifier, epoch)
 
+    # helper function that generates dictionary of parameters
+    # used to print histograms and violin plots in neptune
     def upload_mu_and_sigma_histogram(self, classifier : nn.Module, epoch : int):
 
         mu_weight = []
@@ -374,7 +361,7 @@ class HyperShot(HyperNetPOC):
         sigma_bias = []
 
         for module in classifier.modules():
-            if isinstance(module, (BayesLinear2)):
+            if isinstance(module, (BayesLinear)):
                 mu_weight.append(module.weight_mu.clone().data.cpu().numpy().flatten())
                 mu_bias.append(module.bias_mu.clone().data.cpu().numpy().flatten())
                 sigma_weight.append(torch.exp(0.5 * module.weight_log_var).clone().data.cpu().numpy().flatten())
@@ -393,6 +380,7 @@ class HyperShot(HyperNetPOC):
             "sigma_bias": sigma_bias
         }
 
+    # helper function to create dictionary of bayesian parameters in target network (used in experiments)
     def get_mu_and_sigma(self):
 
         param_dict = {}
@@ -400,7 +388,7 @@ class HyperShot(HyperNetPOC):
         i = 0
 
         for module in self.last_classifier.modules():
-            if isinstance(module, (BayesLinear2)):
+            if isinstance(module, (BayesLinear)):
 
                 weight_mu = module.weight_mu.clone().data.cpu().numpy().flatten()
                 bias_mu = module.bias_mu.clone().data.cpu().numpy().flatten()

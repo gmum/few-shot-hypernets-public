@@ -67,33 +67,9 @@ class Linear_fw(nn.Linear): #used in MAML to forward input with fast weight
             out = super(Linear_fw, self).forward(x)
         return out
 
-class BayesLinear(nn.Linear): #bayesian linear layer
-    def __init__(self, in_features, out_features):
-        super(BayesLinear, self).__init__(in_features, 2*out_features)
-
-    def forward(self, x):
-        cuda0 = torch.device('cuda:0')
-        in_features = self.weight.size(dim=1)
-        out_features = int(self.weight.size(dim=0)/2)
-
-        w_mean, w_logvar = torch.tensor_split(self.weight, 2, dim=0)
-        b_mean, b_logvar = torch.tensor_split(self.bias, 2, dim=0)
-
-        w = torch.empty((out_features, in_features), device=cuda0)
-        b = torch.empty((out_features, in_features), device=cuda0)
-        if self.training:
-            w = reparameterize(w_mean, w_logvar)
-            b = reparameterize(b_mean, b_logvar)
-        else:
-            w = w_mean
-            b = b_mean
-
-        out = F.linear(x, w, b)
-        return out
-
-class BayesLinear2(nn.Module): 
-    def __init__(self, in_features, out_features, bias=True, bayesian=False, start_reparam = 0, steps_reparam = 0):
-        super(BayesLinear2, self).__init__()
+class BayesLinear(nn.Module): 
+    def __init__(self, in_features, out_features, bias=True, bayesian=False):
+        super(BayesLinear, self).__init__()
 
         self.bayesian = bayesian
 
@@ -111,42 +87,11 @@ class BayesLinear2(nn.Module):
             self.bias_mu = None
             self.bias_log_var = None
 
-        self.calls_counter = 0
-
-        self.start_reparam = start_reparam 
-        self.step_reparam = None if steps_reparam == 0 else 1.0 / steps_reparam
-
-        self.param_scale = 1.0 if self.step_reparam is None else 0.0
-
-        #self.reset_parameters()
-
-    # def reset_parameters(self):
-    #     torch.nn.init.kaiming_uniform_(self.weight_mu, a=math.sqrt(5))
-    #     torch.nn.init.kaiming_uniform_(self.weight_log_var, a=math.sqrt(5))
-    #     if self.bias is not None:
-    #         fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight_mu)
-    #         bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-    #         torch.nn.init.uniform_(self.bias_mu, -bound, bound)
-    #         fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(self.weight_log_var)
-    #         bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
-    #         torch.nn.init.uniform_(self.bias_log_var, -bound, bound)
-
-    def update_scale(self):
-        if self.step_reparam is not None and self.param_scale + self.step_reparam < 1.0:
-            self.param_scale += self.step_reparam
-        else:
-            self.param_scale = 1.0
-
     def forward(self, x):
 
-        #if self.start_reparam <= self.calls_counter:
-        #    self.update_scale()
-
-        #self.calls_counter = self.calls_counter + 1
-
         if self.training and self.bayesian:
-            weight = reparameterize(self.weight_mu, self.weight_log_var, 1.0)
-            bias = reparameterize(self.bias_mu, self.bias_log_var, 1.0)
+            weight = reparameterize(self.weight_mu, self.weight_log_var)
+            bias = reparameterize(self.bias_mu, self.bias_log_var)
             return F.linear(x, weight, bias)
         else:
             return F.linear(x, self.weight_mu, self.bias_mu)

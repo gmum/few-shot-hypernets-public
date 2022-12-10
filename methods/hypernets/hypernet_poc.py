@@ -39,11 +39,12 @@ class HyperNetPOC(MetaTemplate):
         self.hn_val_lr: float = params.hn_val_lr
         self.hn_val_optim: float = params.hn_val_optim
 
-        self.hn_scale = 10**params.hn_scale
-        self.hn_w = params.hn_w
+        self.hn_kld_const_scaler = 10**(params.hn_kld_const_scaler)
+        self.hn_kld_dynamic_scale = 10**(params.hn_kld_start_val)
+        self.hn_kld_stop_val = 10**(params.hn_stop_val)
         self.hn_step = None
-        self.hn_stop_val = 10**params.hn_stop_val
         self.hn_use_kld_from = params.hn_use_kld_from
+        self.hn_use_kld_scheduler = params.hn_use_kld_scheduler
 
         self.dataset_size = 0
         self.embedding_size = self.init_embedding_size(params)
@@ -311,7 +312,10 @@ class HyperNetPOC(MetaTemplate):
 
 
         self._scale_step()
-        reduction = self.hn_scale
+        reduction = self.hn_kld_dynamic_scale
+
+        if not self.hn_use_kld_scheduler:
+            reduction = 1
 
         for i, (x, _) in enumerate(train_loader):
             taskset.append(x)
@@ -333,7 +337,7 @@ class HyperNetPOC(MetaTemplate):
                         kld_loss_sum += kld_loss
 
                     if epoch >= self.hn_use_kld_from:
-                        loss_sum = crossentropy_loss_sum + kld_loss_sum * reduction * 10e-3
+                        loss_sum = crossentropy_loss_sum + kld_loss_sum * reduction * self.hn_kld_const_scaler
                     else:
                         loss_sum = crossentropy_loss_sum
                     
@@ -366,16 +370,18 @@ class HyperNetPOC(MetaTemplate):
 
         metrics["loss/train"] = np.mean(losses)
         metrics["kld_loss/train"] = np.mean(kld_losses)
-        metrics["kld_loss_scaled/train"] = np.mean(kld_losses) * reduction * 10e-3
+        metrics["kld_loss_scaled/train"] = np.mean(kld_losses) * reduction * self.hn_kld_const_scaler
         metrics["crossentropy_loss/train"] = np.mean(crossentropy_losses)
         metrics["accuracy/train"] = np.mean(accuracies) * 100
+        metrics["kld_scale"] = reduction * self.hn_kld_const_scaler
+
         return metrics, hist_data
 
     def _scale_step(self):
         if self.hn_step is None:
-            self.hn_step = np.power(1 / self.hn_scale * self.hn_stop_val, 1 / self.stop_epoch)
+            self.hn_step = np.power(1 / self.hn_kld_dynamic_scale * self.hn_kld_stop_val, 1 / self.stop_epoch)
             
-        self.hn_scale = self.hn_scale * self.hn_step
+        self.hn_kld_dynamic_scale = self.hn_kld_dynamic_scale * self.hn_step
 
 
 class PPAMixin(HyperNetPOC):
