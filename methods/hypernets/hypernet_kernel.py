@@ -36,6 +36,7 @@ class HyperShot(HyperNetPOC):
         self.S: int = params.hn_S # sampling
         self.use_kld = params.hn_use_kld
         self.hn_use_mu_in_kld = params.hn_use_mu_in_kld
+        self.epoch_state_dict = {}
         ################################################
         ################################################
         ################################################
