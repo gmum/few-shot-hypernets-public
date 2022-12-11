@@ -167,8 +167,8 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
         model.epoch_state_dict["hn_warmup"] = params.hn_warmup
         model.epoch_state_dict["cur_epoch"] = epoch 
-        model.epoch_state_dict["from_epoch"] = params.warmup_start_epoch
-        model.epoch_state_dict["to_epoch"] = params.warmup_stop_epoch
+        model.epoch_state_dict["from_epoch"] = params.hn_warmup_start_epoch
+        model.epoch_state_dict["to_epoch"] = params.hn_warmup_stop_epoch
 
         model.train()
         metrics, hist_data = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
