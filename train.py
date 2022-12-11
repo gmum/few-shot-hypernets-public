@@ -165,9 +165,10 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         model.start_epoch = start_epoch
         model.stop_epoch = stop_epoch
 
-        model.epoch_state_dict["cur_epoch"] = 50 
-        model.epoch_state_dict["from_epoch"] = 10
-        model.epoch_state_dict["to_epoch"] = 50
+        model.epoch_state_dict["hn_warmup"] = params.hn_warmup
+        model.epoch_state_dict["cur_epoch"] = epoch 
+        model.epoch_state_dict["from_epoch"] = params.warmup_start_epoch
+        model.epoch_state_dict["to_epoch"] = params.warmup_stop_epoch
 
         model.train()
         metrics, hist_data = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
@@ -199,7 +200,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             metrics["accuracy/val"] = acc
             metrics["accuracy/val_max"] = max_acc
             metrics["accuracy/train_max"] = max_train_acc
-            metrics["reparam_scaling"] = min(1,(epoch-10) / (50-10)) if epoch >= 10 else 0
+            metrics["reparam_scaling"] = min(1,(epoch-params.warmup_start_epoch) / (params.warmup_stop_epoch-params.warmup_start_epoch)) if epoch >= params.warmup_start_epoch else 0
             metrics = {
                 **metrics,
                 **test_loop_metrics,

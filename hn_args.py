@@ -54,6 +54,10 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     #######################################
     #######################################
 
+    #Without this flag model is bayesian from the beginning
+    hypershot_args.add_argument('--hn_warmup', action='store_true', help="Turns on warmup between HyperShot and BayesianHyperShot")
+    hypershot_args.add_argument("--hn_warmup_start_epoch", type=int, default=10, help="Start warmup at given epoch")
+    hypershot_args.add_argument("--hn_warmup_stop_epoch", type=int, default=50, help="Stop warmup at given epoch")
 
     # describes number of forwards in target networtk for one input sample (later results are averaged)
     hypershot_args.add_argument("--hn_S", type=int, default=5, help="Number of samples.")
