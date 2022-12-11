@@ -200,7 +200,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             metrics["accuracy/val"] = acc
             metrics["accuracy/val_max"] = max_acc
             metrics["accuracy/train_max"] = max_train_acc
-            metrics["reparam_scaling"] = min(1,(epoch-params.warmup_start_epoch) / (params.warmup_stop_epoch-params.warmup_start_epoch)) if epoch >= params.warmup_start_epoch else 0
+            metrics["reparam_scaling"] = min(1,(epoch-params.hn_warmup_start_epoch) / (params.hn_warmup_stop_epoch-params.hn_warmup_start_epoch)) if epoch >= params.hn_warmup_start_epoch else 0
             metrics = {
                 **metrics,
                 **test_loop_metrics,
