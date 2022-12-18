@@ -104,7 +104,7 @@ class BayesLinear(nn.Module):
 
     def forward(self, x):
 
-        if self.training and self.bayesian:
+        if self.bayesian:
 
             scale = self.get_scale()
 

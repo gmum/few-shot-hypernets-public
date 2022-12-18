@@ -372,8 +372,8 @@ class HyperShot(HyperNetPOC):
             if isinstance(module, (BayesLinear)):
                 mu_weight.append(module.weight_mu.clone().data.cpu().numpy().flatten())
                 mu_bias.append(module.bias_mu.clone().data.cpu().numpy().flatten())
-                sigma_weight.append(torch.exp(0.5 * (module.weight_log_var-4)).clone().data.cpu().numpy().flatten())
-                sigma_bias.append(torch.exp(0.5 * (module.bias_log_var-4)).clone().data.cpu().numpy().flatten())
+                sigma_weight.append(torch.exp(0.5 * (module.weight_log_var-1)).clone().data.cpu().numpy().flatten())
+                sigma_bias.append(torch.exp(0.5 * (module.bias_log_var-1)).clone().data.cpu().numpy().flatten())
 
 
         mu_weight = np.concatenate(mu_weight)
@@ -400,8 +400,8 @@ class HyperShot(HyperNetPOC):
 
                 weight_mu = module.weight_mu.clone().data.cpu().numpy().flatten()
                 bias_mu = module.bias_mu.clone().data.cpu().numpy().flatten()
-                weight_sigma = torch.exp(0.5 * (module.weight_log_var-4)).clone().data.cpu().numpy().flatten()
-                bias_sigma = torch.exp(0.5 * (module.bias_log_var-4)).clone().data.cpu().numpy().flatten()
+                weight_sigma = torch.exp(0.5 * (module.weight_log_var-1)).clone().data.cpu().numpy().flatten()
+                bias_sigma = torch.exp(0.5 * (module.bias_log_var-1)).clone().data.cpu().numpy().flatten()
 
                 param_dict[f"Layer {i+1} / weight_mu"] = weight_mu
                 param_dict[f"Layer {i+1} / bias_mu"] = bias_mu
