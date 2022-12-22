@@ -38,6 +38,7 @@ class HyperNetPOC(MetaTemplate):
         self.hn_val_epochs: int = params.hn_val_epochs
         self.hn_val_lr: float = params.hn_val_lr
         self.hn_val_optim: float = params.hn_val_optim
+        self.hn_S_test: int = params.hn_S_test
 
         self.hn_kld_const_scaler = 10**(params.hn_kld_const_scaler)
         self.hn_kld_dynamic_scale = 10**(params.hn_kld_start_val)
@@ -218,21 +219,25 @@ class HyperNetPOC(MetaTemplate):
         # get parameters of classifier
         bayesian_params_dict = self.upload_mu_and_sigma_histogram(classifier, test=True)
 
-        query_feature = query_feature.reshape(
-            -1, query_feature.shape[-1]
-        )
-        y_pred = classifier(query_feature)
+        final_y_pred = []
 
-        if permutation_sanity_check:
-            ### random permutation test
-            perm = torch.randperm(len(query_feature))
-            rev_perm = torch.argsort(perm)
-            query_perm = query_feature[perm]
-            assert torch.equal(query_perm[rev_perm], query_feature)
-            y_pred_perm = classifier(query_perm)
-            assert torch.equal(y_pred_perm[rev_perm], y_pred)
+        for sample in range(self.hn_S_test):
+            query_feature = query_feature.reshape(
+                -1, query_feature.shape[-1]
+            )
+            y_pred = classifier(query_feature)
+            final_y_pred.append(y_pred)
 
-        return y_pred, bayesian_params_dict
+            if permutation_sanity_check:
+                ### random permutation test
+                perm = torch.randperm(len(query_feature))
+                rev_perm = torch.argsort(perm)
+                query_perm = query_feature[perm]
+                assert torch.equal(query_perm[rev_perm], query_feature)
+                y_pred_perm = classifier(query_perm)
+                assert torch.equal(y_pred_perm[rev_perm], y_pred)
+
+        return torch.stack(final_y_pred).mean(dim=0), bayesian_params_dict
 
     def set_forward_with_adaptation(self, x: torch.Tensor):
         self_copy = deepcopy(self)

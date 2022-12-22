@@ -63,6 +63,7 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
 
     # describes number of forwards in target networtk for one input sample (later results are averaged)
     hypershot_args.add_argument("--hn_S", type=int, default=5, help="Number of samples.")
+    hypershot_args.add_argument("--hn_S_test", type=int, default=1, help="Number of samples on test.")
 
     # arguments for kld constant scaling and dynamic scaling
     hypershot_args.add_argument('--hn_kld_const_scaler', default=0, type=int, help='Example: for value=-3 scaling equals 10e-3')
