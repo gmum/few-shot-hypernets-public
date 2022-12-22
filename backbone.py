@@ -68,10 +68,11 @@ class Linear_fw(nn.Linear): #used in MAML to forward input with fast weight
         return out
 
 class BayesLinear(nn.Module): 
-    def __init__(self, in_features, out_features, bias=True, bayesian=False, epoch_state_dict = {}):
+    def __init__(self, in_features, out_features, bias=True, bayesian=False, bayesian_test=False, epoch_state_dict = {}):
         super(BayesLinear, self).__init__()
 
         self.bayesian = bayesian
+        self.bayesian_test = bayesian_test
 
         self.bias = bias
         self.in_features = in_features
@@ -104,7 +105,7 @@ class BayesLinear(nn.Module):
 
     def forward(self, x):
 
-        if self.training and self.bayesian:
+        if (self.training and self.bayesian) or (self.bayesian and self.bayesian_test):
 
             scale = self.get_scale()
 
