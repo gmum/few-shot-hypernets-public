@@ -107,12 +107,10 @@ class BayesLinear(nn.Module):
 
         if (self.training and self.bayesian) or (self.bayesian and self.bayesian_test):
 
-            scale = self.get_scale()
-
             weight = reparameterize(self.weight_mu, self.weight_log_var)
             bias = reparameterize(self.bias_mu, self.bias_log_var)
 
-            return F.linear(x, scale*weight + (1-scale)*self.weight_mu, scale*bias + (1-scale)*self.bias_mu)
+            return F.linear(x, weight, bias)
         else:
             return F.linear(x, self.weight_mu, self.bias_mu)
 
