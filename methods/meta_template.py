@@ -86,7 +86,7 @@ class MetaTemplate(nn.Module):
             y_query = np.repeat(range( self.n_way ), self.n_query )
 
             try:
-                scores, acc_at_metrics = self.set_forward_with_adaptation(x)
+                scores, bayesian_params_dict, acc_at_metrics = self.set_forward_with_adaptation(x)
                 for (k,v) in acc_at_metrics.items():
                     acc_at[k].append(v)
             except Exception as e:
@@ -112,9 +112,9 @@ class MetaTemplate(nn.Module):
         print(metrics)
         print('%d Test Acc = %4.2f%% +- %4.2f%%' %(iter_num,  acc_mean, 1.96* acc_std/np.sqrt(iter_num)))
         if return_std:
-            return acc_mean, acc_std, metrics
+            return acc_mean, acc_std, metrics, bayesian_params_dict
         else:
-            return acc_mean, metrics
+            return acc_mean, metrics, bayesian_params_dict
 
     def set_forward_adaptation(self, x, is_feature = True): #further adaptation, default is fixing feature and train a new softmax clasifier
         assert is_feature == True, 'Feature is fixed in further adaptation'
