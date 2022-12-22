@@ -188,12 +188,53 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             stop_epoch - 1
         ]:
             try:
-                acc, test_loop_metrics = model.test_loop(val_loader)
+                acc, test_loop_metrics, bnn_dict = model.test_loop(val_loader, epoch)
             except:
-                acc = model.test_loop(val_loader)
+                acc, bnn_dict = model.test_loop(val_loader, epoch)
                 test_loop_metrics = dict()
             print(
                 f"Epoch {epoch}/{stop_epoch}  | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Metrics: {test_loop_metrics}")
+
+            if bnn_dict:
+                fig = plt.figure()
+                plt.hist(bnn_dict[f"mu_weight_test_mean@{epoch}"], edgecolor="black", bins=20)
+                neptune_run[f"mu_weight_test_mean@{epoch}/train"].upload(File.as_image(fig))
+                plt.close(fig)
+
+                fig = plt.figure()
+                plt.hist(bnn_dict[f"mu_bias_test_mean@{epoch}"], edgecolor="black", bins=20)
+                neptune_run[f"mu_bias_test_mean@{epoch}/train"].upload(File.as_image(fig))
+                plt.close(fig)
+
+                fig = plt.figure()
+                plt.hist(bnn_dict[f"sigma_weight_test_mean@{epoch}"], edgecolor="black", bins=20)
+                neptune_run[f"sigma_weight_test_mean@{epoch}/train"].upload(File.as_image(fig))
+                plt.close(fig)
+
+                fig = plt.figure()
+                plt.hist(bnn_dict[f"sigma_bias_test_mean@{epoch}"], edgecolor="black", bins=20)
+                neptune_run[f"sigma_bias_test_mean@{epoch}/train"].upload(File.as_image(fig))
+                plt.close(fig)
+
+                fig = plt.figure()
+                plt.hist(bnn_dict[f"mu_weight_test_std@{epoch}"], edgecolor="black", bins=20)
+                neptune_run[f"mu_weight_test_std@{epoch}/train"].upload(File.as_image(fig))
+                plt.close(fig)
+
+                fig = plt.figure()
+                plt.hist(bnn_dict[f"mu_bias_test_std{epoch}"], edgecolor="black", bins=20)
+                neptune_run[f"mu_bias_test_std@{epoch}/train"].upload(File.as_image(fig))
+                plt.close(fig)
+
+                fig = plt.figure()
+                plt.hist(bnn_dict[f"sigma_weight_test_std@{epoch}"], edgecolor="black", bins=20)
+                neptune_run[f"sigma_weight_test_std@{epoch}/train"].upload(File.as_image(fig))
+                plt.close(fig)
+
+                fig = plt.figure()
+                plt.hist(bnn_dict[f"sigma_bias_test_std@{epoch}"], edgecolor="black", bins=20)
+                neptune_run[f"sigma_bias_test_std@{epoch}/train"].upload(File.as_image(fig))
+                plt.close(fig)
 
             metrics = metrics or dict()
             metrics["lr"] = scheduler.get_lr()
@@ -542,6 +583,16 @@ if __name__ == '__main__':
             params.repeat = 5
 
             print(f"Testing with {hn_val_epochs=}")
-            test_results = perform_test(params)
+            test_results, bayesian_dicts = perform_test(params)
             if neptune_run is not None:
                 neptune_run[f"full_test/{d}/metrics @ {hn_val_epochs}"] = test_results
+
+            for bayesian_dict in bayesian_dicts:
+                if bayesian_dict:
+                    for key in bayesian_dict.keys():
+                        fig = plt.figure()
+                        plt.hist(bayesian_dict[key], edgecolor="black", bins=20)
+                        neptune_run[key + "/test"].upload(File.as_image(fig))
+                        plt.close(fig)
+
+

@@ -72,11 +72,18 @@ class MetaTemplate(nn.Module):
                 #print(optimizer.state_dict()['param_groups'][0]['lr'])
                 print('Epoch {:d} | Batch {:d}/{:d} | Loss {:f}'.format(epoch, i, len(train_loader), avg_loss/float(i+1)))
 
-    def test_loop(self, test_loader, record = None, return_std: bool = False):
+    def test_loop(self, test_loader, record = None, return_std: bool = False, epoch: int = -1):
         correct =0
         count = 0
         acc_all = []
         acc_at = defaultdict(list)
+
+        bnn_params_dict =  {
+                "mu_weight_test": [],
+                "mu_bias_test": [],
+                "sigma_weight_test": [],
+                "sigma_bias_test": []
+        }
         
         iter_num = len(test_loader) 
         for i, (x,_) in enumerate(test_loader):
@@ -87,6 +94,13 @@ class MetaTemplate(nn.Module):
 
             try:
                 scores, bayesian_params_dict, acc_at_metrics = self.set_forward_with_adaptation(x)
+
+                # append from current eval
+                bnn_params_dict["mu_weight_test"].append(bayesian_params_dict["mu_weight_test"])
+                bnn_params_dict["mu_bias_test"].append(bayesian_params_dict["mu_bias_test"])
+                bnn_params_dict["sigma_weight_test"].append(bayesian_params_dict["sigma_weight_test"])
+                bnn_params_dict["sigma_bias_test"].append(bayesian_params_dict["sigma_bias_test"])
+
                 for (k,v) in acc_at_metrics.items():
                     acc_at[k].append(v)
             except Exception as e:
@@ -99,7 +113,7 @@ class MetaTemplate(nn.Module):
             top1_correct = np.sum(topk_ind[:,0] == y_query)
             correct_this = float(top1_correct)
             count_this = len(y_query)
-            acc_all.append(correct_this/ count_this*100  )
+            acc_all.append(correct_this/ count_this*100)
 
         metrics = {
             k: np.mean(v) if len(v) > 0 else 0
@@ -111,10 +125,25 @@ class MetaTemplate(nn.Module):
         acc_std  = np.std(acc_all)
         print(metrics)
         print('%d Test Acc = %4.2f%% +- %4.2f%%' %(iter_num,  acc_mean, 1.96* acc_std/np.sqrt(iter_num)))
+
+
+        # convert list of numpy arrays to numpy arrays
+
+        bnn_params_dict =  {
+                f"mu_weight_test_mean@{epoch}": np.concatenate(bnn_params_dict["mu_weight_test"]).mean(axis=0),
+                f"mu_bias_test_mean@{epoch}": np.concatenate(bnn_params_dict["mu_bias_test"]).mean(axis=0),
+                f"sigma_weight_test_mean@{epoch}": np.concatenate(bnn_params_dict["sigma_weight_test"]).mean(axis=0),
+                f"sigma_bias_test_mean@{epoch}": np.concatenate(bnn_params_dict["sigma_bias_test"]).mean(axis=0),
+                f"mu_weight_test_std@{epoch}": np.concatenate(bnn_params_dict["mu_weight_test"]).std(axis=0),
+                f"mu_bias_test_std@{epoch}": np.concatenate(bnn_params_dict["mu_bias_test"]).std(axis=0),
+                f"sigma_weight_test_std@{epoch}": np.concatenate(bnn_params_dict["sigma_weight_test"]).std(axis=0),
+                f"sigma_bias_test_std@{epoch}": np.concatenate(bnn_params_dict["sigma_bias_test"]).std(axis=0)
+        }
+
         if return_std:
-            return acc_mean, acc_std, metrics, bayesian_params_dict
+            return acc_mean, acc_std, metrics, bnn_params_dict
         else:
-            return acc_mean, metrics, bayesian_params_dict
+            return acc_mean, metrics, bnn_params_dict
 
     def set_forward_adaptation(self, x, is_feature = True): #further adaptation, default is fixing feature and train a new softmax clasifier
         assert is_feature == True, 'Feature is fixed in further adaptation'
