@@ -194,11 +194,11 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                 test_loop_metrics = dict()
             print(
                 f"Epoch {epoch}/{stop_epoch}  | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Metrics: {test_loop_metrics}")
-                
+
             if bnn_dict:
                 for key in bnn_dict.keys():
                     fig = plt.figure()
-                    plt.hist(bnn_dict[key + "/train"], edgecolor="black", bins=20)
+                    plt.hist(bnn_dict[key], edgecolor="black", bins=20)
                     neptune_run[key + "/train"].upload(File.as_image(fig))
                     plt.close(fig)
 
