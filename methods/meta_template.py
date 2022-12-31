@@ -147,7 +147,12 @@ class MetaTemplate(nn.Module):
                 for (k,v) in acc_at_metrics.items():
                     acc_at[k].append(v)
             except Exception as e:
-                scores = self.set_forward(x)
+                scores, bayesian_params_dict = self.set_forward(x)
+                # append from current eval
+                bnn_params_dict["mu_weight_test"].append(bayesian_params_dict["mu_weight_test"])
+                bnn_params_dict["mu_bias_test"].append(bayesian_params_dict["mu_bias_test"])
+                bnn_params_dict["sigma_weight_test"].append(bayesian_params_dict["sigma_weight_test"])
+                bnn_params_dict["sigma_bias_test"].append(bayesian_params_dict["sigma_bias_test"])
 
             scores = scores.reshape((self.n_way * self.n_query, self.n_way))
 
