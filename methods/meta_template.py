@@ -20,6 +20,49 @@ class MetaTemplate(nn.Module):
         self.feat_dim   = self.feature.final_feat_dim
         self.change_way = change_way  #some methods allow different_way classification during training and test
 
+    def upload_mu_and_sigma_histogram(self, classifier : nn.Module, test = False):
+
+        mu_weight = []
+        mu_bias = []
+
+        sigma_weight = []
+        sigma_bias = []
+
+        for module in classifier.modules():
+            if isinstance(module, (BayesLinear)):
+                mu_weight.append(module.weight_mu.clone().data.cpu().numpy().flatten())
+                mu_bias.append(module.bias_mu.clone().data.cpu().numpy().flatten())
+                sigma_weight.append(torch.exp(0.5 * (module.weight_log_var-4)).clone().data.cpu().numpy().flatten())
+                sigma_bias.append(torch.exp(0.5 * (module.bias_log_var-4)).clone().data.cpu().numpy().flatten())
+
+
+        mu_weight = np.concatenate(mu_weight)
+        mu_bias = np.concatenate(mu_bias)
+        sigma_weight = np.concatenate(sigma_weight)
+        sigma_bias = np.concatenate(sigma_bias)
+
+        if not test:
+            return {
+                "mu_weight": mu_weight,
+                "mu_bias": mu_bias,
+                "sigma_weight": sigma_weight,
+                "sigma_bias": sigma_bias
+            }
+        else:
+            print("TEST DICT")
+            print({
+                "mu_weight_test": mu_weight,
+                "mu_bias_test": mu_bias,
+                "sigma_weight_test": sigma_weight,
+                "sigma_bias_test": sigma_bias
+            })
+            return {
+                "mu_weight_test": mu_weight,
+                "mu_bias_test": mu_bias,
+                "sigma_weight_test": sigma_weight,
+                "sigma_bias_test": sigma_bias
+            }
+
     @abstractmethod
     def set_forward(self,x,is_feature):
         pass
