@@ -177,9 +177,6 @@ class MetaTemplate(nn.Module):
 
         # convert list of numpy arrays to numpy arrays
 
-        print("mu weight test")
-        print(bnn_params_dict["mu_weight_test"])
-
         bnn_params_dict =  {
                 f"mu_weight_test_mean@{epoch}": np.concatenate(bnn_params_dict["mu_weight_test"]).mean(axis=0),
                 f"mu_bias_test_mean@{epoch}": np.concatenate(bnn_params_dict["mu_bias_test"]).mean(axis=0),
@@ -190,6 +187,8 @@ class MetaTemplate(nn.Module):
                 f"sigma_weight_test_std@{epoch}": np.concatenate(bnn_params_dict["sigma_weight_test"]).std(axis=0),
                 f"sigma_bias_test_std@{epoch}": np.concatenate(bnn_params_dict["sigma_bias_test"]).std(axis=0)
         }
+
+        print(bnn_params_dict)
 
         if return_std:
             return acc_mean, acc_std, metrics, bnn_params_dict
