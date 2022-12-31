@@ -360,9 +360,9 @@ class HyperShot(HyperNetPOC):
         total_kld_loss /= S
 
         if self.use_kld:
-            return total_crossentropy_loss, total_kld_loss, self.upload_mu_and_sigma_histogram(classifier, epoch)
+            return total_crossentropy_loss, total_kld_loss, self.upload_mu_and_sigma_histogram(classifier, False)
         else:
-            return total_crossentropy_loss, 0, self.upload_mu_and_sigma_histogram(classifier, epoch)
+            return total_crossentropy_loss, 0, self.upload_mu_and_sigma_histogram(classifier, False)
 
     # helper function that generates dictionary of parameters
     # used to print histograms and violin plots in neptune
