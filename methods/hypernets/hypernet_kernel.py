@@ -263,14 +263,14 @@ class HyperShot(HyperNetPOC):
         return torch.stack(final_y_pred).mean(dim=0), bayesian_params_dict
 
     def set_forward_with_adaptation(self, x: torch.Tensor):
-        y_pred, metrics = super().set_forward_with_adaptation(x)
+        y_pred, bayesian_params_dict, metrics = super().set_forward_with_adaptation(x)
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
         query_feature = query_feature.reshape(
             -1, query_feature.shape[-1]
         )
         relational_query_feature = self.build_relations_features(support_feature, query_feature)
         metrics["accuracy/val_relational"] = accuracy_from_scores(relational_query_feature, self.n_way, self.n_query)
-        return y_pred, metrics
+        return y_pred, bayesian_params_dict, metrics
 
     def set_forward_loss(
             self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False,
