@@ -194,48 +194,13 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
                 test_loop_metrics = dict()
             print(
                 f"Epoch {epoch}/{stop_epoch}  | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Metrics: {test_loop_metrics}")
-
-            print(bnn_dict.keys())
+                
             if bnn_dict:
-                fig = plt.figure()
-                plt.hist(bnn_dict[f"mu_weight_test_mean@{epoch}"], edgecolor="black", bins=20)
-                neptune_run[f"mu_weight_test_mean@{epoch}/train"].upload(File.as_image(fig))
-                plt.close(fig)
-
-                fig = plt.figure()
-                plt.hist(bnn_dict[f"mu_bias_test_mean@{epoch}"], edgecolor="black", bins=20)
-                neptune_run[f"mu_bias_test_mean@{epoch}/train"].upload(File.as_image(fig))
-                plt.close(fig)
-
-                fig = plt.figure()
-                plt.hist(bnn_dict[f"sigma_weight_test_mean@{epoch}"], edgecolor="black", bins=20)
-                neptune_run[f"sigma_weight_test_mean@{epoch}/train"].upload(File.as_image(fig))
-                plt.close(fig)
-
-                fig = plt.figure()
-                plt.hist(bnn_dict[f"sigma_bias_test_mean@{epoch}"], edgecolor="black", bins=20)
-                neptune_run[f"sigma_bias_test_mean@{epoch}/train"].upload(File.as_image(fig))
-                plt.close(fig)
-
-                fig = plt.figure()
-                plt.hist(bnn_dict[f"mu_weight_test_std@{epoch}"], edgecolor="black", bins=20)
-                neptune_run[f"mu_weight_test_std@{epoch}/train"].upload(File.as_image(fig))
-                plt.close(fig)
-
-                fig = plt.figure()
-                plt.hist(bnn_dict[f"mu_bias_test_std{epoch}"], edgecolor="black", bins=20)
-                neptune_run[f"mu_bias_test_std@{epoch}/train"].upload(File.as_image(fig))
-                plt.close(fig)
-
-                fig = plt.figure()
-                plt.hist(bnn_dict[f"sigma_weight_test_std@{epoch}"], edgecolor="black", bins=20)
-                neptune_run[f"sigma_weight_test_std@{epoch}/train"].upload(File.as_image(fig))
-                plt.close(fig)
-
-                fig = plt.figure()
-                plt.hist(bnn_dict[f"sigma_bias_test_std@{epoch}"], edgecolor="black", bins=20)
-                neptune_run[f"sigma_bias_test_std@{epoch}/train"].upload(File.as_image(fig))
-                plt.close(fig)
+                for key in bnn_dict.keys():
+                    fig = plt.figure()
+                    plt.hist(bnn_dict[key + "/train"], edgecolor="black", bins=20)
+                    neptune_run[key + "/train"].upload(File.as_image(fig))
+                    plt.close(fig)
 
             metrics = metrics or dict()
             metrics["lr"] = scheduler.get_lr()
