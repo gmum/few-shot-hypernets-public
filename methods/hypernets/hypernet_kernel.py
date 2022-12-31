@@ -234,27 +234,33 @@ class HyperShot(HyperNetPOC):
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
         classifier, _ = self.generate_target_net(support_feature)
-        query_feature = query_feature.reshape(
-            -1, query_feature.shape[-1]
-        )
+        bayesian_params_dict = self.upload_mu_and_sigma_histogram(classifier, test=True)
 
-        relational_query_feature = self.build_relations_features(support_feature, query_feature)
-        # TODO - check!!!
-        if self.hn_use_support_embeddings:
-            relational_query_feature = torch.cat((relational_query_feature, query_feature), 1)
-        y_pred = classifier(relational_query_feature)
+        final_y_pred = []
 
-        if permutation_sanity_check:
-            ### random permutation test
-            perm = torch.randperm(len(query_feature))
-            rev_perm = torch.argsort(perm)
-            query_perm = query_feature[perm]
-            relation_perm = self.build_relations_features(support_feature, query_perm)
-            assert torch.equal(relation_perm[rev_perm], relational_query_feature)
-            y_pred_perm = classifier(relation_perm)
-            assert torch.equal(y_pred_perm[rev_perm], y_pred)
+        for sample in range(self.hn_S_test):
+            query_feature = query_feature.reshape(
+                -1, query_feature.shape[-1]
+            )
 
-        return y_pred
+            relational_query_feature = self.build_relations_features(support_feature, query_feature)
+            # TODO - check!!!
+            if self.hn_use_support_embeddings:
+                relational_query_feature = torch.cat((relational_query_feature, query_feature), 1)
+            y_pred = classifier(relational_query_feature)
+            final_y_pred.append(y_pred)
+
+            if permutation_sanity_check:
+                ### random permutation test
+                perm = torch.randperm(len(query_feature))
+                rev_perm = torch.argsort(perm)
+                query_perm = query_feature[perm]
+                relation_perm = self.build_relations_features(support_feature, query_perm)
+                assert torch.equal(relation_perm[rev_perm], relational_query_feature)
+                y_pred_perm = classifier(relation_perm)
+                assert torch.equal(y_pred_perm[rev_perm], y_pred)
+
+        return torch.stack(final_y_pred).mean(dim=0), bayesian_params_dict
 
     def set_forward_with_adaptation(self, x: torch.Tensor):
         y_pred, metrics = super().set_forward_with_adaptation(x)
