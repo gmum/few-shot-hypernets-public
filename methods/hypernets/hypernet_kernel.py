@@ -389,6 +389,7 @@ class HyperShot(HyperNetPOC):
                 "sigma_bias": sigma_bias
             }
         else:
+            print("TEST DICT")
             print({
                 "mu_weight_test": mu_weight,
                 "mu_bias_test": mu_bias,
