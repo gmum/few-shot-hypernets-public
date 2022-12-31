@@ -197,10 +197,11 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
 
             if bnn_dict:
                 for key in bnn_dict.keys():
-                    fig = plt.figure()
-                    plt.hist(bnn_dict[key], edgecolor="black", bins=20)
-                    neptune_run[key + "/train"].upload(File.as_image(fig))
-                    plt.close(fig)
+                    if epoch % 100 == 0:
+                        fig = plt.figure()
+                        plt.hist(bnn_dict[key], edgecolor="black", bins=20)
+                        neptune_run[key + "/train"].upload(File.as_image(fig))
+                        plt.close(fig)
 
             metrics = metrics or dict()
             metrics["lr"] = scheduler.get_lr()
