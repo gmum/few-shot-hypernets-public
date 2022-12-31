@@ -195,6 +195,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             print(
                 f"Epoch {epoch}/{stop_epoch}  | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Metrics: {test_loop_metrics}")
 
+            print(bnn_dict.keys())
             if bnn_dict:
                 fig = plt.figure()
                 plt.hist(bnn_dict[f"mu_weight_test_mean@{epoch}"], edgecolor="black", bins=20)
