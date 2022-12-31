@@ -261,7 +261,7 @@ class HyperNetPOC(MetaTemplate):
         return y_pred, bayesian_params_dict, metrics
 
     def query_accuracy(self, x: torch.Tensor) -> float:
-        scores = self.set_forward(x)
+        scores, _ = self.set_forward(x)
         return accuracy_from_scores(scores, n_way=self.n_way, n_query=self.n_query)
 
     def set_forward_loss(
