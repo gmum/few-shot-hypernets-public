@@ -280,7 +280,7 @@ class ConvNet(nn.Module):
             trunk.append(Flatten())
 
         self.trunk = nn.Sequential(*trunk)
-        self.final_feat_dim: int = outdim
+        self.final_feat_dim: int = 64 # outdim if pool else 1600
 
     def forward(self,x):
         out = self.trunk(x)
@@ -540,6 +540,25 @@ def Conv4SNP():
 
 def ResNet10( flatten = True):
     return ResNet(SimpleBlock, [1,1,1,1],[64,128,256,512], flatten)
+
+def ResNet12(flatten=True):
+    from learn2learn.vision.models import resnet12
+
+    class R12(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.model = resnet12.ResNet12Backbone()
+            self.avgpool = nn.AvgPool2d(14)
+            self.flat = nn.Flatten()
+            self.final_feat_dim = 640 # 640
+
+        def forward(self, x):
+            x = self.model(x)
+            return x
+
+    return R12()
+
+
 
 def ResNet18( flatten = True):
     return ResNet(SimpleBlock, [2,2,2,2],[64,128,256,512], flatten)

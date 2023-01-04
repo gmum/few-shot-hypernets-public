@@ -1,27 +1,17 @@
 # Few-shot Hypernets
 
-Official PyTorch implementation of the papers: 
+The official PyTorch implementation of papers: 
 
-* *[Hypernetwork approach to Bayesian MAML](https://arxiv.org/abs/2210.02796)* (2022) Borycki P., Kubacki P., Przewięźlikowski M., Kuśmierczyk T., Tabor J., Spurek P., preprint
+* *[Hypernetwork approach to Bayesian MAML](https://arxiv.org/abs/2210.02796)* (2022)
+Borycki P., Kubacki P., Przewięźlikowski M., Kuśmierczyk T., Tabor J., Spurek P., preprint.
+
 * *[HyperMAML: Few-Shot Adaptation of Deep Models with Hypernetworks](https://arxiv.org/abs/2205.15745)* (2022)
-Przewięźlikowski M., Przybysz P. , Tabor J., Zięba M., Spurek P., preprint
+Przewięźlikowski M., Przybysz P. , Tabor J., Zięba M., Spurek P. - preprint.
 
 * *[HyperShot: Few-Shot Learning by Kernel HyperNetworks](https://arxiv.org/abs/2203.11378)* (2022) 
-Sendera M., Przewięźlikowski M., Karanowski K., Zięba M. Tabor J., Spurek P., preprint
+Sendera M., Przewięźlikowski M., Karanowski K., Zięba M. Tabor J., Spurek P. - to be published at WACV 2023.
 
-```bibtex
-@misc{sendera2022hypershot,
-  doi = {10.48550/ARXIV.2203.11378},
-  url = {https://arxiv.org/abs/2203.11378},
-  author = {Sendera, Marcin and Przewięźlikowski, Marcin and Karanowski, Konrad and Zięba, Maciej and Tabor, Jacek and Spurek, Przemysław},
-  keywords = {Machine Learning (cs.LG), Artificial Intelligence (cs.AI), Computer Vision and Pattern Recognition (cs.CV), FOS: Computer and information sciences, FOS: Computer and information sciences},
-  title = {HyperShot: Few-Shot Learning by Kernel HyperNetworks},
-  publisher = {arXiv},
-  year = {2022},
-  copyright = {Creative Commons Attribution 4.0 International}
-}
 
-```
 
 ## Overview
 
@@ -101,17 +91,14 @@ pip install numpy torch torchvision gpytorch h5py pillow
 
 ## Running the code
 
-The various methods can be trained using the following syntax:
-```
-python train.py --dataset="miniImagenet" --method="hyper_maml" --train_n_way=5 --test_n_way=5 --n_shot=1 --seed=1 --train_aug
-```
-
 You can run 
 ```
 python train.py --h to list all the possible arguments.
 ```
 
-The [train.py](./train.py) script performs the whole training and evaluation procedure. 
+The [train.py](./train.py) script performs the whole training, evaluation and final test procedure.
+
+For re-running our experiments, please refer to the [commands.sh](./commands.sh) file.
 
 Check out [commands.sh](./commands.sh) for our best grid test arguments
 
@@ -119,7 +106,7 @@ Check out [commands.sh](./commands.sh) for our best grid test arguments
 
 This repository provides implementations of several few-shot learning methods:
 * `bayes_hmaml` - [Hypernetwork approach to Bayesian MAML](https://arxiv.org/abs/2210.02796)
-* `hyper_maml` - [BayesHMAML: Few-Shot Adaptation of Deep Models with Hypernetworks](https://arxiv.org/abs/2205.15745)
+* `hyper_maml` - [HyperMAML: Few-Shot Adaptation of Deep Models with Hypernetworks](https://arxiv.org/abs/2205.15745)
 * `hyper_shot` - [HyperShot: Few-Shot Learning by Kernel HyperNetworks](https://arxiv.org/abs/2203.11378)
 * `hn_ppa` - [Few-Shot Image Recognition by Predicting Parameters from Activations
 ](https://arxiv.org/abs/1706.03466)
@@ -172,3 +159,34 @@ Acknowledgements
 ---------------
 
 This repository is a fork of: [https://github.com/BayesWatch/deep-kernel-transfer](https://github.com/BayesWatch/deep-kernel-transfer), which in turn is a fork of [https://github.com/wyharveychen/CloserLookFewShot](https://github.com/wyharveychen/CloserLookFewShot).
+
+## Bibtex citations
+
+If you find our work useful, please consider citing it:
+
+```bibtex
+
+@misc{przewiezlikowski2022hypermaml,
+  doi = {10.48550/ARXIV.2205.15745},
+  url = {https://arxiv.org/abs/2205.15745},
+  author = {Przewięźlikowski, M. and Przybysz, P. and Tabor, J. and Zięba, M. and Spurek, P.},
+  keywords = {Machine Learning (cs.LG), Artificial Intelligence (cs.AI), FOS: Computer and information sciences, FOS: Computer and information sciences},
+  title = {HyperMAML: Few-Shot Adaptation of Deep Models with Hypernetworks},
+  publisher = {arXiv},
+  year = {2022},
+  copyright = {arXiv.org perpetual, non-exclusive license}
+}
+
+
+@misc{sendera2022hypershot,
+  doi = {10.48550/ARXIV.2203.11378},
+  url = {https://arxiv.org/abs/2203.11378},
+  author = {Sendera, Marcin and Przewięźlikowski, Marcin and Karanowski, Konrad and Zięba, Maciej and Tabor, Jacek and Spurek, Przemysław},
+  keywords = {Machine Learning (cs.LG), Artificial Intelligence (cs.AI), Computer Vision and Pattern Recognition (cs.CV), FOS: Computer and information sciences, FOS: Computer and information sciences},
+  title = {HyperShot: Few-Shot Learning by Kernel HyperNetworks},
+  publisher = {arXiv},
+  year = {2022},
+  copyright = {Creative Commons Attribution 4.0 International}
+}
+
+```
