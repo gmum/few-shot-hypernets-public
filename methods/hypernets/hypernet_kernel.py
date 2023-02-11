@@ -109,7 +109,7 @@ class HyperShot(HyperNetPOC):
             is_final = i == (params.hn_tn_depth - 1)
             insize = common_insize if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
-            layers.append(BayesLinear(insize, outsize, bias=True, bayesian=params.hn_bayesian_model, epoch_state_dict=self.epoch_state_dict))
+            layers.append(BayesLinear(insize, outsize, bias=True, bayesian=params.hn_bayesian_model, bayesian_test=params.hn_bayesian_test, epoch_state_dict=self.epoch_state_dict))
             if not is_final:
                 layers.append(nn.ReLU())
 
@@ -234,37 +234,43 @@ class HyperShot(HyperNetPOC):
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
         classifier, _ = self.generate_target_net(support_feature)
-        query_feature = query_feature.reshape(
-            -1, query_feature.shape[-1]
-        )
+        bayesian_params_dict = self.upload_mu_and_sigma_histogram(classifier, test=True)
 
-        relational_query_feature = self.build_relations_features(support_feature, query_feature)
-        # TODO - check!!!
-        if self.hn_use_support_embeddings:
-            relational_query_feature = torch.cat((relational_query_feature, query_feature), 1)
-        y_pred = classifier(relational_query_feature)
+        final_y_pred = []
 
-        if permutation_sanity_check:
-            ### random permutation test
-            perm = torch.randperm(len(query_feature))
-            rev_perm = torch.argsort(perm)
-            query_perm = query_feature[perm]
-            relation_perm = self.build_relations_features(support_feature, query_perm)
-            assert torch.equal(relation_perm[rev_perm], relational_query_feature)
-            y_pred_perm = classifier(relation_perm)
-            assert torch.equal(y_pred_perm[rev_perm], y_pred)
+        for sample in range(self.hn_S_test):
+            query_feature = query_feature.reshape(
+                -1, query_feature.shape[-1]
+            )
 
-        return y_pred
+            relational_query_feature = self.build_relations_features(support_feature, query_feature)
+            # TODO - check!!!
+            if self.hn_use_support_embeddings:
+                relational_query_feature = torch.cat((relational_query_feature, query_feature), 1)
+            y_pred = classifier(relational_query_feature)
+            final_y_pred.append(y_pred)
+
+            if permutation_sanity_check:
+                ### random permutation test
+                perm = torch.randperm(len(query_feature))
+                rev_perm = torch.argsort(perm)
+                query_perm = query_feature[perm]
+                relation_perm = self.build_relations_features(support_feature, query_perm)
+                assert torch.equal(relation_perm[rev_perm], relational_query_feature)
+                y_pred_perm = classifier(relation_perm)
+                assert torch.equal(y_pred_perm[rev_perm], y_pred)
+
+        return torch.stack(final_y_pred).mean(dim=0), bayesian_params_dict
 
     def set_forward_with_adaptation(self, x: torch.Tensor):
-        y_pred, metrics = super().set_forward_with_adaptation(x)
+        y_pred, bayesian_params_dict, metrics = super().set_forward_with_adaptation(x)
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
         query_feature = query_feature.reshape(
             -1, query_feature.shape[-1]
         )
         relational_query_feature = self.build_relations_features(support_feature, query_feature)
         metrics["accuracy/val_relational"] = accuracy_from_scores(relational_query_feature, self.n_way, self.n_query)
-        return y_pred, metrics
+        return y_pred, bayesian_params_dict, metrics
 
     def set_forward_loss(
             self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False,
@@ -354,13 +360,13 @@ class HyperShot(HyperNetPOC):
         total_kld_loss /= S
 
         if self.use_kld:
-            return total_crossentropy_loss, total_kld_loss, self.upload_mu_and_sigma_histogram(classifier, epoch)
+            return total_crossentropy_loss, total_kld_loss, self.upload_mu_and_sigma_histogram(classifier, False)
         else:
-            return total_crossentropy_loss, 0, self.upload_mu_and_sigma_histogram(classifier, epoch)
+            return total_crossentropy_loss, 0, self.upload_mu_and_sigma_histogram(classifier, False)
 
     # helper function that generates dictionary of parameters
     # used to print histograms and violin plots in neptune
-    def upload_mu_and_sigma_histogram(self, classifier : nn.Module, epoch : int):
+    def upload_mu_and_sigma_histogram(self, classifier : nn.Module, test = False):
 
         mu_weight = []
         mu_bias = []
@@ -381,12 +387,27 @@ class HyperShot(HyperNetPOC):
         sigma_weight = np.concatenate(sigma_weight)
         sigma_bias = np.concatenate(sigma_bias)
 
-        return {
-            "mu_weight": mu_weight,
-            "mu_bias": mu_bias,
-            "sigma_weight": sigma_weight,
-            "sigma_bias": sigma_bias
-        }
+        if not test:
+            return {
+                "mu_weight": mu_weight,
+                "mu_bias": mu_bias,
+                "sigma_weight": sigma_weight,
+                "sigma_bias": sigma_bias
+            }
+        else:
+            print("TEST DICT")
+            print({
+                "mu_weight_test": mu_weight,
+                "mu_bias_test": mu_bias,
+                "sigma_weight_test": sigma_weight,
+                "sigma_bias_test": sigma_bias
+            })
+            return {
+                "mu_weight_test": mu_weight,
+                "mu_bias_test": mu_bias,
+                "sigma_weight_test": sigma_weight,
+                "sigma_bias_test": sigma_bias
+            }
 
     # helper function to create dictionary of bayesian parameters in target network (used in experiments)
     def get_mu_and_sigma(self):

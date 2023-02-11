@@ -60,8 +60,10 @@ def feature_evaluation(cl_data_file, model, n_way = 5, n_support = 5, n_query = 
     return acc
 
 
-def single_test(params):
+def single_test(params, repeat_num):
     acc_all = []
+
+    bayesian_params_dict = None
 
     iter_num = 600
     
@@ -199,7 +201,7 @@ def single_test(params):
         if isinstance(model, (MAML, HyperMAML)):
             acc_mean, acc_std, eval_time, *_ = model.test_loop( novel_loader, return_std = True, return_time=True)
         else:
-            acc_mean, acc_std, *_ = model.test_loop( novel_loader, return_std = True)
+            acc_mean, acc_std, _, bayesian_params_dict = model.test_loop(novel_loader, return_std = True, epoch=repeat_num)
 
     else:
         novel_file = os.path.join( checkpoint_dir.replace("checkpoints","features"), split_str +".hdf5") #defaut split = novel, but you can also test base or val classes
@@ -226,7 +228,7 @@ def single_test(params):
         f.write( 'Time: %s, Setting: %s, Acc: %s \n' %(timestamp,exp_setting,acc_str)  )
 
     print("Test loop time:", eval_time)
-    return acc_mean, eval_time
+    return acc_mean, eval_time, bayesian_params_dict
 
 def perform_test(params):
     seed = params.seed
@@ -234,12 +236,15 @@ def perform_test(params):
     # repeat the test N times changing the seed in range [seed, seed+repeat]
     accuracy_list = list()
     time_list = list()
+
+    bayesian_dicts = []
     for i in range(seed, seed + repeat):
         if (seed != 0):
             _set_seed(i)
         else:
             _set_seed(0)
-        acc, test_time = single_test(params)
+        acc, test_time, bayesian_params_dict = single_test(params, i)
+        bayesian_dicts.append(bayesian_params_dict)
         accuracy_list.append(acc)
         time_list.append(test_time)
 
@@ -257,7 +262,7 @@ def perform_test(params):
         "time_mean": mean_time,
         "time_std": std_time,
         "n_seeds": repeat
-    }
+    }, bayesian_dicts
 
 def main():        
     params = parse_args('test')

@@ -54,6 +54,8 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     #######################################
     #######################################
 
+    hypershot_args.add_argument('--hn_bayesian_test', action='store_true', help='Draw from random var on interference stage')
+
     #Without this flag model is bayesian from the beginning
     hypershot_args.add_argument('--hn_warmup', action='store_true', help="Turns on warmup between HyperShot and BayesianHyperShot")
     hypershot_args.add_argument("--hn_warmup_start_epoch", type=int, default=10, help="Start warmup at given epoch")
@@ -61,6 +63,7 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
 
     # describes number of forwards in target networtk for one input sample (later results are averaged)
     hypershot_args.add_argument("--hn_S", type=int, default=5, help="Number of samples.")
+    hypershot_args.add_argument("--hn_S_test", type=int, default=1, help="Number of samples on test.")
 
     # arguments for kld constant scaling and dynamic scaling
     hypershot_args.add_argument('--hn_kld_const_scaler', default=0, type=int, help='Example: for value=-3 scaling equals 10e-3')
