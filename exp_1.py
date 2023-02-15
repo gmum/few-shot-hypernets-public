@@ -227,6 +227,7 @@ def experiment(params_experiment):
         print("[WARNING] Cannot find 'best_file.tar' in: " + str(params_experiment.checkpoint_dir))
 
     neptune_run = setup_neptune(params_experiment)
+
     # primary batches for adaptation
     features = []
     labels = []
@@ -244,11 +245,8 @@ def experiment(params_experiment):
     query_datas1 = []
     support_datas2 = []
     query_datas2 = []
-    model.train()
-    # train on 'seen' data
+    
     for i, features1 in enumerate(features):
-        _ = model.set_forward_loss(features1, False)
-        plot_mu_sigma(neptune_run, model, i)
         features1 = features1.cuda()
         x_var = torch.autograd.Variable(features1)
         support_data = x_var[:, :model.n_support, :, :, :].contiguous().view(model.n_way * model.n_support,
