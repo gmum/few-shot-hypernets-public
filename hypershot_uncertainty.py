@@ -6,13 +6,13 @@ from methods.hypernets.hypernet_kernel import HyperShot
 import json
 
 def read_args(args_path):
-    with open(args_path) as args:
-        data = json.load(args)
-        return data
+    with open(args_path) as json_args:
+        args_dict = json.load(json_args)
+        return args_dict
  
 def create_model_instance(args_path):
-    args = read_args(args_path)
-    return HyperShot(model_dict[args.model], **args).cuda()
+    args_dict = read_args(args_path)
+    return HyperShot(model_dict[args_dict['model']], **args_dict).cuda()
 
 
 def experiment(model_path):
