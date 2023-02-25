@@ -17,7 +17,8 @@ def param_form(k, v, parser):
         return ''
     
     if k == "checkpoint_suffix":
-        return f'--{k} "{v}"'
+        new_v = v.replace(' ', '_')
+        return f'--{k} "{new_v}"'
     
     return f'--{k} {v}'
     
