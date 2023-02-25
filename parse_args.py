@@ -13,7 +13,7 @@ def param_form(k, v, parser):
     if type(v) == bool and v:
         return f'--{k}'
     
-    if not v or str(parser.get_default(v)) == str(v):
+    if not v or str(parser.get_default(k)) == str(v):
         return ''
     
     if k == "checkpoint_suffix":
