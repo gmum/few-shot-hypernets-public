@@ -2,7 +2,7 @@ import json
 import os
 
 def read_args():
-    args_path = os.environ['ARGS_PATH']
+    args_path = os.environ['ARGSPATH']
 
     with open(args_path) as json_args:
         args_dict = json.load(json_args)

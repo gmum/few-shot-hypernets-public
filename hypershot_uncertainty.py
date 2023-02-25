@@ -11,7 +11,7 @@ def create_model_instance(params):
 
 def experiment():
     params = parse_args('train') # We need to parse the same parameters as during training
-    model_path = os.environ['MODEL_PATH']
+    model_path = os.environ['MODELPATH']
 
 
     # Load model
