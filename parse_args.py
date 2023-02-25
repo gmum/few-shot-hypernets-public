@@ -15,11 +15,11 @@ def param_form(k, v):
     if not v:
         return ''
     
-    return f'--{k}={v}'
+    return f'--{k}="{v}"'
     
 def create_params():
     args_dict = read_args()
-    arguments = [param_form(k,v) for k, v in args_dict]
+    arguments = [param_form(k,v) for k, v in args_dict.items()]
     return ' '.join(arguments)
 
 if __name__ == '__main__':
