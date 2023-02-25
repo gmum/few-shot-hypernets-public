@@ -16,7 +16,7 @@ def experiment():
 
     # Load model
     model = create_model_instance(params)
-    tmp = torch.load(params.best_model_path)
+    tmp = torch.load(model_path)
     model.load_state_dict(tmp['state'])
 
 
