@@ -16,9 +16,9 @@ def param_form(k, v):
         return ''
     
     if k == "checkpoint_suffix":
-        return f'--{k}="{v}"'
+        return f'--{k} "{v}"'
     
-    return f'--{k}={v}'
+    return f'--{k} {v}'
     
 def create_params():
     args_dict = read_args()
