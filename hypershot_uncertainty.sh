@@ -1,6 +1,6 @@
 #!/bin/bash
-export ARGSPATH = "$1/args.json"
-export MODELPATH = "$1/best_model.tar"
+export ARGSPATH="$1/args.json"
+export MODELPATH="$1/best_model.tar"
 
 source activate few-shot-learning
 
