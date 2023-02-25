@@ -12,7 +12,8 @@ def read_args(args_path):
  
 def create_model_instance(args_path):
     args_dict = read_args(args_path)
-    train_few_shot_params = dict(n_way=args_dict['n_way'], n_support=args_dict['n_shot'], n_query=args_dict['n_query'])
+    n_query = max(1, int(16 * args_dict['test_n_way'] / args_dict['train_n_way']))
+    train_few_shot_params = dict(n_way=args_dict['train_n_way'], n_support=args_dict['n_shot'], n_query=n_query)
     return HyperShot(model_dict[args_dict['model']], **train_few_shot_params).cuda()
 
 
