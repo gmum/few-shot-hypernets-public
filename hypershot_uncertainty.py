@@ -14,7 +14,8 @@ import json
 # * `parse_args.py`
 # Then in io_utils.py create a function `create_parser` that simply creates parser and returns it (see how it works on master branch).
 # Parsers of different tested architectures may differ so results of mergin io_utils.py might be dangerous and time-consuming.
-# To run an experiment just copy a file `experiment_template.sh` and customize it.
+
+# NOTE: To run an experiment just copy a file `experiment_template.sh` and customize it.
  
 def create_model_instance(params):
     n_query = max(1, int(16 * params.test_n_way / params.train_n_way))

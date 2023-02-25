@@ -8,7 +8,7 @@
 
 BASEPATH="path_to_directory_with_best_model_and_args"
 
-cd $HOME/fork/miksa/few-shot-hypernets-public
+cd "path_to_few_shot_hypernets_public_repo"
 
 source activate few-shot-learning
 
