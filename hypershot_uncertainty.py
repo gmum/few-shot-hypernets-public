@@ -1,14 +1,27 @@
-#SIUSIAK
 import sys
+import os
 import torch
-from io_utils import setup_neptune
+from io_utils import setup_neptune, model_dict
 from methods.hypernets.hypernet_kernel import HyperShot
+import json
+
+def read_args(args_path):
+    with open(args_path) as args:
+        data = json.load(args)
+        return data
+ 
+def create_model_instance(args_path):
+    args = read_args(args_path)
+    return HyperShot(model_dict[args.model], **args).cuda()
+
 
 def experiment(model_path):
-    neptune_run = setup_neptune()
 
-    model = HyperShot().cuda()
-    tmp = torch.load(model_path)
+    best_model_path = os.path.join(model_path, "best_model.tar")
+    args_path = os.path.join(model_path, "args.json")
+
+    model = create_model_instance(args_path)
+    tmp = torch.load(best_model_path)
 
     model.load_state_dict(tmp['state'])
     print(model.S)
