@@ -6,7 +6,7 @@ import json
 
 
 # NOTE: This uncertainty experiment was created on the master branch.
-# But still we have to use it on proper branches with proper implementations of model architectures.
+# But still we have to use it on other branches with different implementations of model architectures (and different set of parameters).
 # If it is necessary to use this on other branches but differences in code does not allow to merge master you can do the following:
 # Checkout those files from master:
 # * hypershot_uncertainty.py
