@@ -5,7 +5,7 @@ def read_args():
     args_path = os.environ['ARGSPATH']
 
     with open(args_path) as json_args:
-        args_dict = json.load(json_args)
+        args_dict = dict(json.load(json_args))
         return args_dict
     
 def create_params():
