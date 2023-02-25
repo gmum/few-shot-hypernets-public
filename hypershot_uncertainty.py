@@ -3,6 +3,17 @@ import torch
 from io_utils import setup_neptune, model_dict, parse_args
 from methods.hypernets.hypernet_kernel import HyperShot
 import json
+
+
+# NOTE: This uncertainty experiment was created on the master branch.
+# But still we have to use it on proper branches with proper implementations of model architectures.
+# If it is necessary to use this on other branches but differences in code does not allow to merge master you can do the following:
+# Checkout those files from master:
+# * hypershot_uncertainty.py
+# * hypershot_uncertainty.sh
+# * parse_args.py
+# Then in io_utils.py create a function `create_parser` that simply creates parser and returns it (see how it works on master branch).
+# Parsers of different tested architectures may differ so results of mergin io_utils.py might be dangerous and time-consuming.
  
 def create_model_instance(params):
     n_query = max(1, int(16 * params.test_n_way / params.train_n_way))
