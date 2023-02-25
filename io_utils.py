@@ -45,8 +45,8 @@ class ParamHolder:
         return sorted([
             k for k in vars(self.params).keys() if k not  in self.history
         ])
-
-def parse_args(script):
+    
+def create_parser(script):
     parser = argparse.ArgumentParser(description= 'few-shot script %s' %(script), formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                      )
     parser.add_argument('--seed' , default=0, type=int,  help='Seed for Numpy and pyTorch. Default: 0 (None)')
@@ -114,6 +114,10 @@ def parse_args(script):
        raise ValueError('Unknown script')
 
     parser = hn_args.add_hn_args_to_parser(parser)
+    return parser
+
+def parse_args(script):
+    parser = create_parser(script)
     return ParamHolder(parser.parse_args())
 
 def parse_args_regression(script):
