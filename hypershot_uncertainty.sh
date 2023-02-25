@@ -1,3 +1,4 @@
+#!/bin/bash
 export ARGS_PATH = "$1/args.json"
 export MODEL_PATH = "$1/best_model.tar"
 
