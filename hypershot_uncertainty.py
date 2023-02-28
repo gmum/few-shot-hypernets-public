@@ -85,7 +85,7 @@ def experiment(N):
         Y.append(x)
         X.append(y)
         x, y = take_next()
-        while (reduce(np.intersect1d, (*Y, y)).size > 0) and cond(x, y): 
+        while cond(x, y) and (reduce(np.intersect1d, (*Y, y)).size > 0): 
             x, y = take_next()
         
     S, Q = model.parse_feature(X, is_feature=False)
