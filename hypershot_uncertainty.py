@@ -82,8 +82,8 @@ def experiment(N):
     Y = []
     x, y = take_next()
     while cond(x, y):
-        Y.append(x)
-        X.append(y)
+        Y.append(x.cuda())
+        X.append(y.cuda())
         x, y = take_next()
         while cond(x, y) and (reduce(np.intersect1d, (*Y, y)).size > 0): 
             x, y = take_next()
