@@ -84,8 +84,8 @@ def experiment(N):
     Y = []
     x, y = take_next()
     while cond(x, y):
-        Y.append(x.cpu())
-        X.append(y.cpu())
+        Y.append(y.cpu())
+        X.append(x.cpu())
         x, y = take_next()
         while cond(x, y) and (reduce(np.intersect1d, (*Y, y)).size > 0): 
             x, y = take_next()
