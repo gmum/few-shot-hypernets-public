@@ -32,11 +32,13 @@ def create_model_instance(params):
     return HyperShot(model_dict[params.model], params=params, **train_fs_params(params)).cuda()
 
 def load_dataset(params):
-    file = configs.data_dir[params.dataset] + 'base.json'
+    file = configs.data_dir['omniglot'] + 'noLatin.json'
     if params.dataset == 'cross':
         file = configs.data_dir['miniImagenet'] + 'all.json'
     elif params.dataset == 'cross_char':
         file = configs.data_dir['omniglot'] + 'noLatin.json'
+    else:
+        file = configs.data_dir[params.dataset] + 'base.json'
 
     image_size = 224
     if params.dataset in ['omniglot', 'cross_char']:
