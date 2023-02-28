@@ -84,8 +84,8 @@ def experiment(N):
     Y = torch.Tensor()
     x, y = take_next()
     while cond(x, y):
-        torch.cat((Y, y), 0)
-        torch.cat((X, x), 0)
+        Y = torch.cat((Y, y), 0)
+        X = torch.cat((X, x), 0)
         x, y = take_next()
         while cond(x, y) and (len(reduce(np.intersect1d, (*Y, y))) > 0): 
             x, y = take_next()
