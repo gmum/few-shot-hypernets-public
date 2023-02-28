@@ -80,17 +80,17 @@ def experiment(N):
     def cond(x, y):
         return (x is not None) and (y is not None)
 
-    X = []
-    Y = []
+    X = torch.Tensor()
+    Y = torch.Tensor()
     x, y = take_next()
     while cond(x, y):
-        Y.append(y.cpu())
-        X.append(x.cpu())
+        Y.append(y)
+        X.append(x)
         x, y = take_next()
         while cond(x, y) and (reduce(np.intersect1d, (*Y, y)).size > 0): 
             x, y = take_next()
         
-    S, Q = model.parse_feature(torch.as_tensor(np.array(X)), is_feature=False)
+    S, Q = model.parse_feature(X, is_feature=False)
     i = 0
     for s, q in zip(enumerate(S), enumerate(Q)):
         classifier, _ = model.generate_target_net(s)
