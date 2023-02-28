@@ -87,7 +87,7 @@ def experiment(N):
         torch.cat((Y, y), 0)
         torch.cat((X, x), 0)
         x, y = take_next()
-        while cond(x, y) and (reduce(np.intersect1d, (*Y, y)).size > 0): 
+        while cond(x, y) and (len(reduce(np.intersect1d, (*Y, y))) > 0): 
             x, y = take_next()
         
     S, Q = model.parse_feature(X, is_feature=False)
