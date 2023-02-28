@@ -25,28 +25,6 @@ from methods.hypernets.hypernet_kernel import HyperShot
 
 # NOTE: To run an experiment just copy a file `experiment_template.sh` and customize it.
 
-def getCheckpointDir(params, configs):
-    checkpoint_dir = '%s/checkpoints/%s/%s_%s' % (
-        configs.save_dir,
-        params.dataset,
-        params.model,
-        params.method
-    )
-
-    if params.train_aug:
-        checkpoint_dir += '_aug'
-    if not params.method in ['baseline', 'baseline++']:
-        checkpoint_dir += '_%dway_%dshot' % (params.train_n_way, params.n_shot)
-    if params.checkpoint_suffix != "":
-        checkpoint_dir = checkpoint_dir + "_" + params.checkpoint_suffix
-
-    if params.dataset == "cross":
-        if not Path(checkpoint_dir).exists():
-            checkpoint_dir = checkpoint_dir.replace("cross", "miniImagenet")
-
-    assert Path(checkpoint_dir).exists(), checkpoint_dir
-    return checkpoint_dir
-
 def train_fs_params(params):
     n_query = max(1, int(16 * params.test_n_way / params.train_n_way))
     return dict(n_way=params.train_n_way, n_support=params.n_shot, n_query=n_query)
@@ -83,7 +61,7 @@ def upload_hist(neptune_run, arr, i):
 
 def experiment(N):
     params = parse_args('train') # We need to parse the same parameters as during training
-    params.checkpoint_dir = getCheckpointDir(params, configs)
+    params.checkpoint_dir = os.environ.get('BASEPATH')
     neptune_run = setup_neptune(params)
 
     model_path = os.environ.get('MODELPATH')
