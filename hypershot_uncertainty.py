@@ -90,7 +90,13 @@ def experiment(N):
         while cond(x, y) and (len(reduce(np.intersect1d, (*Y, y))) > 0): 
             x, y = take_next()
         
-    S, Q = model.parse_feature(X, is_feature=False)
+    S = torch.Tensor()
+    Q = torch.Tensor()
+    for xi in X:
+        s, q = model.parse_feature(xi, is_feature=False)
+        S = torch.cat((S, s), 0)
+        Q = torch.cat((Q, q), 0)
+
     i = 0
     for s, q in zip(enumerate(S), enumerate(Q)):
         classifier, _ = model.generate_target_net(s)
