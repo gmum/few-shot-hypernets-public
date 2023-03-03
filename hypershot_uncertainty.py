@@ -95,7 +95,7 @@ def experiment(N):
             x, y = take_next()
         
     ims = get_image_size(params)
-    B = torch.split(X.flatten(), model.n_way*(model.n_support + model.n_query)*ims*ims)
+    B = torch.split(X, model.n_way*(model.n_support + model.n_query))
 
     S = torch.Tensor()
     Q = torch.Tensor()
