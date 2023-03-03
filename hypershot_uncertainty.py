@@ -32,6 +32,14 @@ def train_fs_params(params):
 def create_model_instance(params):
     return HyperShot(model_dict[params.model], params=params, **train_fs_params(params)).cuda()
 
+def get_image_size(params):
+    image_size = 224
+    if params.dataset in ['omniglot', 'cross_char']:
+        image_size = 28
+    else:
+        image_size = 84
+    return image_size
+
 def load_dataset(params):
     file = configs.data_dir['omniglot'] + 'noLatin.json'
     if params.dataset == 'cross':
@@ -41,11 +49,7 @@ def load_dataset(params):
     else:
         file = configs.data_dir[params.dataset] + 'base.json'
 
-    image_size = 224
-    if params.dataset in ['omniglot', 'cross_char']:
-        image_size = 28
-    else:
-        image_size = 84
+    image_size = get_image_size(params)
 
     data_mgr = SetDataManager(image_size, **train_fs_params(params))
     return iter(data_mgr.get_data_loader(file, aug=False))
@@ -90,10 +94,13 @@ def experiment(N):
         while cond(x, y) and (len(reduce(np.intersect1d, (*Y, y))) > 0): 
             x, y = take_next()
         
+    ims = get_image_size(params)
+    B = torch.split(X.flatten(), [model.n_way * (model.n_support + model.n_query), ims, ims])
+
     S = torch.Tensor()
     Q = torch.Tensor()
-    for xi in torch.split(X.flatten(), model.n_way * (model.n_support + model.n_query)):
-        s, q = model.parse_feature(xi, is_feature=False)
+    for b in B:
+        s, q = model.parse_feature(b, is_feature=False)
         S = torch.cat((S, s), 0)
         Q = torch.cat((Q, q), 0)
 
