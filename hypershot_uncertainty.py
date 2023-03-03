@@ -95,7 +95,8 @@ def experiment(N):
             x, y = take_next()
         
     ims = get_image_size(params)
-    bs = torch.numel(X)
+    bs =  model.n_way*(model.n_support + model.n_query)*ims*ims
+    bn = torch.numel(X)/bs
     B = torch.reshape(X, (bs, model.n_way*(model.n_support + model.n_query), ims, ims))
 
     S = torch.Tensor()
