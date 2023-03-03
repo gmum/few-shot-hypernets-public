@@ -92,7 +92,7 @@ def experiment(N):
         
     S = torch.Tensor()
     Q = torch.Tensor()
-    for xi in X.flatten():
+    for xi in torch.split(X.flatten(), model.n_way * (model.n_support + model.n_query)):
         s, q = model.parse_feature(xi, is_feature=False)
         S = torch.cat((S, s), 0)
         Q = torch.cat((Q, q), 0)
