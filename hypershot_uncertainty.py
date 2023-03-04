@@ -105,8 +105,8 @@ def experiment(N):
     print(B.size())
     print('-------------')
 
-    S = torch.Tensor()
-    Q = torch.Tensor()
+    S = torch.Tensor().cuda()
+    Q = torch.Tensor().cuda()
     for b in B:
         print(b.size())
         s, q = model.parse_feature(b, is_feature=False)
