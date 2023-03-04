@@ -102,7 +102,7 @@ def experiment(N):
     ims = get_image_size(params) 
     bb = model.n_way*(model.n_support + model.n_query)
     bs = bb*ims*ims
-    bn = int(torch.numel(X)/(bs*(X.size()[2])))
+    bn = int(torch.numel(X)/bs)
     B = torch.reshape(X, (bn, bb, *X.size()[2:]))
     print(B.shape)
 
