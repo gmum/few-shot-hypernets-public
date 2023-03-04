@@ -111,6 +111,7 @@ def experiment(N):
 
     i = 0
     for s in S:
+        print(s.shape)
         classifier, _ = model.generate_target_net(s)
         r = []
         for _ in range(N):
