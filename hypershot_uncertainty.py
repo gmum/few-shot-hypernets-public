@@ -94,6 +94,8 @@ def experiment(N):
         while cond(x, y) and (len(reduce(np.intersect1d, (*Y, y))) > 0): 
             x, y = take_next()
 
+    model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
+
     #sorry for ugly calculations, just making it work in a hurry
 
     ims = get_image_size(params) 
