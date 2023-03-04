@@ -97,7 +97,7 @@ def experiment(N):
     ims = get_image_size(params)
     bs =  model.n_way*(model.n_support + model.n_query)*ims*ims
     bn = int(torch.numel(X)/bs)
-    B = torch.chunk(X, bn)
+    B = torch.chunk(X.flatten(start_dim=0, end_dim=0), bn)
 
     S = torch.Tensor()
     Q = torch.Tensor()
