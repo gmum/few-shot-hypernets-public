@@ -96,9 +96,10 @@ def experiment(N):
         
     print(X.size())
     ims = get_image_size(params)
-    bs =  model.n_way*(model.n_support + model.n_query)*ims*ims
+    bb = model.n_way*(model.n_support + model.n_query)
+    bs = bb*ims*ims
     bn = int(torch.numel(X)/bs)
-    B = torch.chunk(X.flatten(start_dim=0, end_dim=0), bn)
+    B = torch.reshape(X.flatten(start_dim=0, end_dim=0), (bn, bb, ims, ims))
 
     print(B.size())
     print('---------------')
