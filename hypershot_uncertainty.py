@@ -109,6 +109,9 @@ def experiment(N):
         S = torch.cat((S, s), 0)
         Q = torch.cat((Q, q), 0)
 
+    print(S.shape)
+    print(Q.shape)
+
     i = 0
     for s in S:
         print(s.shape)
