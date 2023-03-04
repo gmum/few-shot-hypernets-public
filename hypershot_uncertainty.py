@@ -96,7 +96,7 @@ def experiment(N):
         
     print(X.size())
     bb = model.n_way*(model.n_support + model.n_query)
-    B = torch.split(X, (bb, X[2:]))
+    B = torch.split(X, (bb, *X.size()[2:]))
     print(B.size())
     print('-------------')
 
