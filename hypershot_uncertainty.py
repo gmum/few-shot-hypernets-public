@@ -94,12 +94,10 @@ def experiment(N):
         while cond(x, y) and (len(reduce(np.intersect1d, (*Y, y))) > 0): 
             x, y = take_next()
         
-    # working on it in a hurry
     ims = get_image_size(params)
     bs =  model.n_way*(model.n_support + model.n_query)*ims*ims
     bn = int(torch.numel(X)/bs)
-    print(bn)
-    B = torch.reshape(X, (bn, model.n_way*(model.n_support + model.n_query), ims, ims))
+    B = torch.chunk(X.flatten(), bn)
 
     S = torch.Tensor()
     Q = torch.Tensor()
