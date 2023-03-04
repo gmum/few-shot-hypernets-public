@@ -100,8 +100,6 @@ def experiment(N):
     bn = int(torch.numel(X)/(bs*(X.size()[2])))
     B = torch.reshape(X, (bn, model.n_way, model.n_support + model.n_query, *X.size()[2:]))
 
-    model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
-
     S = torch.Tensor().cuda()
     Q = torch.Tensor().cuda()
     for b in B:
@@ -114,6 +112,7 @@ def experiment(N):
     print(S.shape)
     print(Q.shape)
 
+    model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
     model.eval()
 
     i = 0
