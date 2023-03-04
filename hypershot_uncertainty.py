@@ -106,14 +106,14 @@ def experiment(N):
 
     S = torch.Tensor()
     Q = torch.Tensor()
-    for b in B[:-1]:
-        print(b.size())
-        s, q = model.parse_feature(b, is_feature=False)
-        print(s.size())
-        print(q.size())
-        print('---')
-        S = torch.cat((S, s), 0)
-        Q = torch.cat((Q, q), 0)
+        #for b in B[:-1]:
+        #print(b.size())
+    S, Q = model.parse_feature(B, is_feature=False)
+    print(s.size())
+    print(q.size())
+    print('---')
+        #S = torch.cat((S, s), 0)
+        #Q = torch.cat((Q, q), 0)
 
     i = 0
     for s, q in zip(enumerate(S), enumerate(Q)):
