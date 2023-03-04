@@ -101,7 +101,7 @@ def experiment(N):
 
     S = torch.Tensor()
     Q = torch.Tensor()
-    for b in B:
+    for b in B[:-1]:
         s, q = model.parse_feature(b, is_feature=False)
         S = torch.cat((S, s), 0)
         Q = torch.cat((Q, q), 0)
