@@ -97,27 +97,20 @@ def experiment(N):
     #sorry for ugly calculations, just making it work in a hurry
 
     ims = get_image_size(params) 
-    print(X.size())
     bb = model.n_way*(model.n_support + model.n_query)
     bs = bb*ims*ims
     bn = int(torch.numel(X)/(bs*(X.size()[2])))
     B = torch.reshape(X, (bn, model.n_way, model.n_support + model.n_query, *X.size()[2:]))
-    print(B.size())
-    print('-------------')
 
     S = torch.Tensor().cuda()
     Q = torch.Tensor().cuda()
     for b in B:
-        print(b.size())
         s, q = model.parse_feature(b, is_feature=False)
-        print(s.size())
-        print(q.size())
-        print('---')
         S = torch.cat((S, s), 0)
         Q = torch.cat((Q, q), 0)
 
     i = 0
-    for s, q in zip(enumerate(S), enumerate(Q)):
+    for s, q in torch.stack((S, Q),dim=1):
         classifier, _ = model.generate_target_net(s)
         r = []
         for _ in range(N):
