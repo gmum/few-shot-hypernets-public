@@ -106,8 +106,8 @@ def experiment(N):
     Q = torch.Tensor().cuda()
     for b in B:
         s, q = model.parse_feature(b, is_feature=False)
-        s = torch.rehape(s, (1, *s.size()))
-        q = torch.rehape(q, (1, *q.size()))
+        s = torch.reshape(s, (1, *s.size()))
+        q = torch.reshape(q, (1, *q.size()))
         S = torch.cat((S, s), 0)
         Q = torch.cat((Q, q), 0)
 
