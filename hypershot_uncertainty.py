@@ -110,7 +110,7 @@ def experiment(N):
         Q = torch.cat((Q, q), 0)
 
     i = 0
-    for s, q in torch.stack((S, Q),dim=1):
+    for s, q in torch.stack((S, Q),dim=0):
         classifier, _ = model.generate_target_net(s)
         r = []
         for _ in range(N):
