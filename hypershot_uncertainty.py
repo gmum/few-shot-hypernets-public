@@ -94,15 +94,23 @@ def experiment(N):
         while cond(x, y) and (len(reduce(np.intersect1d, (*Y, y))) > 0): 
             x, y = take_next()
         
+    print(X.size())
     ims = get_image_size(params)
     bs =  model.n_way*(model.n_support + model.n_query)*ims*ims
     bn = int(torch.numel(X)/bs)
     B = torch.chunk(X.flatten(start_dim=0, end_dim=0), bn)
 
+    print(B.size())
+    print('---------------')
+
     S = torch.Tensor()
     Q = torch.Tensor()
     for b in B[:-1]:
+        print(b.size())
         s, q = model.parse_feature(b, is_feature=False)
+        print(s.size())
+        print(q.size())
+        print('---')
         S = torch.cat((S, s), 0)
         Q = torch.cat((Q, q), 0)
 
