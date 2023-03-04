@@ -110,11 +110,11 @@ def experiment(N):
         Q = torch.cat((Q, q), 0)
 
     i = 0
-    for s, q in torch.stack((S, Q),dim=0):
+    for s in S:
         classifier, _ = model.generate_target_net(s)
         r = []
         for _ in range(N):
-            r.append(torch.nn.functional.softmax(classifier(q), dim=1)[0].clone().data.cpu().numpy())
+            r.append(torch.nn.functional.softmax(classifier(Q[i]), dim=1)[0].clone().data.cpu().numpy())
         upload_hist(neptune_run, r, i)
         i += 1
 
