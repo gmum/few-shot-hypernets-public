@@ -93,10 +93,13 @@ def experiment(N):
         x, y = take_next()
         while cond(x, y) and (len(reduce(np.intersect1d, (*Y, y))) > 0): 
             x, y = take_next()
-        
+
+    ims = get_image_size(params) 
     print(X.size())
     bb = model.n_way*(model.n_support + model.n_query)
-    B = torch.split(X, (1, bb, *X.size()[2:]))
+    bs = bb*ims*ims
+    bn = torch.numel(X)/bs*(X.size()[2])
+    B = torch.reshape(X, (bn, bb, *X.size()[2:]))
     print(B.size())
     print('-------------')
 
