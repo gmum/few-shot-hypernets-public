@@ -95,25 +95,21 @@ def experiment(N):
             x, y = take_next()
         
     print(X.size())
-    ims = get_image_size(params)
     bb = model.n_way*(model.n_support + model.n_query)
-    bs = bb*ims*ims
-    bn = int(torch.numel(X)/bs)
-    B = torch.reshape(X.flatten(start_dim=0, end_dim=0), (bn, bb, ims, ims))
-
+    B = torch.split(X, (bb, X[2:]))
     print(B.size())
-    print('---------------')
+    print('-------------')
 
     S = torch.Tensor()
     Q = torch.Tensor()
-        #for b in B[:-1]:
-        #print(b.size())
-    S, Q = model.parse_feature(B, is_feature=False)
-    print(s.size())
-    print(q.size())
-    print('---')
-        #S = torch.cat((S, s), 0)
-        #Q = torch.cat((Q, q), 0)
+    for b in B:
+        print(b.size())
+        s, q = model.parse_feature(b, is_feature=False)
+        print(s.size())
+        print(q.size())
+        print('---')
+        S = torch.cat((S, s), 0)
+        Q = torch.cat((Q, q), 0)
 
     i = 0
     for s, q in zip(enumerate(S), enumerate(Q)):
