@@ -74,7 +74,6 @@ def experiment(N):
     model = create_model_instance(params)
     tmp = torch.load(model_path)
     model.load_state_dict(tmp['state'])
-    model.eval()
 
     dataset = load_dataset(params)
 
@@ -94,17 +93,12 @@ def experiment(N):
         while cond(x, y) and (len(reduce(np.intersect1d, (*Y, y))) > 0): 
             x, y = take_next()
 
-    model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
-
     #sorry for ugly calculations, just making it work in a hurry
-    print(model.n_query)
-    print(X.shape)
     ims = get_image_size(params) 
     bb = model.n_way*(model.n_support + model.n_query)
     bs = bb*ims*ims
-    bn = int(torch.numel(X)/bs)
-    B = torch.reshape(X, (bn, bb, *X.size()[2:]))
-    print(B.shape)
+    bn = int(torch.numel(X)/(bs*(X.size()[2])))
+    B = torch.reshape(X, (bn, model.n_way, model.n_support + model.n_query, *X.size()[2:]))
 
     S = torch.Tensor().cuda()
     Q = torch.Tensor().cuda()
@@ -117,6 +111,9 @@ def experiment(N):
 
     print(S.shape)
     print(Q.shape)
+
+    model.eval()
+    model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
 
     i = 0
     for s in S:
