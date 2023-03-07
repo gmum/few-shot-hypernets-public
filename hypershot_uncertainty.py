@@ -63,9 +63,8 @@ def upload_hist(neptune_run, arr, i):
     neptune_run[f"Histogram{i}"].upload(File.as_image(fig))
     plt.close(fig)
 
-def experiment(N):
+def experiment():
     params = parse_args('train') # We need to parse the same parameters as during training
-    print(os.environ.get('BASEPATH'))
     params.checkpoint_dir = os.environ.get('BASEPATH')
     neptune_run = setup_neptune(params)
 
@@ -123,12 +122,10 @@ def experiment(N):
         print(s.shape)
         print(q.shape)
         classifier, _ = model.generate_target_net(s)
-        r = []
-        for _ in range(N):
-            rel = model.build_relations_features(support_feature=s, feature_to_classify=q)
-            r.append(torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy())
+        rel = model.build_relations_features(support_feature=s, feature_to_classify=q)
+        r = torch.nn.functional.softmax(classifier(rel), dim=1).clone().data.cpu().numpy()
         upload_hist(neptune_run, r, i)
         i += 1
 
 if __name__ == '__main__':
-    experiment(30)
+    experiment()
