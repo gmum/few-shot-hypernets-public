@@ -172,6 +172,10 @@ def setup_neptune(params) -> Run:
             with run_file.open("r") as f:
                 run_id = f.read()
                 print("Resuming neptune run", run_id)
+        print(run_name)
+        print(run_id)
+        print(params.checkpoint_suffix)
+        print(params.params)
 
         run = neptune.init(
             name=run_name,
