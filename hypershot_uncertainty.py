@@ -118,12 +118,13 @@ def experiment(N):
     i = 0
     for s in S:
         q = Q[i]
+        q = q.reshape(-1, q.shape[-1])
         print(s.shape)
         print(q.shape)
         classifier, _ = model.generate_target_net(s)
         r = []
         for _ in range(N):
-            rel = model.build_relations_features(s, q)
+            rel = model.build_relations_features(support_feature=s, feature_to_classify=q)
             r.append(torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy())
         upload_hist(neptune_run, r, i)
         i += 1
