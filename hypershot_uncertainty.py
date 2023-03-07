@@ -90,8 +90,8 @@ def experiment():
         Y = torch.cat((Y, y), 0)
         X = torch.cat((X, x), 0)
         x, y = take_next()
-        while cond(x, y) and (len(reduce(np.intersect1d, (*Y, y))) > 0): 
-            x, y = take_next()
+        #while cond(x, y) and (len(reduce(np.intersect1d, (*Y, y))) > 0): 
+        #    x, y = take_next()
 
     #sorry for ugly calculations, just making it work in a hurry
     ims = get_image_size(params) 
