@@ -125,7 +125,7 @@ def experiment(N):
         rel = model.build_relations_features(support_feature=s, feature_to_classify=q)
         r = [] 
         for _ in range(N):
-            r.append(torch.stack(classifier(rel).clone().data.cpu().numpy()).mean(dim=0))
+            r.append(torch.stack(classifier(rel).clone().data.cpu()).mean(dim=0))
         upload_hist(neptune_run, r, i)
         i += 1
 
