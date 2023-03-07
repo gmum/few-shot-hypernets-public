@@ -164,18 +164,18 @@ def get_best_file(checkpoint_dir):
 
 def setup_neptune(params) -> Run:
     try:
+        print(params.checkpoint_dir)
         run_name = Path(params.checkpoint_dir).relative_to(Path(configs.save_dir) / "checkpoints").name
         run_file = Path(params.checkpoint_dir) / "NEPTUNE_RUN.txt"
+
+        print(params.run_name)
+        print(params.run_file)
 
         run_id = None
         if params.resume and run_file.exists():
             with run_file.open("r") as f:
                 run_id = f.read()
                 print("Resuming neptune run", run_id)
-        print(run_name)
-        print(run_id)
-        print(params.checkpoint_suffix)
-        print(params.params)
 
         run = neptune.init(
             name=run_name,

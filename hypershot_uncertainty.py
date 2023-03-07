@@ -66,7 +66,6 @@ def upload_hist(neptune_run, arr, i):
 def experiment(N):
     params = parse_args('train') # We need to parse the same parameters as during training
     params.checkpoint_dir = os.environ.get('BASEPATH')
-    print(params)
     neptune_run = setup_neptune(params)
 
     model_path = os.environ.get('MODELPATH')
