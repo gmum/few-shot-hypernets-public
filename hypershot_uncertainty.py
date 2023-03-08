@@ -54,14 +54,15 @@ def load_dataset(params):
     data_mgr = SetDataManager(image_size, **train_fs_params(params))
     return iter(data_mgr.get_data_loader(file, aug=False))
 
-def upload_hist(neptune_run, arr, i):
-    fig = plt.figure()
-    plt.hist(arr, edgecolor="black", range=[0, 1], bins=25)
-    mu = np.mean(arr)
-    std = np.std(arr)
-    plt.title(f'$\mu = {mu:.3}, \sigma = {std:.3}$')
-    neptune_run[f"Histogram{i}"].upload(File.as_image(fig))
-    plt.close(fig)
+def upload_hist(neptune_run, n, arr, i):
+    for j in range(n):
+        fig = plt.figure()
+        plt.hist(arr[j], edgecolor="black", range=[0, 1], bins=25)
+        mu = np.mean(arr)
+        std = np.std(arr)
+        plt.title(f'$\mu = {mu:.3}, \sigma = {std:.3}$')
+        neptune_run[f"Histogram{j}, {i}"].upload(File.as_image(fig))
+        plt.close(fig)
 
 def experiment(N):
     params = parse_args('train') # We need to parse the same parameters as during training
@@ -123,8 +124,12 @@ def experiment(N):
         print(q.shape)
         classifier, _ = model.generate_target_net(s)
         rel = model.build_relations_features(support_feature=s, feature_to_classify=q)
-        r = torch.nn.functional.softmax(classifier(rel))[0].clone().data.cpu().numpy()
-        upload_hist(neptune_run, r, i)
+        r = [[] for _ in range(model.n_way)]
+        for _ in range(N):
+            sample = torch.nn.functional.softmax(classifier(rel), dim=1).clone().data.cpu().numpy()
+            for j in range(model.n_way):
+                r[j].append(sample[j])
+        upload_hist(neptune_run, model.n_way, r, i)
         i += 1
 
 if __name__ == '__main__':
