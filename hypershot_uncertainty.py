@@ -55,13 +55,14 @@ def load_dataset(params):
     return iter(data_mgr.get_data_loader(file, aug=False))
 
 def upload_hist(neptune_run, n, arr, i):
+    print(arr)
     for j in range(n):
         fig = plt.figure()
         plt.hist(arr[j], edgecolor="black", range=[0, 1], bins=25)
-        mu = np.mean(arr)
-        std = np.std(arr)
+        mu = np.mean(arr[j])
+        std = np.std(arr[j])
         plt.title(f'$\mu = {mu:.3}, \sigma = {std:.3}$')
-        neptune_run[f"Histogram{j}, {i}"].upload(File.as_image(fig))
+        neptune_run[f"Histogram C: {j}, I: {i}"].upload(File.as_image(fig))
         plt.close(fig)
 
 def experiment(N):
@@ -110,9 +111,6 @@ def experiment(N):
         S = torch.cat((S, s), 0)
         Q = torch.cat((Q, q), 0)
 
-    print(S.shape)
-    print(Q.shape)
-
     model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
     model.eval()
 
@@ -120,12 +118,12 @@ def experiment(N):
     for s in S:
         q = Q[i]
         q = q.reshape(-1, q.shape[-1])
-        print(s.shape)
-        print(q.shape)
         classifier, _ = model.generate_target_net(s)
         rel = model.build_relations_features(support_feature=s, feature_to_classify=q)
         r = [[] for _ in range(model.n_way)]
         for _ in range(N):
+            print('---')
+            print(classifier(rel))
             sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
             for j in range(model.n_way):
                 r[j].append(sample[j])
