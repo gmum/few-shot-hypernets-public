@@ -126,7 +126,7 @@ def experiment(N):
         rel = model.build_relations_features(support_feature=s, feature_to_classify=q)
         r = [[] for _ in range(model.n_way)]
         for _ in range(N):
-            sample = torch.nn.functional.softmax(classifier(rel), dim=1).clone().data.cpu().numpy()
+            sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
             for j in range(model.n_way):
                 r[j].append(sample[j])
         upload_hist(neptune_run, model.n_way, r, i)
