@@ -55,7 +55,6 @@ def load_dataset(params):
     return iter(data_mgr.get_data_loader(file, aug=False))
 
 def upload_hist(neptune_run, n, arr, i):
-    print(arr)
     for j in range(n):
         fig = plt.figure()
         plt.hist(arr[j], edgecolor="black", range=[0, 1], bins=25)
@@ -123,7 +122,8 @@ def experiment(N):
         r = [[] for _ in range(model.n_way)]
         for _ in range(N):
             print('---')
-            print(classifier(rel))
+            o = classifier(rel)
+            print(o.shape)
             sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
             for j in range(model.n_way):
                 r[j].append(sample[j])
