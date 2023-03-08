@@ -133,4 +133,4 @@ def experiment(N):
         i += 1
 
 if __name__ == '__main__':
-    experiment(100)
+    experiment(30)
