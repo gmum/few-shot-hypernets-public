@@ -119,10 +119,10 @@ def experiment(N):
     s1, q1 = model.parse_feature(b, is_feature=False)
     sy1 = y[:, :model.n_support].cuda()
     qy1 = y[:, model.n_support:].cuda()
-    s1 = torch.reshape(s1, (1, *s1.size()))
-    q1 = torch.reshape(q1, (1, *q1.size()))
-    sy1 = torch.reshape(sy1, (1, *sy1.size()))
-    qy1 = torch.reshape(qy1, (1, *qy1.size()))
+    # s1 = torch.reshape(s1, (1, *s1.size()))
+    # q1 = torch.reshape(q1, (1, *q1.size()))
+    # sy1 = torch.reshape(sy1, (1, *sy1.size()))
+    # qy1 = torch.reshape(qy1, (1, *qy1.size()))
 
     # Now we need to find the other pair that meets earlier mentioned condition
     # We will simply check how certain class that meets this requirement behaves when we pass it through the classifier
@@ -137,10 +137,10 @@ def experiment(N):
         s2, q2 = model.parse_feature(b, is_feature=False)
         sy2 = y[:, :model.n_support].cuda()
         qy2 = y[:, model.n_support:].cuda()
-        s2 = torch.reshape(s2, (1, *s2.size()))
-        q2 = torch.reshape(q2, (1, *q2.size()))
-        sy2 = torch.reshape(sy2, (1, *sy2.size()))
-        qy2 = torch.reshape(qy2, (1, *qy2.size()))
+        # s2 = torch.reshape(s2, (1, *s2.size()))
+        # q2 = torch.reshape(q2, (1, *q2.size()))
+        # sy2 = torch.reshape(sy2, (1, *sy2.size()))
+        # qy2 = torch.reshape(qy2, (1, *qy2.size()))
 
         desired_class = find_targets_with_non_empty_difference(sy1, sy2)
 
