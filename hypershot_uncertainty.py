@@ -148,7 +148,7 @@ def experiment(N):
 
     desired_class = None
 
-    for b, y in zip(B,Y)[1:]:
+    for b, y in zippedDataset:
         S2 = torch.Tensor().cuda()
         Q2 = torch.Tensor().cuda()
         SY2 = torch.Tensor().cuda()
