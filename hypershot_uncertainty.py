@@ -169,6 +169,10 @@ def experiment(N):
     qy2_index = (qy2 == desired_class).nonzero(as_tuple=False)[0] # of course there might be more than one element of this class
     print(f"QY2 index: {qy2_index}")
 
+    # for those images from distribution we just pick first element
+    qy1_index = torch.tensor([0], device='cuda:0')
+    sy1_index = torch.tensor([0], device='cuda:0')
+
     model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
     model.eval()
 
@@ -177,7 +181,7 @@ def experiment(N):
     q1 = q1.reshape(-1, q1.shape[-1])
     classifier, _ = model.generate_target_net(s1)
     rel = model.build_relations_features(support_feature=s1, feature_to_classify=q1)
-    r = [[] for _ in range(model.n_way)]
+    # r = [[] for _ in range(model.n_way)]
     for _ in range(N):
             print('---')
             o = classifier(rel)
@@ -186,10 +190,22 @@ def experiment(N):
             # for j in range(model.n_way):
             #     r[j].append(sample[j])
 
-    # Next step is to do the same but instead of q1 use s1
+    # in this loop we do a forward pass
+    # we get tensor [80,5] 80 is number of images, and 5 is number of classes
+    # in other words each element has 5 class probabilities
+    # now we focus on measuring probabilities of element with qy1_index (since forward pass was for q1) Probably something like: sample[0,:]
+    # gather data from N sampling stages and find its expected value and standard deviation
 
-    # Final step is to test how it works on samples that are out of distribution
-    # We simply use q2 instead of q1 and check how probabilities changes for element with QY2_index value (probably one redundant dimension, because it is a whole batch)
+    # THEN:
+
+    # do a forward pass for s1 tensor (buld_relation_features for support_feature=s1, feature_to_classify=s1)
+    # if it will result in wrong dimension there is a workaround
+    # in tensor q1 we can swap first image with first image from s1 (it will be again sample[0, :] to get probability for each class)
+    # (of course most of the images in tensor still will be from this query set but we just need to focus on probabilities of this one image as previously for q1)
+
+
+    # finally we want to pass q2 to build_relational_features as feature_to_classify=q2
+    # and focus on probabilities for qy2_index (those are probabilities of a class that does not exist in support set s1) HERE IS A CHANGE sample[qy2_index, :]
 
 if __name__ == '__main__':
     experiment(1)
