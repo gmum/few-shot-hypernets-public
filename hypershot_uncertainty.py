@@ -106,13 +106,12 @@ def experiment(N):
         q = torch.reshape(q, (1, *q.size()))
         S = torch.cat((S, s), 0)
         Q = torch.cat((Q, q), 0)
-        break
 
     print(S.shape)
     print(Q.shape)
 
-    # model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
-    # model.eval()
+    model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
+    model.eval()
 
     # i = 0
     # for s in S:
