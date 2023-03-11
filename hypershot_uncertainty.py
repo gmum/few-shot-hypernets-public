@@ -104,6 +104,9 @@ def experiment(N):
 
     S = torch.Tensor().cuda()
     Q = torch.Tensor().cuda()
+    SY = torch.Tensor().cuda()
+    QY = torch.Tensor().cuda()
+
     for b, y in zip(B,Y):
         s, q = model.parse_feature(b, is_feature=False)
         sy = y[:, :model.n_support]
@@ -116,10 +119,16 @@ def experiment(N):
         q = torch.reshape(q, (1, *q.size()))
         S = torch.cat((S, s), 0)
         Q = torch.cat((Q, q), 0)
+        sy = torch.reshape(sy, (1, *s.size()))
+        qy = torch.reshape(qy, (1, *q.size()))
+        SY = torch.cat((S, s), 0)
+        QY = torch.cat((Q, q), 0)
         break
 
     print(S.shape)
     print(Q.shape)
+    print(SY.shape)
+    print(QY.shape)
 
     model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
     model.eval()
