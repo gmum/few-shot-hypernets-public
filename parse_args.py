@@ -3,6 +3,7 @@ import os
 from io_utils import create_parser
 
 def read_args():
+    print(f"Loading args from {os.environ.get('ARGSPATH')}")
     args_path = os.environ.get('ARGSPATH')
 
     with open(args_path) as json_args:
