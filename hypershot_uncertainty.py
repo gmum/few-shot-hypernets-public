@@ -6,11 +6,10 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-from neptune.new.types import File
 
 import configs
 from data.datamgr import SetDataManager
-from io_utils import model_dict, parse_args, setup_neptune
+from io_utils import model_dict, parse_args
 from methods.hypernets.hypernet_kernel import HyperShot
 
 # NOTE: This uncertainty experiment was created on the master branch.
@@ -54,21 +53,20 @@ def load_dataset(params):
     data_mgr = SetDataManager(image_size, **train_fs_params(params))
     return iter(data_mgr.get_data_loader(file, aug=False))
 
-def upload_hist(neptune_run, n, arr, i):
-    for j in range(n):
-        fig = plt.figure()
-        plt.hist(arr[j], edgecolor="black", range=[0, 1], bins=25)
-        mu = np.mean(arr[j])
-        std = np.std(arr[j])
-        plt.title(f'$\mu = {mu:.3}, \sigma = {std:.3}$')
-        neptune_run[f"Histogram C: {j}, I: {i}"].upload(File.as_image(fig))
-        plt.close(fig)
+# def upload_hist(neptune_run, n, arr, i):
+#     for j in range(n):
+#         fig = plt.figure()
+#         plt.hist(arr[j], edgecolor="black", range=[0, 1], bins=25)
+#         mu = np.mean(arr[j])
+#         std = np.std(arr[j])
+#         plt.title(f'$\mu = {mu:.3}, \sigma = {std:.3}$')
+#         neptune_run[f"Histogram C: {j}, I: {i}"].upload(File.as_image(fig))
+#         plt.close(fig)
 
 def experiment(N):
     params = parse_args('train') # We need to parse the same parameters as during training
     print(f"Setting checkpoint_dir to {os.environ.get('BASEPATH')}")
     params.checkpoint_dir = os.environ.get('BASEPATH')
-    neptune_run = setup_neptune(params)
 
     print(f"Loading model from {os.environ.get('MODELPATH')}")
     model_path = os.environ.get('MODELPATH')
