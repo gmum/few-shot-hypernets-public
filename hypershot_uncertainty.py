@@ -157,12 +157,12 @@ def experiment(N):
     print(qy2.shape)
     print("======")
 
-    #NOTE!! WE NEED TO RESHAPE qy{1,2} to [80,5] sy{1,2} to [5,5] and since this will be the output of the classifier
+    #NOTE!! WE NEED TO RESHAPE qy{1,2} to [80] sy{1,2} to [5] and since this will be the output of the classifier for each class
 
-    sy1 = torch.reshape(sy1, (-1,5))
-    sy2 = torch.reshape(sy2, (-1,5))
-    qy1 = torch.reshape(qy1, (80,5))
-    qy2 = torch.reshape(qy2, (80,5))
+    sy1 = torch.reshape(sy1, (5))
+    sy2 = torch.reshape(sy2, (5))
+    qy1 = torch.reshape(qy1, (80))
+    qy2 = torch.reshape(qy2, (80))
 
     # THEN:
     # we need to get the exact index of this class (after reshape!)
