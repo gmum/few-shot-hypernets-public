@@ -111,9 +111,6 @@ def experiment(N):
     B = torch.reshape(X, (bn, model.n_way, model.n_support + model.n_query, *X.size()[2:]))
     Y = torch.reshape(Y, (bn, model.n_way, model.n_support + model.n_query))
 
-    print(B.shape)
-    print(Y.shape)
-
     # Here is our main support, query pair with targets (classifier will be generated from S1)
     S1 = torch.Tensor().cuda()
     Q1 = torch.Tensor().cuda()
@@ -172,7 +169,13 @@ def experiment(N):
         else:
             continue
 
-    print(f"desired_class ${desired_class}")
+    print(f"desired_class {desired_class}")
+    print(QY1.shape)
+    print(QY2.shape)
+    print("======")
+    print(QY1)
+    print(QY2)
+    print("======")
 
     model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
     model.eval()
