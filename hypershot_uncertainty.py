@@ -181,7 +181,7 @@ def experiment(N):
         print(o.shape)
         sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
         for i in range(model.n_way):
-            R1[i].append(sample[0][i])
+            R1[i].append(sample[i])
 
 
     # in this loop we do a forward pass (above)
@@ -205,7 +205,7 @@ def experiment(N):
         print(o.shape)
         sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
         for i in range(model.n_way):
-            R2[i].append(sample[0][i])
+            R2[i].append(sample[i])
 
 
     # do a forward pass for s1 tensor (buld_relation_features for support_feature=s1, feature_to_classify=s1)
@@ -223,9 +223,9 @@ def experiment(N):
         print('---')
         o = classifier(rel)
         print(o.shape)
-        sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
+        sample = torch.nn.functional.softmax(classifier(rel), dim=1)[qy2_index].clone().data.cpu().numpy()
         for i in range(model.n_way):
-            R3[i].append(sample[0][i])
+            R3[i].append(sample[i])
 
     # finally we want to pass q2 to build_relational_features as feature_to_classify=q2
     # and focus on probabilities for qy2_index (those are probabilities of a class that does not exist in support set s1) HERE IS A CHANGE sample[qy2_index, :]
