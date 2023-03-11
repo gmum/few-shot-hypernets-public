@@ -217,7 +217,9 @@ def experiment(N):
     rel = model.build_relations_features(support_feature=s1, feature_to_classify=q2)
     for _ in range(N):
         o = classifier(rel)[qy2_index]
+        print(o.shape)
         sample = torch.nn.functional.softmax(o).clone().data.cpu().numpy()
+        print(sample.shape)
         for i in range(model.n_way):
             R3[i].append(sample[i])
 
