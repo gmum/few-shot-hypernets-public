@@ -119,10 +119,10 @@ def experiment(N):
         q = torch.reshape(q, (1, *q.size()))
         S = torch.cat((S, s), 0)
         Q = torch.cat((Q, q), 0)
-        sy = torch.reshape(sy, (1, *s.size()))
-        qy = torch.reshape(qy, (1, *q.size()))
-        SY = torch.cat((S, s), 0)
-        QY = torch.cat((Q, q), 0)
+        sy = torch.reshape(sy, (1, *sy.size()))
+        qy = torch.reshape(qy, (1, *qy.size()))
+        SY = torch.cat((SY, sy), 0)
+        QY = torch.cat((QY, qy), 0)
         break
 
     print(S.shape)
