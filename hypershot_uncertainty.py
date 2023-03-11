@@ -197,7 +197,7 @@ def experiment(N):
 
     # do a forward pass for s1 tensor (buld_relation_features for support_feature=s1, feature_to_classify=s1)
     # if it will result in wrong dimension there is a workaround
-    # in tensor q1 we can swap first image with first image from s1 (it will be again sample[0, :] to get probability for each class)
+    # in tensor q1 we can swap first image with first image from s1 (it will be again sample[0, :] to get probability for each class) (PROBABLY THE BEST SOLUTION SO PLZ GO FOR IT)
     # (of course most of the images in tensor still will be from this query set but we just need to focus on probabilities of this one image as previously for q1)
 
 
