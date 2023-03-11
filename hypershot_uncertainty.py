@@ -112,32 +112,17 @@ def experiment(N):
     Y = torch.reshape(Y, (bn, model.n_way, model.n_support + model.n_query))
 
     # Here is our main support, query pair with targets (classifier will be generated from S1)
-    S1 = torch.Tensor().cuda()
-    Q1 = torch.Tensor().cuda()
-    SY1 = torch.Tensor().cuda()
-    QY1 = torch.Tensor().cuda()
-
-    # Here will be support, query pair such that set difference of QY2 \ QY1 is non empty 
-    # (it means there is(in QY2) a class such that it is out of distribution)
-    S2 = torch.Tensor().cuda()
-    Q2 = torch.Tensor().cuda()
-    SY2 = torch.Tensor().cuda()
-    QY2 = torch.Tensor().cuda()
 
     zippedDataset = [(b,y) for b,y in zip(B,Y)]
 
     b, y = zippedDataset[0]
-    s, q = model.parse_feature(b, is_feature=False)
-    sy = y[:, :model.n_support].cuda()
-    qy = y[:, model.n_support:].cuda()
-    s = torch.reshape(s, (1, *s.size()))
-    q = torch.reshape(q, (1, *q.size()))
-    S1 = torch.cat((S1, s), 0)
-    Q1 = torch.cat((Q1, q), 0)
-    sy = torch.reshape(sy, (1, *sy.size()))
-    qy = torch.reshape(qy, (1, *qy.size()))
-    SY1 = torch.cat((SY1, sy), 0)
-    QY1 = torch.cat((QY1, qy), 0)
+    s1, q1 = model.parse_feature(b, is_feature=False)
+    sy1 = y[:, :model.n_support].cuda()
+    qy1 = y[:, model.n_support:].cuda()
+    s1 = torch.reshape(s1, (1, *s1.size()))
+    q1 = torch.reshape(q1, (1, *q1.size()))
+    sy1 = torch.reshape(sy1, (1, *sy1.size()))
+    qy1 = torch.reshape(qy1, (1, *qy1.size()))
 
     # Now we need to find the other pair that meets earlier mentioned condition
     # We will simply check how certain class that meets this requirement behaves when we pass it through the classifier
@@ -145,24 +130,19 @@ def experiment(N):
 
     desired_class = None
 
-    for b, y in zippedDataset:
-        S2 = torch.Tensor().cuda()
-        Q2 = torch.Tensor().cuda()
-        SY2 = torch.Tensor().cuda()
-        QY2 = torch.Tensor().cuda()
-        s, q = model.parse_feature(b, is_feature=False)
-        sy = y[:, :model.n_support].cuda()
-        qy = y[:, model.n_support:].cuda()
-        s = torch.reshape(s, (1, *s.size()))
-        q = torch.reshape(q, (1, *q.size()))
-        S2 = torch.cat((S2, s), 0)
-        Q2 = torch.cat((Q2, q), 0)
-        sy = torch.reshape(sy, (1, *sy.size()))
-        qy = torch.reshape(qy, (1, *qy.size()))
-        SY2 = torch.cat((SY2, sy), 0)
-        QY2 = torch.cat((QY2, qy), 0)
+     # Here will be support, query pair such that set difference of QY2 \ QY1 is non empty 
+    # (it means there is(in QY2) a class such that it is out of distribution)
 
-        desired_class = find_targets_with_non_empty_difference(QY1, QY2)
+    for b, y in zippedDataset:
+        s2, q2 = model.parse_feature(b, is_feature=False)
+        sy2 = y[:, :model.n_support].cuda()
+        qy2 = y[:, model.n_support:].cuda()
+        s2 = torch.reshape(s2, (1, *s2.size()))
+        q2 = torch.reshape(q2, (1, *q2.size()))
+        sy2 = torch.reshape(sy2, (1, *sy2.size()))
+        qy2 = torch.reshape(qy2, (1, *qy2.size()))
+
+        desired_class = find_targets_with_non_empty_difference(sy1, sy2)
 
         if desired_class:
             break
@@ -170,36 +150,31 @@ def experiment(N):
             continue
 
     print(f"desired_class {desired_class}")
-    print(QY1.shape)
-    print(QY2.shape)
+    print(sy1.shape)
+    print(sy2.shape)
     print("======")
-    print(QY1)
-    print(QY2)
+    print(qy1)
+    print(qy2)
     print("======")
 
-    # Now we need to get the exact index of this class
-    QY2_index = (QY2 == desired_class).nonzero(as_tuple=False)[0] # of course there might be more than one element of this class
-    print(f"QY2 index: {QY2_index}")
+    #NOTE!! WE NEED TO RESHAPE {s,q}y{1,2} to [80,5] since this will be the output of the classifier
+
+    sy1 = torch.reshape(sy1, (80,5))
+    sy2 = torch.reshape(sy2, (80,5))
+    qy1 = torch.reshape(qy1, (80,5))
+    qy2 = torch.reshape(qy2, (80,5))
+
+    # THEN:
+    # we need to get the exact index of this class (after reshape!)
+    qy2_index = (qy2 == desired_class).nonzero(as_tuple=False)[0] # of course there might be more than one element of this class
+    print(f"QY2 index: {qy2_index}")
 
     model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
     model.eval()
 
-    s1 = next(iter(S1))
-    q1 = next(iter(Q1))
-
-    s1y = next(iter(SY1))
-    q1y = next(iter(QY1))
-
-    s2 = next(iter(S2))
-    q2 = next(iter(S1))
-
-    s2y = next(iter(SY2))
-    q2y = next(iter(QY2))
-
-
     # Here we prepare q1 and classifier generated with s1
 
-    q1 = q1.reshape(-1, q.shape[-1])
+    q1 = q1.reshape(-1, q1.shape[-1])
     classifier, _ = model.generate_target_net(s1)
     rel = model.build_relations_features(support_feature=s1, feature_to_classify=q1)
     r = [[] for _ in range(model.n_way)]
