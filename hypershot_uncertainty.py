@@ -168,7 +168,7 @@ def experiment(N):
 
     # Here we prepare q1 and classifier generated with s1
 
-    q1p = q1.copy()
+    q1p = torch.clone(q1)
 
     # S1 Q1
     R1 = [ [] for _ in range(model.n_way) ]
@@ -195,7 +195,6 @@ def experiment(N):
     # S1, S1
 
     R2 = [ [] for _ in range(model.n_way) ]
-    q1p = q1.copy()
     q1p[0] = s1[0]
     q1p = q1p.reshape(-1, q1p.shape[-1])
     classifier, _ = model.generate_target_net(s1)
