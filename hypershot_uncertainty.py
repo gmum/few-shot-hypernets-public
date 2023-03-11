@@ -127,7 +127,7 @@ def experiment(N):
     SY2 = torch.Tensor().cuda()
     QY2 = torch.Tensor().cuda()
 
-    zippedDataset = zip(B,Y)
+    zippedDataset = [(b,y) for b,y in zip(B,Y)]
 
     b, y = zippedDataset[0]
     s, q = model.parse_feature(b, is_feature=False)
