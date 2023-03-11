@@ -177,25 +177,44 @@ def experiment(N):
     print(QY2)
     print("======")
 
+    # Now we need to get the exact index of this class
+    QY2_index = (QY2 == desired_class).nonzero(as_tuple=False)[0] # of course there might be more than one element of this class
+    print("QY2 index: {QY2_index}")
+
     model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
     model.eval()
 
-    # i = 0
-    # for s in S:
-    #     q = Q[i]
-    #     q = q.reshape(-1, q.shape[-1])
-    #     classifier, _ = model.generate_target_net(s)
-    #     rel = model.build_relations_features(support_feature=s, feature_to_classify=q)
-    #     r = [[] for _ in range(model.n_way)]
-    #     for _ in range(N):
-    #         print('---')
-    #         o = classifier(rel)
-    #         print(o.shape)
-    #         sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
-    #         for j in range(model.n_way):
-    #             r[j].append(sample[j])
-    #     upload_hist(neptune_run, model.n_way, r, i)
-    #     i += 1
+    s1 = next(iter(S1))
+    q1 = next(iter(q1))
+
+    s1y = next(iter(SY1))
+    q1y = next(iter(QY1))
+
+    s2 = next(iter(S2))
+    q2 = next(iter(S1))
+
+    s2y = next(iter(SY2))
+    q2y = next(iter(QY2))
+
+
+    # Here we prepare q1 and classifier generated with s1
+
+    q1 = q1.reshape(-1, q.shape[-1])
+    classifier, _ = model.generate_target_net(s1)
+    rel = model.build_relations_features(support_feature=s1, feature_to_classify=q1)
+    r = [[] for _ in range(model.n_way)]
+    for _ in range(N):
+            print('---')
+            o = classifier(rel)
+            print(o.shape)
+            sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
+            # for j in range(model.n_way):
+            #     r[j].append(sample[j])
+
+    # Next step is to do the same but instead of q1 use s1
+
+    # Final step is to test how it works on samples that are out of distribution
+    # We simply use q2 instead of q1 and check how probabilities changes for element with QY2_index value (probably one redundant dimension, because it is a whole batch)
 
 if __name__ == '__main__':
-    experiment(30)
+    experiment(1)
