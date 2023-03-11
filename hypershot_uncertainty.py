@@ -6,10 +6,11 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+from neptune.new.types import File
 
 import configs
 from data.datamgr import SetDataManager
-from io_utils import model_dict, parse_args
+from io_utils import model_dict, parse_args, setup_neptune
 from methods.hypernets.hypernet_kernel import HyperShot
 
 # NOTE: This uncertainty experiment was created on the master branch.
@@ -53,17 +54,6 @@ def load_dataset(params):
     data_mgr = SetDataManager(image_size, **train_fs_params(params))
     return iter(data_mgr.get_data_loader(file, aug=False))
 
-# def upload_hist(neptune_run, n, arr, i):
-#     for j in range(n):
-#         fig = plt.figure()
-#         plt.hist(arr[j], edgecolor="black", range=[0, 1], bins=25)
-#         mu = np.mean(arr[j])
-#         std = np.std(arr[j])
-#         plt.title(f'$\mu = {mu:.3}, \sigma = {std:.3}$')
-#         neptune_run[f"Histogram C: {j}, I: {i}"].upload(File.as_image(fig))
-#         plt.close(fig)
-
-
 def find_targets_with_non_empty_difference(QY1, QY2):
     QY1 = set(QY1.flatten().tolist())
     QY2 = set(QY2.flatten().tolist())
@@ -79,6 +69,7 @@ def experiment(N):
     params = parse_args('train') # We need to parse the same parameters as during training
     print(f"Setting checkpoint_dir to {os.environ.get('BASEPATH')}")
     params.checkpoint_dir = os.environ.get('BASEPATH')
+    neptune_run = setup_neptune(params)
 
     print(f"Loading model from {os.environ.get('MODELPATH')}")
     model_path = os.environ.get('MODELPATH')
@@ -129,6 +120,8 @@ def experiment(N):
 
     desired_class = None
 
+    sy2 = torch.Tensor()
+    qy2 = torch.Tensor()
     for b, y in zippedDataset:
         s2, q2 = model.parse_feature(b, is_feature=False)
         sy2 = y[:, :model.n_support].cuda()
@@ -175,17 +168,21 @@ def experiment(N):
 
     # Here we prepare q1 and classifier generated with s1
 
+    q1p = q1.copy()
+
+    # S1 Q1
+    R1 = [ [] for _ in range(model.n_way) ]
     q1 = q1.reshape(-1, q1.shape[-1])
     classifier, _ = model.generate_target_net(s1)
     rel = model.build_relations_features(support_feature=s1, feature_to_classify=q1)
-    # r = [[] for _ in range(model.n_way)]
     for _ in range(N):
-            print('---')
-            o = classifier(rel)
-            print(o.shape)
-            sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
-            # for j in range(model.n_way):
-            #     r[j].append(sample[j])
+        print('---')
+        o = classifier(rel)
+        print(o.shape)
+        sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
+        for i in range(model.n_way):
+            R1[i].append(sample[0][i])
+
 
     # in this loop we do a forward pass (above)
     # we get tensor [80,5] 80 is number of images, and 5 is number of classes
@@ -195,14 +192,54 @@ def experiment(N):
 
     # THEN:
 
+    # S1, S1
+
+    R2 = [ [] for _ in range(model.n_way) ]
+    q1p = q1.copy()
+    q1p[0] = s1[0]
+    q1p = q1p.reshape(-1, q1p.shape[-1])
+    classifier, _ = model.generate_target_net(s1)
+    rel = model.build_relations_features(support_feature=s1, feature_to_classify=q1p)
+    for _ in range(N):
+        print('---')
+        o = classifier(rel)
+        print(o.shape)
+        sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
+        for i in range(model.n_way):
+            R2[i].append(sample[0][i])
+
+
     # do a forward pass for s1 tensor (buld_relation_features for support_feature=s1, feature_to_classify=s1)
     # if it will result in wrong dimension there is a workaround
     # in tensor q1 we can swap first image with first image from s1 (it will be again sample[0, :] to get probability for each class) (PROBABLY THE BEST SOLUTION SO PLZ GO FOR IT)
     # (of course most of the images in tensor still will be from this query set but we just need to focus on probabilities of this one image as previously for q1)
 
+    # S1, Q2
+
+    R3 = [ [] for _ in range(model.n_way) ]
+    q2 = q2.reshape(-1, q2.shape[-1])
+    classifier, _ = model.generate_target_net(s1)
+    rel = model.build_relations_features(support_feature=s1, feature_to_classify=q2)
+    for _ in range(N):
+        print('---')
+        o = classifier(rel)
+        print(o.shape)
+        sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
+        for i in range(model.n_way):
+            R3[i].append(sample[0][i])
 
     # finally we want to pass q2 to build_relational_features as feature_to_classify=q2
     # and focus on probabilities for qy2_index (those are probabilities of a class that does not exist in support set s1) HERE IS A CHANGE sample[qy2_index, :]
 
+    for i in range(model.n_way):
+        bins = np.linspace(0, 25, 25)
+        fig = plt.figure()
+        plt.hist(R1[i], bins, alpha=0.3, label='S1/Q1')
+        plt.hist(R2[i], bins, alpha=0.3, label='S1/S1')
+        plt.hist(R3[i], bins, alpha=0.3, label='S1/Q2')
+        plt.legend(loc='upper right')
+        neptune_run[f"Class {i}"].upload(File.as_image(fig))
+        plt.close(fig)
+
 if __name__ == '__main__':
-    experiment(1)
+    experiment(30)
