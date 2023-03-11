@@ -229,12 +229,12 @@ def experiment(N):
     for i in range(model.n_way):
         bins = np.linspace(0, 1, 10)
         fig = plt.figure()
-        plt.hist(R1[i], bins, alpha=0.3, label='S1/Q1')
-        plt.hist(R2[i], bins, alpha=0.3, label='S1/S1')
-        plt.hist(R3[i], bins, alpha=0.3, label='S1/Q2')
+        plt.hist(R1[i], bins, alpha=0.2, color='red' label='S1/Q1')
+        plt.hist(R2[i], bins, alpha=0.2, color='green', label='S1/S1')
+        plt.hist(R3[i], bins, alpha=0.2, color='blue', label='S1/Q2')
         plt.legend(loc='upper right')
         neptune_run[f"Class {i}"].upload(File.as_image(fig))
         plt.close(fig)
 
 if __name__ == '__main__':
-    experiment(30)
+    experiment(100)
