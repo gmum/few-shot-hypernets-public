@@ -2,8 +2,11 @@ import json
 import os
 from io_utils import create_parser
 
+# We cannot print anything in this 
+# script for debugging purposes since 
+# its output is used to initialize a model
+
 def read_args():
-    print(f"Loading args from {os.environ.get('ARGSPATH')}")
     args_path = os.environ.get('ARGSPATH')
 
     with open(args_path) as json_args:
