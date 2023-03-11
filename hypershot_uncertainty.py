@@ -153,8 +153,8 @@ def experiment(N):
     print(sy1.shape)
     print(sy2.shape)
     print("======")
-    print(qy1)
-    print(qy2)
+    print(qy1.shape)
+    print(qy2.shape)
     print("======")
 
     #NOTE!! WE NEED TO RESHAPE qy{1,2} to [80,5] sy{1,2} to [5,5] and since this will be the output of the classifier
