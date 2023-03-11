@@ -159,10 +159,10 @@ def experiment(N):
 
     #NOTE!! WE NEED TO RESHAPE qy{1,2} to [80] sy{1,2} to [5] and since this will be the output of the classifier for each class
 
-    sy1 = torch.reshape(sy1, (5))
-    sy2 = torch.reshape(sy2, (5))
-    qy1 = torch.reshape(qy1, (80))
-    qy2 = torch.reshape(qy2, (80))
+    sy1 = sy1.flatten()
+    sy2 = sy2.flatten()
+    qy1 = qy1.flatten()
+    qy2 = qy2.flatten()
 
     # THEN:
     # we need to get the exact index of this class (after reshape!)
