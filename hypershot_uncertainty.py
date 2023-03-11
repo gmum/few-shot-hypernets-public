@@ -176,10 +176,8 @@ def experiment(N):
     classifier, _ = model.generate_target_net(s1)
     rel = model.build_relations_features(support_feature=s1, feature_to_classify=q1)
     for _ in range(N):
-        print('---')
-        o = classifier(rel)
-        print(o.shape)
-        sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
+        o = classifier(rel)[0]
+        sample = torch.nn.functional.softmax(o).clone().data.cpu().numpy()
         for i in range(model.n_way):
             R1[i].append(sample[i])
 
@@ -200,10 +198,8 @@ def experiment(N):
     classifier, _ = model.generate_target_net(s1)
     rel = model.build_relations_features(support_feature=s1, feature_to_classify=q1p)
     for _ in range(N):
-        print('---')
-        o = classifier(rel)
-        print(o.shape)
-        sample = torch.nn.functional.softmax(classifier(rel), dim=1)[0].clone().data.cpu().numpy()
+        o = classifier(rel)[0]
+        sample = torch.nn.functional.softmax(o).clone().data.cpu().numpy()
         for i in range(model.n_way):
             R2[i].append(sample[i])
 
@@ -220,10 +216,8 @@ def experiment(N):
     classifier, _ = model.generate_target_net(s1)
     rel = model.build_relations_features(support_feature=s1, feature_to_classify=q2)
     for _ in range(N):
-        print('---')
-        o = classifier(rel)
-        print(o.shape)
-        sample = torch.nn.functional.softmax(classifier(rel), dim=1)[qy2_index].clone().data.cpu().numpy()
+        o = classifier(rel)[qy2_index]
+        sample = torch.nn.functional.softmax(o).clone().data.cpu().numpy()
         for i in range(model.n_way):
             R3[i].append(sample[i])
 
