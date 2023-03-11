@@ -97,6 +97,7 @@ def experiment(N):
     bs = bb*ims*ims
     bn = int(torch.numel(X)/(bs*(X.size()[2])))
     B = torch.reshape(X, (bn, model.n_way, model.n_support + model.n_query, *X.size()[2:]))
+    Y = torch.reshape(Y, (bn, model.n_way, model.n_support + model.n_query))
 
     print(B.shape)
     print(Y.shape)
