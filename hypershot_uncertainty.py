@@ -109,8 +109,8 @@ def experiment(N):
 
     for b, y in zip(B,Y):
         s, q = model.parse_feature(b, is_feature=False)
-        sy = y[:, :model.n_support]
-        qy = y[:, model.n_support:]
+        sy = y[:, :model.n_support].cuda()
+        qy = y[:, model.n_support:].cuda()
         print(s.shape)
         print(q.shape)
         print(sy.shape)
