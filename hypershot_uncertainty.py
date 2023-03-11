@@ -63,6 +63,18 @@ def load_dataset(params):
 #         neptune_run[f"Histogram C: {j}, I: {i}"].upload(File.as_image(fig))
 #         plt.close(fig)
 
+
+def find_targets_with_non_empty_difference(QY1, QY2):
+    QY1 = set(QY1.flatten().tolist())
+    QY2 = set(QY2.flatten().tolist())
+
+    diff = QY2.difference(QY1)
+
+    if len(diff) == 0:
+        return None
+
+    return next(iter(diff))
+
 def experiment(N):
     params = parse_args('train') # We need to parse the same parameters as during training
     print(f"Setting checkpoint_dir to {os.environ.get('BASEPATH')}")
@@ -102,33 +114,65 @@ def experiment(N):
     print(B.shape)
     print(Y.shape)
 
-    S = torch.Tensor().cuda()
-    Q = torch.Tensor().cuda()
-    SY = torch.Tensor().cuda()
-    QY = torch.Tensor().cuda()
+    # Here is our main support, query pair with targets (classifier will be generated from S1)
+    S1 = torch.Tensor().cuda()
+    Q1 = torch.Tensor().cuda()
+    SY1 = torch.Tensor().cuda()
+    QY1 = torch.Tensor().cuda()
 
-    for b, y in zip(B,Y):
+    # Here will be support, query pair such that set difference of QY2 \ QY1 is non empty 
+    # (it means there is(in QY2) a class such that it is out of distribution)
+    S2 = torch.Tensor().cuda()
+    Q2 = torch.Tensor().cuda()
+    SY2 = torch.Tensor().cuda()
+    QY2 = torch.Tensor().cuda()
+
+    zippedDataset = zip(B,Y)
+
+    b, y = zippedDataset[0]
+    s, q = model.parse_feature(b, is_feature=False)
+    sy = y[:, :model.n_support].cuda()
+    qy = y[:, model.n_support:].cuda()
+    s = torch.reshape(s, (1, *s.size()))
+    q = torch.reshape(q, (1, *q.size()))
+    S1 = torch.cat((S1, s), 0)
+    Q1 = torch.cat((Q1, q), 0)
+    sy = torch.reshape(sy, (1, *sy.size()))
+    qy = torch.reshape(qy, (1, *qy.size()))
+    SY1 = torch.cat((SY1, sy), 0)
+    QY1 = torch.cat((QY1, qy), 0)
+
+    # Now we need to find the other pair that meets earlier mentioned condition
+    # We will simply check how certain class that meets this requirement behaves when we pass it through the classifier
+    # We expect the classifier to be uncertain about proper target
+
+    desired_class = None
+
+    for b, y in zip(B,Y)[1:]:
+        S2 = torch.Tensor().cuda()
+        Q2 = torch.Tensor().cuda()
+        SY2 = torch.Tensor().cuda()
+        QY2 = torch.Tensor().cuda()
         s, q = model.parse_feature(b, is_feature=False)
         sy = y[:, :model.n_support].cuda()
         qy = y[:, model.n_support:].cuda()
-        print(s.shape)
-        print(q.shape)
-        print(sy.shape)
-        print(qy.shape)
         s = torch.reshape(s, (1, *s.size()))
         q = torch.reshape(q, (1, *q.size()))
-        S = torch.cat((S, s), 0)
-        Q = torch.cat((Q, q), 0)
+        S2 = torch.cat((S2, s), 0)
+        Q2 = torch.cat((Q2, q), 0)
         sy = torch.reshape(sy, (1, *sy.size()))
         qy = torch.reshape(qy, (1, *qy.size()))
-        SY = torch.cat((SY, sy), 0)
-        QY = torch.cat((QY, qy), 0)
-        break
+        SY2 = torch.cat((SY2, sy), 0)
+        QY2 = torch.cat((QY2, qy), 0)
 
-    print(S.shape)
-    print(Q.shape)
-    print(SY.shape)
-    print(QY.shape)
+        desired_class = find_targets_with_non_empty_difference(QY1, QY2)
+
+        if desired_class:
+            break
+        else:
+            continue
+
+    print(f"desired_class ${desired_class}")
 
     model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
     model.eval()
