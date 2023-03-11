@@ -78,34 +78,38 @@ def experiment(N):
 
     dataset = load_dataset(params)
 
-    # def take_next():
-    #     return next(dataset, (None, None))
+    def take_next():
+        return next(dataset, (None, None))
 
-    # def isAnyNone(x, y):
-    #     return (x is None) or (y is None)
+    def isAnyNone(x, y):
+        return (x is None) or (y is None)
 
-    # X = torch.Tensor()
-    # Y = torch.Tensor()
-    # x, y = take_next()
-    # while not isAnyNone(x, y):
-    #     Y = torch.cat((Y, y), 0)
-    #     X = torch.cat((X, x), 0)
-    #     x, y = take_next()
+    X = torch.Tensor()
+    Y = torch.Tensor()
+    x, y = take_next()
+    while not isAnyNone(x, y):
+        Y = torch.cat((Y, y), 0)
+        X = torch.cat((X, x), 0)
+        x, y = take_next()
 
-    # ims = get_image_size(params) 
-    # bb = model.n_way*(model.n_support + model.n_query)
-    # bs = bb*ims*ims
-    # bn = int(torch.numel(X)/(bs*(X.size()[2])))
-    # B = torch.reshape(X, (bn, model.n_way, model.n_support + model.n_query, *X.size()[2:]))
+    ims = get_image_size(params) 
+    bb = model.n_way*(model.n_support + model.n_query)
+    bs = bb*ims*ims
+    bn = int(torch.numel(X)/(bs*(X.size()[2])))
+    B = torch.reshape(X, (bn, model.n_way, model.n_support + model.n_query, *X.size()[2:]))
 
-    # S = torch.Tensor().cuda()
-    # Q = torch.Tensor().cuda()
-    # for b in B:
-    #     s, q = model.parse_feature(b, is_feature=False)
-    #     s = torch.reshape(s, (1, *s.size()))
-    #     q = torch.reshape(q, (1, *q.size()))
-    #     S = torch.cat((S, s), 0)
-    #     Q = torch.cat((Q, q), 0)
+    S = torch.Tensor().cuda()
+    Q = torch.Tensor().cuda()
+    for b in B:
+        s, q = model.parse_feature(b, is_feature=False)
+        s = torch.reshape(s, (1, *s.size()))
+        q = torch.reshape(q, (1, *q.size()))
+        S = torch.cat((S, s), 0)
+        Q = torch.cat((Q, q), 0)
+        break
+
+    print(S.shape)
+    print(Q.shape)
 
     # model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
     # model.eval()
