@@ -227,7 +227,7 @@ def experiment(N):
     # and focus on probabilities for qy2_index (those are probabilities of a class that does not exist in support set s1) HERE IS A CHANGE sample[qy2_index, :]
 
     for i in range(model.n_way):
-        bins = np.linspace(0, 1, 10)
+        bins = np.linspace(0, 1, 100)
         fig = plt.figure()
         plt.hist(R1[i], bins, alpha=0.33, color='red', label='S1/Q1')
         plt.hist(R2[i], bins, alpha=0.33, color='green', label='S1/S1')
@@ -237,4 +237,4 @@ def experiment(N):
         plt.close(fig)
 
 if __name__ == '__main__':
-    experiment(200)
+    experiment(1000)
