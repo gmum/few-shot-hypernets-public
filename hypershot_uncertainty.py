@@ -115,6 +115,7 @@ def experiment(N):
 
     zippedDataset = [(b,y) for b,y in zip(B,Y)]
 
+    # We get first task (s1,q1) we need only one! and then we will focus on probabilities for only one image!
     b, y = zippedDataset[0]
     s1, q1 = model.parse_feature(b, is_feature=False)
     sy1 = y[:, :model.n_support].cuda()
@@ -124,14 +125,9 @@ def experiment(N):
     # sy1 = torch.reshape(sy1, (1, *sy1.size()))
     # qy1 = torch.reshape(qy1, (1, *qy1.size()))
 
-    # Now we need to find the other pair that meets earlier mentioned condition
-    # We will simply check how certain class that meets this requirement behaves when we pass it through the classifier
-    # We expect the classifier to be uncertain about proper target
+    # Now we need to find the other pair that has class such that this class cannot be found in s1
 
     desired_class = None
-
-     # Here will be support, query pair such that set difference of QY2 \ QY1 is non empty 
-    # (it means there is(in QY2) a class such that it is out of distribution)
 
     for b, y in zippedDataset:
         s2, q2 = model.parse_feature(b, is_feature=False)
@@ -158,6 +154,7 @@ def experiment(N):
     print("======")
 
     #NOTE!! WE NEED TO RESHAPE qy{1,2} to [80] sy{1,2} to [5] and since this will be the output of the classifier for each class
+    # and we need to track index of desired_element in classifier output
 
     sy1 = sy1.flatten()
     sy2 = sy2.flatten()
@@ -190,7 +187,7 @@ def experiment(N):
             # for j in range(model.n_way):
             #     r[j].append(sample[j])
 
-    # in this loop we do a forward pass
+    # in this loop we do a forward pass (above)
     # we get tensor [80,5] 80 is number of images, and 5 is number of classes
     # in other words each element has 5 class probabilities
     # now we focus on measuring probabilities of element with qy1_index (since forward pass was for q1) Probably something like: sample[0,:]
