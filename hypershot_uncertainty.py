@@ -105,10 +105,13 @@ def experiment(N):
     S = torch.Tensor().cuda()
     Q = torch.Tensor().cuda()
     for b, y in zip(B,Y):
-        print(y.shape)
         s, q = model.parse_feature(b, is_feature=False)
+        sy = y[:, :model.n_support]
+        qy = y[:, model.n_support:]
         print(s.shape)
         print(q.shape)
+        print(sy.shape)
+        print(qy.shape)
         s = torch.reshape(s, (1, *s.size()))
         q = torch.reshape(q, (1, *q.size()))
         S = torch.cat((S, s), 0)
