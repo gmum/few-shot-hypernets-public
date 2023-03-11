@@ -179,13 +179,13 @@ def experiment(N):
 
     # Now we need to get the exact index of this class
     QY2_index = (QY2 == desired_class).nonzero(as_tuple=False)[0] # of course there might be more than one element of this class
-    print("QY2 index: {QY2_index}")
+    print(f"QY2 index: {QY2_index}")
 
     model.n_query = X[0].size(1) - model.n_support #found that n_query gets changed
     model.eval()
 
     s1 = next(iter(S1))
-    q1 = next(iter(q1))
+    q1 = next(iter(Q1))
 
     s1y = next(iter(SY1))
     q1y = next(iter(QY1))
