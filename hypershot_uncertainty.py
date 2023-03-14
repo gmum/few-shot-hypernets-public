@@ -231,15 +231,15 @@ def experiment(N):
     df = pd.DataFrame(columns=['Class', 'Type', 'Activation'])
     for i in range(model.n_way):
         df1 = pd.DataFrame(R1[i], columns=['Activation'])
-        df1['Class'] = i
+        df1['Class'] = i+1
         df1['Type'] = "Element from query set"
 
         df2 = pd.DataFrame(R2[i], columns=['Activation'])
-        df2['Class'] = i
+        df2['Class'] = i+1
         df2['Type'] = "Element from support set"
 
         df3 = pd.DataFrame(R3[i], columns=['Activation'])
-        df3['Class'] = i
+        df3['Class'] = i+1
         df3['Type'] = "Element out of distribution"
         df = df.append(pd.concat([df1, df2, df3]))
 
@@ -250,4 +250,4 @@ def experiment(N):
     plt.close(fig)
 
 if __name__ == '__main__':
-    experiment(50)
+    experiment(100)
