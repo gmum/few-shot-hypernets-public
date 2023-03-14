@@ -233,17 +233,15 @@ def experiment(N):
         df1 = pd.DataFrame(R1[i])
         df1['Class'] = i
         df1['Type'] = "Element from query set"
-        df.append(df1)
 
         df2 = pd.DataFrame(R2[i])
         df2['Class'] = i
         df2['Type'] = "Element from support set"
-        df.append(df2)
 
         df3 = pd.DataFrame(R3[i])
         df3['Class'] = i
         df3['Type'] = "Element ou of distribution"
-        df.append(df3)
+        df = df.append(pd.concat([df1, df2, df3]))
 
     mdf = pd.melt(df, id_vars=['Class'], var_name=['Type'])  
     fig = sns.boxplot(data=mdf, x="Class", y="value", hue="Type")
