@@ -229,12 +229,14 @@ def experiment(N):
     for i in range(model.n_way):
         bins = np.linspace(0, 1, 50)
         fig = plt.figure()
-        plt.hist(R1[i], bins, alpha=0.33, color='red', label='S1/Q1')
-        plt.hist(R2[i], bins, alpha=0.33, color='green', label='S1/S1')
-        plt.hist(R3[i], bins, alpha=0.33, color='blue', label='S1/Q2')
-        plt.legend(loc='upper right')
-        neptune_run[f"Class {i}"].upload(File.as_image(fig))
+        plt
+        plt.hist(R1[i], bins, alpha=0.3, color='red', label='Element from query set')
+        plt.hist(R2[i], bins, alpha=0.3, color='green', label='Element from support set')
+        plt.hist(R3[i], bins, alpha=0.3, color='blue', label='Element out of distribution')
+        plt.legend(loc='upper right', fontsize=10)
+        plt.title(f"Class {i+1}")
+        neptune_run[f"Class {i+1}"].upload(File.as_image(fig))
         plt.close(fig)
 
 if __name__ == '__main__':
-    experiment(250)
+    experiment(100)
