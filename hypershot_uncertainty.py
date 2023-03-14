@@ -228,24 +228,24 @@ def experiment(N):
     # finally we want to pass q2 to build_relational_features as feature_to_classify=q2
     # and focus on probabilities for qy2_index (those are probabilities of a class that does not exist in support set s1) HERE IS A CHANGE sample[qy2_index, :]
 
-    df = pd.DataFrame(columns=['Class', 'Type', 'value'])
+    df = pd.DataFrame(columns=['Class', 'Type', 'Activation'])
     for i in range(model.n_way):
-        df1 = pd.DataFrame(R1[i], columns=['value'])
+        df1 = pd.DataFrame(R1[i], columns=['Activation'])
         df1['Class'] = i
         df1['Type'] = "Element from query set"
 
-        df2 = pd.DataFrame(R2[i], columns=['value'])
+        df2 = pd.DataFrame(R2[i], columns=['Activation'])
         df2['Class'] = i
         df2['Type'] = "Element from support set"
 
-        df3 = pd.DataFrame(R3[i], columns=['value'])
+        df3 = pd.DataFrame(R3[i], columns=['Activation'])
         df3['Class'] = i
-        df3['Type'] = "Element ou of distribution"
+        df3['Type'] = "Element out of distribution"
         df = df.append(pd.concat([df1, df2, df3]))
 
     df.head()
     fig = plt.figure()
-    sns.boxplot(data=df, x='Class', y='value', hue='Type')
+    sns.boxplot(data=df, x='Class', y='Activation', hue='Type')
     neptune_run[f"Plot"].upload(File.as_image(fig))
     plt.close(fig)
 
