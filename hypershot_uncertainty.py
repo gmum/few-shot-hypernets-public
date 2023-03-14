@@ -243,9 +243,11 @@ def experiment(N):
         df3['Type'] = "Element ou of distribution"
         df = df.append(pd.concat([df1, df2, df3]))
 
+    fig = plt.figure()
     mdf = pd.melt(df, id_vars=['Class'], var_name=['Type'])  
-    fig = sns.boxplot(data=mdf, x="Class", y="value", hue="Type")
+    sns.boxplot(data=mdf, x="Class", y="value", hue="Type")
     neptune_run[f"Plot"].upload(File.as_image(fig))
+    plt.close(fig)
 
 if __name__ == '__main__':
     experiment(50)
