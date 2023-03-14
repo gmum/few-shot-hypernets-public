@@ -229,9 +229,9 @@ def experiment(N):
     for i in range(model.n_way):
         bins = np.linspace(0, 1, 10)
         fig = plt.figure()
-        plt.hist(R1[i], bins=range(11), alpha=0.2, color='darkorange', label='Element from query set')
-        plt.hist(R2[i], bins=range(11), alpha=0.2, color='darkgreen', label='Element from support set')
-        plt.hist(R3[i], bins=range(11), alpha=0.2, color='cornflowerblue', label='Element out of distribution')
+        plt.hist(R1[i], bins=range(11), alpha=0.5, color='darkorange', label='Element from query set')
+        plt.hist(R2[i], bins=range(11), alpha=0.5, color='darkgreen', label='Element from support set')
+        plt.hist(R3[i], bins=range(11), alpha=0.5, color='cornflowerblue', label='Element out of distribution')
         plt.xticks(bins)
         plt.legend(loc='upper right', fontsize=15)
         plt.title(f"Class {i+1}")
