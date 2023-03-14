@@ -228,7 +228,7 @@ def experiment(N):
     # finally we want to pass q2 to build_relational_features as feature_to_classify=q2
     # and focus on probabilities for qy2_index (those are probabilities of a class that does not exist in support set s1) HERE IS A CHANGE sample[qy2_index, :]
 
-    df = pd.DataFrame()
+    df = pd.DataFrame(colums=['Class', 'Type', 'value'])
     for i in range(model.n_way):
         df1 = pd.DataFrame(R1[i])
         df1['Class'] = i
