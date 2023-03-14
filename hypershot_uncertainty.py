@@ -4,7 +4,9 @@ from functools import reduce
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 import torch
 from neptune.new.types import File
 
@@ -226,16 +228,25 @@ def experiment(N):
     # finally we want to pass q2 to build_relational_features as feature_to_classify=q2
     # and focus on probabilities for qy2_index (those are probabilities of a class that does not exist in support set s1) HERE IS A CHANGE sample[qy2_index, :]
 
+    df = pd.DataFrame()
     for i in range(model.n_way):
-        bins = np.linspace(0, 1, 11)
-        fig = plt.figure()
-        plt.hist(R1[i], bins=bins, alpha=0.5, color='darkorange', label='Element from query set')
-        plt.hist(R2[i], bins=bins, alpha=0.5, color='darkgreen', label='Element from support set')
-        plt.hist(R3[i], bins=bins, alpha=0.5, color='cornflowerblue', label='Element out of distribution')
-        plt.legend(loc='upper right', fontsize=15)
-        plt.title(f"Class {i+1}")
-        neptune_run[f"Class {i+1}"].upload(File.as_image(fig))
-        plt.close(fig)
+        df1 = pd.DataFrame(R1[i])
+        df1['Class'] = i
+        df1['Type'] = "Element from query set"
+        df.append(df1)
+
+        df2 = pd.DataFrame(R2[i])
+        df2['Class'] = i
+        df2['Type'] = "Element from support set"
+        df.append(df2)
+
+        df3 = pd.DataFrame(R3[i])
+        df3['Class'] = i
+        df3['Type'] = "Element ou of distribution"
+        df.append(df3)
+
+    fig = sns.boxplot(data=df, x="Class", y="Activation", hue="Type")
+    neptune_run[f"Plot"].upload(File.as_image(fig))
 
 if __name__ == '__main__':
     experiment(50)
