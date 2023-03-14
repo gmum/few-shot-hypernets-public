@@ -245,7 +245,7 @@ def experiment(N):
 
     df.head()
     fig = plt.figure()
-    sns.boxplot(data=df, x='Class', y='Activation', hue='Type')
+    sns.boxplot(data=df, x='Class', y='Activation', hue='Type', showfliers = False)
     neptune_run[f"Plot"].upload(File.as_image(fig))
     plt.close(fig)
 
