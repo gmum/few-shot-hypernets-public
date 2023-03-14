@@ -230,23 +230,22 @@ def experiment(N):
 
     df = pd.DataFrame(columns=['Class', 'Type', 'value'])
     for i in range(model.n_way):
-        df1 = pd.DataFrame(R1[i])
+        df1 = pd.DataFrame(R1[i], columns=['value'])
         df1['Class'] = i
         df1['Type'] = "Element from query set"
 
-        df2 = pd.DataFrame(R2[i])
+        df2 = pd.DataFrame(R2[i], columns=['value'])
         df2['Class'] = i
         df2['Type'] = "Element from support set"
 
-        df3 = pd.DataFrame(R3[i])
+        df3 = pd.DataFrame(R3[i], columns=['value'])
         df3['Class'] = i
         df3['Type'] = "Element ou of distribution"
         df = df.append(pd.concat([df1, df2, df3]))
 
     df.head()
     fig = plt.figure()
-    mdf = pd.melt(df, id_vars=['Class', 'Type'])  
-    sns.boxplot(data=mdf, x='Class', hue='Type')
+    sns.boxplot(data=mdf, x='Class', y='value', hue='Type')
     neptune_run[f"Plot"].upload(File.as_image(fig))
     plt.close(fig)
 
