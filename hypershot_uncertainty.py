@@ -227,12 +227,11 @@ def experiment(N):
     # and focus on probabilities for qy2_index (those are probabilities of a class that does not exist in support set s1) HERE IS A CHANGE sample[qy2_index, :]
 
     for i in range(model.n_way):
-        bins = np.linspace(0, 1, 10)
         fig = plt.figure()
         plt.hist(R1[i], bins=range(11), alpha=0.5, color='darkorange', label='Element from query set')
         plt.hist(R2[i], bins=range(11), alpha=0.5, color='darkgreen', label='Element from support set')
         plt.hist(R3[i], bins=range(11), alpha=0.5, color='cornflowerblue', label='Element out of distribution')
-        plt.xticks(bins)
+        plt.xticks(range(0, 1, 0.1))
         plt.legend(loc='upper right', fontsize=15)
         plt.title(f"Class {i+1}")
         neptune_run[f"Class {i+1}"].upload(File.as_image(fig))
