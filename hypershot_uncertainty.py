@@ -250,4 +250,4 @@ def experiment(N):
     plt.close(fig)
 
 if __name__ == '__main__':
-    experiment(1000)
+    experiment(100)
