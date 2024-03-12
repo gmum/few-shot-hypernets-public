@@ -256,8 +256,6 @@ class HyperNetPOC(MetaTemplate):
                 self_copy.eval()
                 metrics[f"accuracy/val@-{i}"] = self_copy.query_accuracy(x)
         y_pred, bayesian_params_dict = self_copy.set_forward(x, permutation_sanity_check=True)
-        print("bayesian params dict")
-        print(bayesian_params_dict)
         return y_pred, bayesian_params_dict, metrics
 
     def query_accuracy(self, x: torch.Tensor) -> float:

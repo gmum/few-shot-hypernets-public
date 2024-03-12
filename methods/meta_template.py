@@ -49,13 +49,6 @@ class MetaTemplate(nn.Module):
                 "sigma_bias": sigma_bias
             }
         else:
-            print("TEST DICT")
-            print({
-                "mu_weight_test": mu_weight,
-                "mu_bias_test": mu_bias,
-                "sigma_weight_test": sigma_weight,
-                "sigma_bias_test": sigma_bias
-            })
             return {
                 "mu_weight_test": mu_weight,
                 "mu_bias_test": mu_bias,
@@ -187,8 +180,6 @@ class MetaTemplate(nn.Module):
                 f"sigma_weight_test_std@{epoch}": np.concatenate(bnn_params_dict["sigma_weight_test"]).std(axis=0),
                 f"sigma_bias_test_std@{epoch}": np.concatenate(bnn_params_dict["sigma_bias_test"]).std(axis=0)
         }
-
-        print(bnn_params_dict)
 
         if return_std:
             return acc_mean, acc_std, metrics, bnn_params_dict

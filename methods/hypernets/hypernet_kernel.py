@@ -114,7 +114,6 @@ class HyperShot(HyperNetPOC):
                 layers.append(nn.ReLU())
 
         res = nn.Sequential(*layers)
-        print(res)
         return res
 
     def maybe_aggregate_support_feature(self, support_feature: torch.Tensor) -> torch.Tensor:
@@ -395,13 +394,6 @@ class HyperShot(HyperNetPOC):
                 "sigma_bias": sigma_bias
             }
         else:
-            print("TEST DICT")
-            print({
-                "mu_weight_test": mu_weight,
-                "mu_bias_test": mu_bias,
-                "sigma_weight_test": sigma_weight,
-                "sigma_bias_test": sigma_bias
-            })
             return {
                 "mu_weight_test": mu_weight,
                 "mu_bias_test": mu_bias,
