@@ -1,8 +1,17 @@
 from copy import deepcopy
+import math
+from re import S
 from typing import Optional, Tuple
 
 import torch
 from torch import nn
+
+import numpy as np
+
+from matplotlib import pyplot as plt
+
+from backbone import BayesLinear
+from utils import kl_diag_gauss_with_standard_gauss
 
 from methods.hypernets import HyperNetPOC
 from methods.hypernets.utils import set_from_param_dict, accuracy_from_scores
@@ -19,6 +28,18 @@ class HyperShot(HyperNetPOC):
         super().__init__(
             model_func, n_way, n_support, n_query, params=params, target_net_architecture=target_net_architecture
         )
+
+        #################################################
+        ########### BAYESIAN PARAMS #####################
+        #################################################
+        self.loss_kld = kl_diag_gauss_with_standard_gauss
+        self.S: int = params.hn_S # sampling
+        self.use_kld = params.hn_use_kld
+        self.hn_use_mu_in_kld = params.hn_use_mu_in_kld
+        self.epoch_state_dict = {}
+        ################################################
+        ################################################
+        ################################################
 
         # TODO - check!!!
 
@@ -88,12 +109,11 @@ class HyperShot(HyperNetPOC):
             is_final = i == (params.hn_tn_depth - 1)
             insize = common_insize if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
-            layers.append(nn.Linear(insize, outsize))
+            layers.append(BayesLinear(insize, outsize, bias=True, bayesian=params.hn_bayesian_model, bayesian_test=params.hn_bayesian_test, epoch_state_dict=self.epoch_state_dict))
             if not is_final:
                 layers.append(nn.ReLU())
 
         res = nn.Sequential(*layers)
-        print(res)
         return res
 
     def maybe_aggregate_support_feature(self, support_feature: torch.Tensor) -> torch.Tensor:
@@ -203,53 +223,63 @@ class HyperShot(HyperNetPOC):
             name.replace("-", "."): param_net(root).reshape(self.target_net_param_shapes[name])
             for name, param_net in self.hypernet_heads.items()
         }
+
         tn = deepcopy(self.target_net_architecture)
         set_from_param_dict(tn, network_params)
         tn.support_feature = support_feature
-        return tn.cuda()
+        return tn.cuda(), network_params
 
     def set_forward(self, x: torch.Tensor, is_feature: bool = False, permutation_sanity_check: bool = False):
         support_feature, query_feature = self.parse_feature(x, is_feature)
 
-        classifier = self.generate_target_net(support_feature)
-        query_feature = query_feature.reshape(
-            -1, query_feature.shape[-1]
-        )
+        classifier, _ = self.generate_target_net(support_feature)
+        bayesian_params_dict = self.upload_mu_and_sigma_histogram(classifier, test=True)
 
-        relational_query_feature = self.build_relations_features(support_feature, query_feature)
-        # TODO - check!!!
-        if self.hn_use_support_embeddings:
-            relational_query_feature = torch.cat((relational_query_feature, query_feature), 1)
-        y_pred = classifier(relational_query_feature)
+        final_y_pred = []
 
-        if permutation_sanity_check:
-            ### random permutation test
-            perm = torch.randperm(len(query_feature))
-            rev_perm = torch.argsort(perm)
-            query_perm = query_feature[perm]
-            relation_perm = self.build_relations_features(support_feature, query_perm)
-            assert torch.equal(relation_perm[rev_perm], relational_query_feature)
-            y_pred_perm = classifier(relation_perm)
-            assert torch.equal(y_pred_perm[rev_perm], y_pred)
+        for sample in range(self.hn_S_test):
+            query_feature = query_feature.reshape(
+                -1, query_feature.shape[-1]
+            )
 
-        return y_pred
+            relational_query_feature = self.build_relations_features(support_feature, query_feature)
+            # TODO - check!!!
+            if self.hn_use_support_embeddings:
+                relational_query_feature = torch.cat((relational_query_feature, query_feature), 1)
+            y_pred = classifier(relational_query_feature)
+            final_y_pred.append(y_pred)
+
+            if permutation_sanity_check:
+                ### random permutation test
+                perm = torch.randperm(len(query_feature))
+                rev_perm = torch.argsort(perm)
+                query_perm = query_feature[perm]
+                relation_perm = self.build_relations_features(support_feature, query_perm)
+                assert torch.equal(relation_perm[rev_perm], relational_query_feature)
+                y_pred_perm = classifier(relation_perm)
+                assert torch.equal(y_pred_perm[rev_perm], y_pred)
+
+        return torch.stack(final_y_pred).mean(dim=0), bayesian_params_dict
 
     def set_forward_with_adaptation(self, x: torch.Tensor):
-        y_pred, metrics = super().set_forward_with_adaptation(x)
+        y_pred, bayesian_params_dict, metrics = super().set_forward_with_adaptation(x)
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
         query_feature = query_feature.reshape(
             -1, query_feature.shape[-1]
         )
         relational_query_feature = self.build_relations_features(support_feature, query_feature)
         metrics["accuracy/val_relational"] = accuracy_from_scores(relational_query_feature, self.n_way, self.n_query)
-        return y_pred, metrics
+        return y_pred, bayesian_params_dict, metrics
 
     def set_forward_loss(
             self, x: torch.Tensor, detach_ft_hn: bool = False, detach_ft_tn: bool = False,
             train_on_support: bool = True,
-            train_on_query: bool = True
+            train_on_query: bool = True,
+            epoch: int = -1,
     ):
         nw, ne, c, h, w = x.shape
+
+        self.epoch_state_dict["cur_epoch"] = epoch
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
@@ -267,7 +297,8 @@ class HyperShot(HyperNetPOC):
             feature_to_hn = support_feature.detach() if detach_ft_hn else support_feature
             query_feature_to_hn = query_feature
 
-        classifier = self.generate_target_net(feature_to_hn)
+        classifier, hn_out = self.generate_target_net(feature_to_hn)
+        self.last_classifier = classifier
 
         feature_to_classify = []
         y_to_classify_gt = []
@@ -299,6 +330,96 @@ class HyperShot(HyperNetPOC):
         if self.hn_use_support_embeddings:
             relational_feature_to_classify = torch.cat((relational_feature_to_classify, feature_to_classify), 1)
 
-        y_pred = classifier(relational_feature_to_classify)
-        return self.loss_fn(y_pred, y_to_classify_gt)
+        total_crossentropy_loss = 0
+        total_kld_loss = 0
 
+        for _ in range(self.S):
+            y_pred = classifier(relational_feature_to_classify)
+
+            crossentropy_loss = 0
+            kld_loss = 0      
+            for m in classifier.modules() :
+                if isinstance(m, (BayesLinear)):
+                    if self.use_kld:
+                        if self.hn_use_mu_in_kld:
+                            kld_loss += self.loss_kld(m.weight_mu, m.weight_log_var) + self.loss_kld(m.bias_mu, m.bias_log_var)
+                        else:
+                            # substitute mu weight and bias with zero tensors to prevent flow of gradient through those tensors
+                            zero_weight = torch.zeros(m.weight_mu.size()).cuda()
+                            zero_bias = torch.zeros(m.bias_mu.size()).cuda()
+                            kld_loss += self.loss_kld(zero_weight, m.weight_log_var) + self.loss_kld(zero_bias, m.bias_log_var)
+
+            crossentropy_loss += self.loss_fn(y_pred, y_to_classify_gt)
+
+            total_crossentropy_loss += crossentropy_loss
+            total_kld_loss += kld_loss
+
+        # divide by number of sampled predictions
+        total_crossentropy_loss /= S
+        total_kld_loss /= S
+
+        if self.use_kld:
+            return total_crossentropy_loss, total_kld_loss, self.upload_mu_and_sigma_histogram(classifier, False)
+        else:
+            return total_crossentropy_loss, 0, self.upload_mu_and_sigma_histogram(classifier, False)
+
+    # helper function that generates dictionary of parameters
+    # used to print histograms and violin plots in neptune
+    def upload_mu_and_sigma_histogram(self, classifier : nn.Module, test = False):
+
+        mu_weight = []
+        mu_bias = []
+
+        sigma_weight = []
+        sigma_bias = []
+
+        for module in classifier.modules():
+            if isinstance(module, (BayesLinear)):
+                mu_weight.append(module.weight_mu.clone().data.cpu().numpy().flatten())
+                mu_bias.append(module.bias_mu.clone().data.cpu().numpy().flatten())
+                sigma_weight.append(torch.exp(0.5 * (module.weight_log_var-4)).clone().data.cpu().numpy().flatten())
+                sigma_bias.append(torch.exp(0.5 * (module.bias_log_var-4)).clone().data.cpu().numpy().flatten())
+
+
+        mu_weight = np.concatenate(mu_weight)
+        mu_bias = np.concatenate(mu_bias)
+        sigma_weight = np.concatenate(sigma_weight)
+        sigma_bias = np.concatenate(sigma_bias)
+
+        if not test:
+            return {
+                "mu_weight": mu_weight,
+                "mu_bias": mu_bias,
+                "sigma_weight": sigma_weight,
+                "sigma_bias": sigma_bias
+            }
+        else:
+            return {
+                "mu_weight_test": mu_weight,
+                "mu_bias_test": mu_bias,
+                "sigma_weight_test": sigma_weight,
+                "sigma_bias_test": sigma_bias
+            }
+
+    # helper function to create dictionary of bayesian parameters in target network (used in experiments)
+    def get_mu_and_sigma(self):
+
+        param_dict = {}
+
+        i = 0
+
+        for module in self.last_classifier.modules():
+            if isinstance(module, (BayesLinear)):
+
+                weight_mu = module.weight_mu.clone().data.cpu().numpy().flatten()
+                bias_mu = module.bias_mu.clone().data.cpu().numpy().flatten()
+                weight_sigma = torch.exp(0.5 * (module.weight_log_var-4)).clone().data.cpu().numpy().flatten()
+                bias_sigma = torch.exp(0.5 * (module.bias_log_var-4)).clone().data.cpu().numpy().flatten()
+
+                param_dict[f"Layer {i+1} / weight_mu"] = weight_mu
+                param_dict[f"Layer {i+1} / bias_mu"] = bias_mu
+                param_dict[f"Layer {i+1} / weight_sigma"] = weight_sigma
+                param_dict[f"Layer {i+1} / bias_sigma"] = bias_sigma
+                i = i + 1
+        
+        return param_dict

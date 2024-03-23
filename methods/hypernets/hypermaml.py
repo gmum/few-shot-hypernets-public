@@ -18,7 +18,7 @@ class HyperNet(nn.Module):
         super(HyperNet, self).__init__()
 
         self.hn_head_len = params.hn_head_len
-        self.hn_activation = params.hn_activation
+#        self.hn_activation = params.hn_activation
 
         head = [nn.Linear(embedding_size, hn_hidden_size), nn.ReLU()]
 

@@ -1,5 +1,6 @@
 # This code is modified from https://github.com/facebookresearch/low-shot-shrink-hallucinate
 
+from asyncio import start_server
 import torch
 from torch.autograd import Variable
 import torch.nn as nn
@@ -7,6 +8,9 @@ import math
 import numpy as np
 import torch.nn.functional as F
 from torch.nn.utils.weight_norm import WeightNorm
+
+from utils import kl_diag_gauss_with_standard_gauss, reparameterize
+
 # Basic ResNet model
 
 def init_layer(L):
@@ -62,6 +66,53 @@ class Linear_fw(nn.Linear): #used in MAML to forward input with fast weight
         else:
             out = super(Linear_fw, self).forward(x)
         return out
+
+class BayesLinear(nn.Module): 
+    def __init__(self, in_features, out_features, bias=True, bayesian=False, bayesian_test=False, epoch_state_dict = {}):
+        super(BayesLinear, self).__init__()
+
+        self.bayesian = bayesian
+        self.bayesian_test = bayesian_test
+
+        self.bias = bias
+        self.in_features = in_features
+        self.out_features = out_features
+        
+        self.weight_mu = nn.Parameter(torch.Tensor(out_features, in_features))
+        self.weight_log_var = nn.Parameter(torch.Tensor(out_features, in_features))
+
+        self.epoch_state_dict = epoch_state_dict
+
+        if self.bias:
+            self.bias_mu = nn.Parameter(torch.Tensor(out_features))
+            self.bias_log_var = nn.Parameter(torch.Tensor(out_features))
+        else:
+            self.bias_mu = None
+            self.bias_log_var = None
+
+    def get_scale(self):
+        if not self.epoch_state_dict["hn_warmup"]:
+            return 1
+
+        if self.epoch_state_dict["cur_epoch"] < self.epoch_state_dict["from_epoch"]:
+            return 0
+            
+        beg = self.epoch_state_dict["from_epoch"]
+        end = self.epoch_state_dict["to_epoch"]
+        cur = self.epoch_state_dict["cur_epoch"]
+
+        return min(1, float(cur-beg) / float(end-beg))
+
+    def forward(self, x):
+
+        if (self.training and self.bayesian) or (self.bayesian and self.bayesian_test):
+
+            weight = reparameterize(self.weight_mu, self.weight_log_var)
+            bias = reparameterize(self.bias_mu, self.bias_log_var)
+
+            return F.linear(x, weight, bias)
+        else:
+            return F.linear(x, self.weight_mu, self.bias_mu)
 
 class Conv2d_fw(nn.Conv2d): #used in MAML to forward input with fast weight
     def __init__(self, in_channels, out_channels, kernel_size, stride=1,padding=0, bias = True):

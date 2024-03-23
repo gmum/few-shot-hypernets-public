@@ -38,7 +38,18 @@ class HyperNetPOC(MetaTemplate):
         self.hn_val_epochs: int = params.hn_val_epochs
         self.hn_val_lr: float = params.hn_val_lr
         self.hn_val_optim: float = params.hn_val_optim
+        self.hn_S_test: int = params.hn_S_test
 
+        self.hn_kld_const_scaler = 10**(params.hn_kld_const_scaler)
+        self.hn_kld_dynamic_scale = 10**(params.hn_kld_start_val)
+        self.hn_kld_stop_val = 10**(params.hn_kld_stop_val)
+        self.hn_step = None
+        self.hn_use_kld_from = params.hn_use_kld_from
+        self.hn_use_kld_scheduler = params.hn_use_kld_scheduler
+
+        self.epoch_state_dict = {}
+
+        self.dataset_size = 0
         self.embedding_size = self.init_embedding_size(params)
         self.target_net_architecture = target_net_architecture or self.build_target_net_architecture(params)
         self.loss_fn = nn.CrossEntropyLoss()
@@ -204,21 +215,29 @@ class HyperNetPOC(MetaTemplate):
             support_feature = support_feature_with_classes_one_hot
 
         classifier = self.generate_target_net(support_feature)
-        query_feature = query_feature.reshape(
-            -1, query_feature.shape[-1]
-        )
-        y_pred = classifier(query_feature)
 
-        if permutation_sanity_check:
-            ### random permutation test
-            perm = torch.randperm(len(query_feature))
-            rev_perm = torch.argsort(perm)
-            query_perm = query_feature[perm]
-            assert torch.equal(query_perm[rev_perm], query_feature)
-            y_pred_perm = classifier(query_perm)
-            assert torch.equal(y_pred_perm[rev_perm], y_pred)
+        # get parameters of classifier
+        bayesian_params_dict = self.upload_mu_and_sigma_histogram(classifier, test=True)
 
-        return y_pred
+        final_y_pred = []
+
+        for sample in range(self.hn_S_test):
+            query_feature = query_feature.reshape(
+                -1, query_feature.shape[-1]
+            )
+            y_pred = classifier(query_feature)
+            final_y_pred.append(y_pred)
+
+            if permutation_sanity_check:
+                ### random permutation test
+                perm = torch.randperm(len(query_feature))
+                rev_perm = torch.argsort(perm)
+                query_perm = query_feature[perm]
+                assert torch.equal(query_perm[rev_perm], query_feature)
+                y_pred_perm = classifier(query_perm)
+                assert torch.equal(y_pred_perm[rev_perm], y_pred)
+
+        return torch.stack(final_y_pred).mean(dim=0), bayesian_params_dict
 
     def set_forward_with_adaptation(self, x: torch.Tensor):
         self_copy = deepcopy(self)
@@ -236,10 +255,11 @@ class HyperNetPOC(MetaTemplate):
                 val_opt.step()
                 self_copy.eval()
                 metrics[f"accuracy/val@-{i}"] = self_copy.query_accuracy(x)
-        return self_copy.set_forward(x, permutation_sanity_check=True), metrics
+        y_pred, bayesian_params_dict = self_copy.set_forward(x, permutation_sanity_check=True)
+        return y_pred, bayesian_params_dict, metrics
 
     def query_accuracy(self, x: torch.Tensor) -> float:
-        scores = self.set_forward(x)
+        scores, _ = self.set_forward(x)
         return accuracy_from_scores(scores, n_way=self.n_way, n_query=self.n_query)
 
     def set_forward_loss(
@@ -295,52 +315,85 @@ class HyperNetPOC(MetaTemplate):
         taskset = []
         n_train = len(train_loader)
         accuracies = []
-        losses = []
+        losses = [] # kld_scaled + crossentropy
+        kld_losses = [] # kld
+        crossentropy_losses = [] # crossentropy
         metrics = defaultdict(list)
         ts_repeats = self.taskset_repeats(epoch)
+        self.dataset_size = len(train_loader.dataset)
+
+
+        self._scale_step()
+        reduction = self.hn_kld_dynamic_scale
+
+        if not self.hn_use_kld_scheduler:
+            reduction = 1
 
         for i, (x, _) in enumerate(train_loader):
             taskset.append(x)
 
             # TODO 3: perhaps the idea of tasksets is redundant and it's better to update weights at every task
             if i % self.taskset_size == (self.taskset_size - 1) or i == (n_train - 1):
-                loss_sum = torch.tensor(0).cuda()
+                crossentropy_loss_sum = torch.tensor(0.0).cuda()
+                kld_loss_sum = torch.tensor(0.0).cuda()
                 for tr in range(ts_repeats):
-                    loss_sum = torch.tensor(0).cuda()
+                    crossentropy_loss_sum = torch.tensor(0.0).cuda()
+                    kld_loss_sum = torch.tensor(0.0).cuda()
 
                     for task in taskset:
                         if self.change_way:
                             self.n_way = task.size(0)
                         self.n_query = task.size(1) - self.n_support
-                        loss = self.set_forward_loss(task)
-                        loss_sum = loss_sum + loss
+                        crossentropy_loss, kld_loss, hist_data = self.set_forward_loss(task, epoch=epoch)
+                        crossentropy_loss_sum += crossentropy_loss
+                        kld_loss_sum += kld_loss
 
+                    if epoch >= self.hn_use_kld_from:
+                        loss_sum = crossentropy_loss_sum + kld_loss_sum * reduction * self.hn_kld_const_scaler
+                    else:
+                        loss_sum = crossentropy_loss_sum
+                    
                     optimizer.zero_grad()
                     loss_sum.backward()
 
                     if tr == 0:
                         for k, p in get_param_dict(self).items():
-                            metrics[f"grad_norm/{k}"] = p.grad.abs().mean().item() if p.grad is not None else 0
+                            if(k.split('.')[0] != "target_net_architecture"):
+                                metrics[f"grad_norm/{k}"] = p.grad.abs().mean().item() if p.grad is not None else 0
 
                     optimizer.step()
 
                 losses.append(loss_sum.item())
+                kld_losses.append(kld_loss_sum.item())
+                crossentropy_losses.append(crossentropy_loss_sum.item())
                 accuracies.extend([
                     self.query_accuracy(task) for task in taskset
                 ])
+
                 acc_mean = np.mean(accuracies) * 100
                 acc_std = np.std(accuracies) * 100
 
                 if taskset_id % self.taskset_print_every == 0:
                     print(
-                        f"Epoch {epoch} | Taskset {taskset_id} | TS {len(taskset)} | TS epochs {ts_repeats} | Loss {loss_sum.item()} | Train acc {acc_mean:.2f} +- {acc_std:.2f} %")
+                        f"Epoch {epoch} | Taskset {taskset_id} | TS {len(taskset)} | TS epochs {ts_repeats} | Loss {loss_sum.item()} | KLD_Loss {kld_loss_sum.item()} | Train acc {acc_mean:.2f} +- {acc_std:.2f} %")
 
                 taskset_id += 1
                 taskset = []
 
         metrics["loss/train"] = np.mean(losses)
+        metrics["kld_loss/train"] = np.mean(kld_losses)
+        metrics["kld_loss_scaled/train"] = np.mean(kld_losses) * reduction * self.hn_kld_const_scaler
+        metrics["crossentropy_loss/train"] = np.mean(crossentropy_losses)
         metrics["accuracy/train"] = np.mean(accuracies) * 100
-        return metrics
+        metrics["kld_scale"] = reduction * self.hn_kld_const_scaler
+
+        return metrics, hist_data
+
+    def _scale_step(self):
+        if self.hn_step is None:
+            self.hn_step = np.power(1 / self.hn_kld_dynamic_scale * self.hn_kld_stop_val, 1 / self.stop_epoch)
+            
+        self.hn_kld_dynamic_scale = self.hn_kld_dynamic_scale * self.hn_step
 
 
 class PPAMixin(HyperNetPOC):
