@@ -2,15 +2,18 @@
 
 The official PyTorch implementation of papers: 
 
-* *[Hypernetwork approach to Bayesian MAML](https://arxiv.org/abs/2210.02796)* (2022)
-Borycki P., Kubacki P., Przewięźlikowski M., Kuśmierczyk T., Tabor J., Spurek P., preprint.
+* *[HyperShot: Few-Shot Learning by Kernel HyperNetworks](https://openaccess.thecvf.com/content/WACV2023/html/Sendera_HyperShot_Few-Shot_Learning_by_Kernel_HyperNetworks_WACV_2023_paper.html)* (2023) 
+Sendera M., Przewięźlikowski M., Karanowski K., Zięba M. Tabor J., Spurek P. - WACV 2023.
+
+* *[The general framework for few-shot learning by kernel HyperNetworks
+](https://link.springer.com/article/10.1007/s00138-023-01403-4)* (2023) Sendera M., Przewięźlikowski M., Miksa J., Rajski M., Karanowski K., Zięba M. Tabor J., Spurek P. -  Machine Vision and Applications Volume 34, article number 53
 
 * *[HyperMAML: Few-Shot Adaptation of Deep Models with Hypernetworks](https://arxiv.org/abs/2205.15745)* (2022)
 Przewięźlikowski M., Przybysz P. , Tabor J., Zięba M., Spurek P. - preprint.
 
-* *[HyperShot: Few-Shot Learning by Kernel HyperNetworks](https://arxiv.org/abs/2203.11378)* (2022) 
-Sendera M., Przewięźlikowski M., Karanowski K., Zięba M. Tabor J., Spurek P. - to be published at WACV 2023.
-
+  
+* *[Hypernetwork approach to Bayesian MAML](https://arxiv.org/abs/2210.02796)* (2022)
+Borycki P., Kubacki P., Przewięźlikowski M., Kuśmierczyk T., Tabor J., Spurek P., preprint.
 
 
 ## Overview
@@ -26,6 +29,13 @@ for the considered problem. Moreover, we introduce the kernel-based representati
 hypernetwork to create the parameters of the classification module. Consequently, we rely on relations between embeddings
 of the support examples instead of direct feature values provided by the backbone models. Thanks to this approach, our model
 can adapt to highly different tasks.
+
+### BayesianHyperShot
+
+While HyperShot obtains very good results, it is limited by typical problems such as poorly quantified uncertainty 
+due to limited data size.
+We further show that incorporating Bayesian neural networks into our general framework, 
+an approach we call BayesHyperShot, solves this issue.
 
 ### HyperMAML
 The aim of Few-Shot learning methods is to train models which can easily adapt to previously unseen tasks, based on small 
@@ -83,7 +93,7 @@ pip install numpy torch torchvision gpytorch h5py pillow
 
 ## Code of our method
 
-* HyperShot: [hypernet_kernel.py](./methods/hypernets/hypernet_kernel.py)
+* (Bayesian) HyperShot: [hypernet_kernel.py](./methods/hypernets/hypernet_kernel.py)
 * HyperMAML: [hypermaml.py](./methods/hypernets/hypermaml.py)
 * BayesHMAML [bayeshmaml.py](./methods/hypernets/bayeshmaml.py)
 
@@ -105,9 +115,10 @@ Check out [commands.sh](./commands.sh) for our best grid test arguments
 ### Methods
 
 This repository provides implementations of several few-shot learning methods:
-* `bayes_hmaml` - [Hypernetwork approach to Bayesian MAML](https://arxiv.org/abs/2210.02796)
+* `hyper_shot` - [HyperShot: Few-Shot Learning by Kernel HyperNetworks](https://arxiv.org/abs/2203.11378) /  [The general framework for few-shot learning by kernel HyperNetworks
+](https://link.springer.com/article/10.1007/s00138-023-01403-4)
 * `hyper_maml` - [HyperMAML: Few-Shot Adaptation of Deep Models with Hypernetworks](https://arxiv.org/abs/2205.15745)
-* `hyper_shot` - [HyperShot: Few-Shot Learning by Kernel HyperNetworks](https://arxiv.org/abs/2203.11378)
+* `bayes_hmaml` - [Hypernetwork approach to Bayesian MAML](https://arxiv.org/abs/2210.02796)
 * `hn_ppa` - [Few-Shot Image Recognition by Predicting Parameters from Activations
 ](https://arxiv.org/abs/1706.03466)
 * `DKT` - [Bayesian Meta-Learning for the Few-Shot Setting via Deep Kernels
@@ -166,6 +177,28 @@ If you find our work useful, please consider citing it:
 
 ```bibtex
 
+@InProceedings{sendera2023hypershot,
+    author    = {Sendera, Marcin and Przewi\k{e}\'zlikowski, Marcin and Karanowski, Konrad and Zi\k{e}ba, Maciej and Tabor, Jacek and Spurek, Przemys{\l}aw},
+    title     = {HyperShot: Few-Shot Learning by Kernel HyperNetworks},
+    booktitle = {Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)},
+    month     = {January},
+    year      = {2023},
+    pages     = {2469-2478}
+}
+```
+```bibtex
+@article{sendera2023thegeneral,
+author = {Sendera, Marcin and Przewięźlikowski, Marcin and Miksa, Jan and Rajski, Mateusz and Karanowski, Konrad and Zięba, Maciej and Tabor, Jacek and Spurek, Przemysław},
+year = {2023},
+month = {05},
+pages = {},
+title = {The general framework for few-shot learning by kernel HyperNetworks},
+volume = {34},
+journal = {Machine Vision and Applications},
+doi = {10.1007/s00138-023-01403-4}
+}
+```
+```bibtex
 @misc{przewiezlikowski2022hypermaml,
   doi = {10.48550/ARXIV.2205.15745},
   url = {https://arxiv.org/abs/2205.15745},
@@ -176,17 +209,14 @@ If you find our work useful, please consider citing it:
   year = {2022},
   copyright = {arXiv.org perpetual, non-exclusive license}
 }
-
-
-@misc{sendera2022hypershot,
-  doi = {10.48550/ARXIV.2203.11378},
-  url = {https://arxiv.org/abs/2203.11378},
-  author = {Sendera, Marcin and Przewięźlikowski, Marcin and Karanowski, Konrad and Zięba, Maciej and Tabor, Jacek and Spurek, Przemysław},
-  keywords = {Machine Learning (cs.LG), Artificial Intelligence (cs.AI), Computer Vision and Pattern Recognition (cs.CV), FOS: Computer and information sciences, FOS: Computer and information sciences},
-  title = {HyperShot: Few-Shot Learning by Kernel HyperNetworks},
-  publisher = {arXiv},
-  year = {2022},
-  copyright = {Creative Commons Attribution 4.0 International}
+```
+```bibtex
+@misc{borycki2023hypernetwork,
+      title={Hypernetwork approach to Bayesian MAML}, 
+      author={Piotr Borycki and Piotr Kubacki and Marcin Przewięźlikowski and Tomasz Kuśmierczyk and Jacek Tabor and Przemysław Spurek},
+      year={2023},
+      eprint={2210.02796},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
 }
-
 ```
