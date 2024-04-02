@@ -1,3 +1,4 @@
+from collections import defaultdict
 from copy import deepcopy
 from re import S
 from typing import Optional, Tuple
@@ -34,7 +35,7 @@ class HyperShot(HyperNetPOC):
         self.S: int = params.hn_S # sampling
         self.use_kld = params.hn_use_kld
         self.hn_use_mu_in_kld = params.hn_use_mu_in_kld
-        self.epoch_state_dict = {}
+        # self.epoch_state_dict = {}
         ################################################
         ################################################
         ################################################
@@ -107,7 +108,9 @@ class HyperShot(HyperNetPOC):
             is_final = i == (params.hn_tn_depth - 1)
             insize = common_insize if i == 0 else tn_hidden_size
             outsize = self.n_way if is_final else tn_hidden_size
-            layers.append(BayesLinear(insize, outsize, bias=True, bayesian=params.hn_bayesian_model, bayesian_test=params.hn_bayesian_test, epoch_state_dict=self.epoch_state_dict))
+            layers.append(BayesLinear(insize, outsize, bias=True, bayesian=params.hn_bayesian_model, bayesian_test=params.hn_bayesian_test,
+                                      # epoch_state_dict=self.epoch_state_dict
+                                      ))
             if not is_final:
                 layers.append(nn.ReLU())
 
@@ -277,7 +280,7 @@ class HyperShot(HyperNetPOC):
     ):
         nw, ne, c, h, w = x.shape
 
-        self.epoch_state_dict["cur_epoch"] = epoch
+        # self.epoch_state_dict["cur_epoch"] = epoch
 
         support_feature, query_feature = self.parse_feature(x, is_feature=False)
 
@@ -421,3 +424,80 @@ class HyperShot(HyperNetPOC):
                 i = i + 1
         
         return param_dict
+
+    def test_loop(self, test_loader, record=None, return_std: bool = False):
+        correct = 0
+        count = 0
+        acc_all = []
+        acc_at = defaultdict(list)
+
+        bnn_params_dict = {
+            "mu_weight_test": [],
+            "mu_bias_test": [],
+            "sigma_weight_test": [],
+            "sigma_bias_test": []
+        }
+
+        iter_num = len(test_loader)
+        for i, (x, _) in enumerate(test_loader):
+            self.n_query = x.size(1) - self.n_support
+            if self.change_way:
+                self.n_way = x.size(0)
+            y_query = np.repeat(range(self.n_way), self.n_query)
+
+            try:
+                scores, bayesian_params_dict, acc_at_metrics = self.set_forward_with_adaptation(x)
+
+                # append from current eval
+                bnn_params_dict["mu_weight_test"].append(bayesian_params_dict["mu_weight_test"])
+                bnn_params_dict["mu_bias_test"].append(bayesian_params_dict["mu_bias_test"])
+                bnn_params_dict["sigma_weight_test"].append(bayesian_params_dict["sigma_weight_test"])
+                bnn_params_dict["sigma_bias_test"].append(bayesian_params_dict["sigma_bias_test"])
+
+                for (k, v) in acc_at_metrics.items():
+                    acc_at[k].append(v)
+            except Exception as e:
+                scores, bayesian_params_dict = self.set_forward(x)
+                # append from current eval
+                bnn_params_dict["mu_weight_test"].append(bayesian_params_dict["mu_weight_test"])
+                bnn_params_dict["mu_bias_test"].append(bayesian_params_dict["mu_bias_test"])
+                bnn_params_dict["sigma_weight_test"].append(bayesian_params_dict["sigma_weight_test"])
+                bnn_params_dict["sigma_bias_test"].append(bayesian_params_dict["sigma_bias_test"])
+
+            scores = scores.reshape((self.n_way * self.n_query, self.n_way))
+
+            topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
+            topk_ind = topk_labels.cpu().numpy()
+            top1_correct = np.sum(topk_ind[:, 0] == y_query)
+            correct_this = float(top1_correct)
+            count_this = len(y_query)
+            acc_all.append(correct_this / count_this * 100)
+
+        metrics = {
+            k: np.mean(v) if len(v) > 0 else 0
+            for (k, v) in acc_at.items()
+        }
+
+        acc_all = np.asarray(acc_all)
+        acc_mean = np.mean(acc_all)
+        acc_std = np.std(acc_all)
+        print(metrics)
+        print('%d Test Acc = %4.2f%% +- %4.2f%%' % (iter_num, acc_mean, 1.96 * acc_std / np.sqrt(iter_num)))
+
+        # convert list of numpy arrays to numpy arrays
+
+        bnn_params_dict = {
+            f"mu_weight_test_mean": np.concatenate(bnn_params_dict["mu_weight_test"]).mean(axis=0),
+            f"mu_bias_test_mean": np.concatenate(bnn_params_dict["mu_bias_test"]).mean(axis=0),
+            f"sigma_weight_test_mean": np.concatenate(bnn_params_dict["sigma_weight_test"]).mean(axis=0),
+            f"sigma_bias_test_mean": np.concatenate(bnn_params_dict["sigma_bias_test"]).mean(axis=0),
+            f"mu_weight_test_std": np.concatenate(bnn_params_dict["mu_weight_test"]).std(axis=0),
+            f"mu_bias_test_std": np.concatenate(bnn_params_dict["mu_bias_test"]).std(axis=0),
+            f"sigma_weight_test_std": np.concatenate(bnn_params_dict["sigma_weight_test"]).std(axis=0),
+            f"sigma_bias_test_std": np.concatenate(bnn_params_dict["sigma_bias_test"]).std(axis=0)
+        }
+
+        if return_std:
+            return acc_mean, acc_std, metrics, bnn_params_dict
+        else:
+            return acc_mean, metrics, bnn_params_dict

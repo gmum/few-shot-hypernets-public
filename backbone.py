@@ -85,7 +85,9 @@ class BLinear_fw(Linear_fw): #used in BHMAML to forward input with fast weight
         return out
 
 class BayesLinear(nn.Module):
-    def __init__(self, in_features, out_features, bias=True, bayesian=False, bayesian_test=False, epoch_state_dict = {}):
+    def __init__(self, in_features, out_features, bias=True, bayesian=False, bayesian_test=False,
+                 # epoch_state_dict = {}
+                 ):
         super(BayesLinear, self).__init__()
 
         self.bayesian = bayesian
@@ -98,7 +100,7 @@ class BayesLinear(nn.Module):
         self.weight_mu = nn.Parameter(torch.Tensor(out_features, in_features))
         self.weight_log_var = nn.Parameter(torch.Tensor(out_features, in_features))
 
-        self.epoch_state_dict = epoch_state_dict
+        # self.epoch_state_dict = epoch_state_dict
 
         if self.bias:
             self.bias_mu = nn.Parameter(torch.Tensor(out_features))
@@ -107,18 +109,18 @@ class BayesLinear(nn.Module):
             self.bias_mu = None
             self.bias_log_var = None
 
-    def get_scale(self):
-        if not self.epoch_state_dict["hn_warmup"]:
-            return 1
-
-        if self.epoch_state_dict["cur_epoch"] < self.epoch_state_dict["from_epoch"]:
-            return 0
-
-        beg = self.epoch_state_dict["from_epoch"]
-        end = self.epoch_state_dict["to_epoch"]
-        cur = self.epoch_state_dict["cur_epoch"]
-
-        return min(1, float(cur-beg) / float(end-beg))
+    # def get_scale(self):
+    #     if not self.epoch_state_dict["hn_warmup"]:
+    #         return 1
+    #
+    #     if self.epoch_state_dict["cur_epoch"] < self.epoch_state_dict["from_epoch"]:
+    #         return 0
+    #
+    #     beg = self.epoch_state_dict["from_epoch"]
+    #     end = self.epoch_state_dict["to_epoch"]
+    #     cur = self.epoch_state_dict["cur_epoch"]
+    #
+    #     return min(1, float(cur-beg) / float(end-beg))
 
     def forward(self, x):
 

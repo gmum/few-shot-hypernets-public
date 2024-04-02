@@ -18,7 +18,7 @@ from data.datamgr import SimpleDataManager, SetDataManager
 from methods.baselinetrain import BaselineTrain
 from methods.DKT import DKT
 from methods.hypernets.hypernet_poc import HyperNetPOC
-from methods.hypernets import hypernet_types
+from methods.hypernets import hypernet_types, HyperShot
 from methods.protonet import ProtoNet
 from methods.matchingnet import MatchingNet
 from methods.relationnet import RelationNet
@@ -168,10 +168,10 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         model.start_epoch = start_epoch
         model.stop_epoch = stop_epoch
 
-        model.epoch_state_dict["hn_warmup"] = params.hn_warmup
-        model.epoch_state_dict["cur_epoch"] = epoch
-        model.epoch_state_dict["from_epoch"] = params.hn_warmup_start_epoch
-        model.epoch_state_dict["to_epoch"] = params.hn_warmup_stop_epoch
+        # model.epoch_state_dict["hn_warmup"] = params.hn_warmup
+        # model.epoch_state_dict["cur_epoch"] = epoch
+        # model.epoch_state_dict["from_epoch"] = params.hn_warmup_start_epoch
+        # model.epoch_state_dict["to_epoch"] = params.hn_warmup_stop_epoch
 
         model.train()
         if "shot" in params.method:
@@ -194,11 +194,13 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             params.es_epoch - 1,
             stop_epoch - 1
         ]:
-            try:
-                acc, test_loop_metrics, bnn_dict = model.test_loop(val_loader, epoch=epoch)
-            except:
-                acc, bnn_dict = model.test_loop(val_loader, epoch=epoch)
-                test_loop_metrics = dict()
+            if isinstance(model, HyperShot):
+                acc, test_loop_metrics, bnn_dict = model.test_loop(val_loader)
+
+            else:
+                acc, test_loop_metrics = model.test_loop(val_loader)
+                bnn_dict = dict()
+
             print(
                 f"Epoch {epoch}/{stop_epoch}  | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Metrics: {test_loop_metrics}")
 
