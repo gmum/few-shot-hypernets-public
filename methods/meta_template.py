@@ -20,6 +20,42 @@ class MetaTemplate(nn.Module):
         self.feat_dim   = self.feature.final_feat_dim
         self.change_way = change_way  #some methods allow different_way classification during training and test
 
+    def upload_mu_and_sigma_histogram(self, classifier : nn.Module, test = False):
+
+        mu_weight = []
+        mu_bias = []
+
+        sigma_weight = []
+        sigma_bias = []
+
+        for module in classifier.modules():
+            if isinstance(module, (BayesLinear)):
+                mu_weight.append(module.weight_mu.clone().data.cpu().numpy().flatten())
+                mu_bias.append(module.bias_mu.clone().data.cpu().numpy().flatten())
+                sigma_weight.append(torch.exp(0.5 * (module.weight_log_var-4)).clone().data.cpu().numpy().flatten())
+                sigma_bias.append(torch.exp(0.5 * (module.bias_log_var-4)).clone().data.cpu().numpy().flatten())
+
+
+        mu_weight = np.concatenate(mu_weight)
+        mu_bias = np.concatenate(mu_bias)
+        sigma_weight = np.concatenate(sigma_weight)
+        sigma_bias = np.concatenate(sigma_bias)
+
+        if not test:
+            return {
+                "mu_weight": mu_weight,
+                "mu_bias": mu_bias,
+                "sigma_weight": sigma_weight,
+                "sigma_bias": sigma_bias
+            }
+        else:
+            return {
+                "mu_weight_test": mu_weight,
+                "mu_bias_test": mu_bias,
+                "sigma_weight_test": sigma_weight,
+                "sigma_bias_test": sigma_bias
+            }
+
     @abstractmethod
     def set_forward(self,x,is_feature):
         pass
@@ -72,22 +108,22 @@ class MetaTemplate(nn.Module):
                 #print(optimizer.state_dict()['param_groups'][0]['lr'])
                 print('Epoch {:d} | Batch {:d}/{:d} | Loss {:f}'.format(epoch, i, len(train_loader), avg_loss/float(i+1)))
 
-    def test_loop(self, test_loader, record = None, return_std: bool = False):
-        correct =0
+    def test_loop(self, test_loader, record=None, return_std: bool = False):
+        correct = 0
         count = 0
         acc_all = []
         acc_at = defaultdict(list)
-        
-        iter_num = len(test_loader) 
-        for i, (x,_) in enumerate(test_loader):
+
+        iter_num = len(test_loader)
+        for i, (x, _) in enumerate(test_loader):
             self.n_query = x.size(1) - self.n_support
             if self.change_way:
-                self.n_way  = x.size(0)
-            y_query = np.repeat(range( self.n_way ), self.n_query )
+                self.n_way = x.size(0)
+            y_query = np.repeat(range(self.n_way), self.n_query)
 
             try:
                 scores, acc_at_metrics = self.set_forward_with_adaptation(x)
-                for (k,v) in acc_at_metrics.items():
+                for (k, v) in acc_at_metrics.items():
                     acc_at[k].append(v)
             except Exception as e:
                 scores = self.set_forward(x)
@@ -96,26 +132,25 @@ class MetaTemplate(nn.Module):
 
             topk_scores, topk_labels = scores.data.topk(1, 1, True, True)
             topk_ind = topk_labels.cpu().numpy()
-            top1_correct = np.sum(topk_ind[:,0] == y_query)
+            top1_correct = np.sum(topk_ind[:, 0] == y_query)
             correct_this = float(top1_correct)
             count_this = len(y_query)
-            acc_all.append(correct_this/ count_this*100  )
+            acc_all.append(correct_this / count_this * 100)
 
         metrics = {
             k: np.mean(v) if len(v) > 0 else 0
-            for (k,v) in acc_at.items()
+            for (k, v) in acc_at.items()
         }
 
-        acc_all  = np.asarray(acc_all)
+        acc_all = np.asarray(acc_all)
         acc_mean = np.mean(acc_all)
-        acc_std  = np.std(acc_all)
+        acc_std = np.std(acc_all)
         print(metrics)
-        print('%d Test Acc = %4.2f%% +- %4.2f%%' %(iter_num,  acc_mean, 1.96* acc_std/np.sqrt(iter_num)))
+        print('%d Test Acc = %4.2f%% +- %4.2f%%' % (iter_num, acc_mean, 1.96 * acc_std / np.sqrt(iter_num)))
         if return_std:
             return acc_mean, acc_std, metrics
         else:
             return acc_mean, metrics
-
     def set_forward_adaptation(self, x, is_feature = True): #further adaptation, default is fixing feature and train a new softmax clasifier
         assert is_feature == True, 'Feature is fixed in further adaptation'
         z_support, z_query  = self.parse_feature(x,is_feature)

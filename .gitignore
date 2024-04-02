@@ -143,6 +143,7 @@ filelists/QMUL/*.json
 # neptune logs
 .neptune/
 .neptune/*
+.neptune-bash-profile
 
 record/
 

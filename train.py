@@ -18,7 +18,7 @@ from data.datamgr import SimpleDataManager, SetDataManager
 from methods.baselinetrain import BaselineTrain
 from methods.DKT import DKT
 from methods.hypernets.hypernet_poc import HyperNetPOC
-from methods.hypernets import hypernet_types
+from methods.hypernets import hypernet_types, HyperShot
 from methods.protonet import ProtoNet
 from methods.matchingnet import MatchingNet
 from methods.relationnet import RelationNet
@@ -30,11 +30,63 @@ from io_utils import model_dict, parse_args, get_resume_file, setup_neptune
 from neptune.new.types import File
 
 import matplotlib.pyplot as plt
+from neptune.new.types import File
 from pathlib import Path
 
 from save_features import do_save_fts
 from test import perform_test
 
+def upload_images(neptune_run, hist_data, tag):
+    if neptune_run is None:
+        return
+    if hist_data:
+        if hist_data["mu_weight"] != []:
+            # mu weight
+            fig = plt.figure()
+            plt.hist(hist_data["mu_weight"], edgecolor="black", bins=20)
+            neptune_run[f"mu_weight @ {tag} / histogram"].upload(File.as_image(fig))
+            plt.close(fig)
+
+            fig = plt.figure()
+            plt.violinplot(hist_data["mu_weight"])
+            neptune_run[f"mu_weight @ {tag} / violinplot"].upload(File.as_image(fig))
+            plt.close(fig)
+
+        if hist_data["mu_bias"] != []:
+            # mu bias
+            fig = plt.figure()
+            plt.hist(hist_data["mu_bias"], edgecolor="black", bins=20)
+            neptune_run[f"mu_bias @ {tag} / histogram"].upload(File.as_image(fig))
+            plt.close(fig)
+
+            fig = plt.figure()
+            plt.violinplot(hist_data["mu_bias"])
+            neptune_run[f"mu_bias @ {tag} / violinplot"].upload(File.as_image(fig))
+            plt.close(fig)
+
+        if hist_data["sigma_weight"] != []:
+            # sigma weight
+            fig = plt.figure()
+            plt.hist(hist_data["sigma_weight"], edgecolor="black", bins=20)
+            neptune_run[f"sigma_weight @ {tag} / histogram"].upload(File.as_image(fig))
+            plt.close(fig)
+
+            fig = plt.figure()
+            plt.violinplot(hist_data["sigma_weight"])
+            neptune_run[f"sigma_weight @ {tag} / violinplot"].upload(File.as_image(fig))
+            plt.close(fig)
+
+        if hist_data["sigma_bias"] != []:
+            # sigma bias
+            fig = plt.figure()
+            plt.hist(hist_data["sigma_bias"], edgecolor="black", bins=20)
+            neptune_run[f"sigma_bias @ {tag} / histogram"].upload(File.as_image(fig))
+            plt.close(fig)
+
+            fig = plt.figure()
+            plt.violinplot(hist_data["sigma_bias"])
+            neptune_run[f"sigma_bias @ {tag} / violinplot"].upload(File.as_image(fig))
+            plt.close(fig)
 
 def _set_seed(seed, verbose=True):
     if (seed != 0):
@@ -118,11 +170,20 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
         model.start_epoch = start_epoch
         model.stop_epoch = stop_epoch
 
+        # model.epoch_state_dict["hn_warmup"] = params.hn_warmup
+        # model.epoch_state_dict["cur_epoch"] = epoch
+        # model.epoch_state_dict["from_epoch"] = params.hn_warmup_start_epoch
+        # model.epoch_state_dict["to_epoch"] = params.hn_warmup_stop_epoch
+
         model.train()
-        if params.method in ['hyper_maml','bayes_hmaml']:
-            metrics = model.train_loop(epoch, base_loader, optimizer)
+        if "shot" in params.method:
+            metrics, hist_data = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
+
+            if epoch % 100 == 0:
+                upload_images(neptune_run, hist_data, epoch)
         else:
-            metrics = model.train_loop(epoch, base_loader, optimizer)  # model are called by reference, no need to return
+            metrics = model.train_loop(epoch, base_loader, optimizer)
+
 
         scheduler.step()
         model.eval()
@@ -135,19 +196,30 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             params.es_epoch - 1,
             stop_epoch - 1
         ]:
-            try:
+            if isinstance(model, HyperShot):
+                acc, test_loop_metrics, bnn_dict = model.test_loop(val_loader)
+
+            else:
                 acc, test_loop_metrics = model.test_loop(val_loader)
-            except:
-                acc = model.test_loop(val_loader)
-                test_loop_metrics = dict()
+                bnn_dict = dict()
+
             print(
                 f"Epoch {epoch}/{stop_epoch}  | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Metrics: {test_loop_metrics}")
+
+            if bnn_dict and neptune_run is not None:
+                for key in bnn_dict.keys():
+                    if epoch % 100 == 0:
+                        fig = plt.figure()
+                        plt.hist(bnn_dict[key], edgecolor="black", bins=20)
+                        neptune_run[key + "/train"].upload(File.as_image(fig))
+                        plt.close(fig)
 
             metrics = metrics or dict()
             metrics["lr"] = scheduler.get_lr()
             metrics["accuracy/val"] = acc
             metrics["accuracy/val_max"] = max_acc
             metrics["accuracy/train_max"] = max_train_acc
+            metrics["reparam_scaling"] = min(1,(epoch-params.hn_warmup_start_epoch) / (params.hn_warmup_stop_epoch-params.hn_warmup_start_epoch)) if epoch >= params.hn_warmup_start_epoch else 0
             metrics = {
                 **metrics,
                 **test_loop_metrics,
@@ -481,7 +553,7 @@ if __name__ == '__main__':
     if params.dataset in ["cross", "miniImagenet"]:
         val_datasets = ["cross", "miniImagenet"]
 
-    for d in val_datasets:
+    for idx, d in enumerate(val_datasets):
         print("Evaluating on", d)
         params.dataset = d
         # num of epochs for finetuning on testing.
@@ -493,6 +565,16 @@ if __name__ == '__main__':
             params.repeat = 5
 
             print(f"Testing with {hn_val_epochs=}")
-            test_results = perform_test(params)
+            test_results, bayesian_dicts = perform_test(params)
             if neptune_run is not None:
                 neptune_run[f"full_test/{d}/metrics @ {hn_val_epochs}"] = test_results
+
+            for bayesian_dict in bayesian_dicts:
+                if bayesian_dict:
+                    for key in bayesian_dict.keys():
+                        fig = plt.figure()
+                        plt.hist(bayesian_dict[key], edgecolor="black", bins=20)
+                        neptune_run[key + f"/test_val_epochs@{hn_val_epochs}_val_dataset@{idx}"].upload(File.as_image(fig))
+                        plt.close(fig)
+
+
