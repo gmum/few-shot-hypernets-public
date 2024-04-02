@@ -1,5 +1,4 @@
 from copy import deepcopy
-import math
 from re import S
 from typing import Optional, Tuple
 
@@ -8,7 +7,6 @@ from torch import nn
 
 import numpy as np
 
-from matplotlib import pyplot as plt
 
 from backbone import BayesLinear
 from utils import kl_diag_gauss_with_standard_gauss
