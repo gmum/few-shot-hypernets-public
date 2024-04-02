@@ -8,7 +8,7 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hypershot_args.add_argument('--hn_adaptation_strategy', type=str, default=None, choices=['increasing_alpha'], help='strategy used for manipulating alpha parameter')
     hypershot_args.add_argument('--hn_alpha_step', type=float, default=0, help='step used to increase alpha from 0 to 1 during adaptation to new task')
     hypershot_args.add_argument("--hn_hidden_size", type=int, default=256, help="HN hidden size")
-    hypershot_args.add_argument("--hn_tn_hidden_size", type=int, default=120, help="TN hidden size")
+    hypershot_args.add_argument("--hn_tn_hidden_size", type=int, default=120, help="Target network hidden size")
     hypershot_args.add_argument("--hn_taskset_size", type=int, default=1, help="Taskset size")
     hypershot_args.add_argument("--hn_neck_len", type=int, default=0, help="Number of layers in the neck of the hypernet")
     hypershot_args.add_argument("--hn_head_len", type=int, default=2, help="Number of layers in the heads of the hypernet, must be >= 1")
@@ -54,30 +54,32 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     #######################################
     #######################################
 
-    hypershot_args.add_argument('--hn_bayesian_test', action='store_true', help='Draw from random var on interference stage')
+    bhypershot_args = parser.add_argument_group("Bayesian HyperShot-related arguments")
+    bhypershot_args.add_argument('--hn_bayesian_test', action='store_true', help='Draw from random var on interference stage, Without this flag model is bayesian from the beginning')
 
-    #Without this flag model is bayesian from the beginning
-    hypershot_args.add_argument('--hn_warmup', action='store_true', help="Turns on warmup between HyperShot and BayesianHyperShot")
-    hypershot_args.add_argument("--hn_warmup_start_epoch", type=int, default=10, help="Start warmup at given epoch")
-    hypershot_args.add_argument("--hn_warmup_stop_epoch", type=int, default=50, help="Stop warmup at given epoch")
+    bhypershot_args.add_argument('--hn_bayesian_model', action='store_true',
+                                 help='Uses reparametrization with this flag. Otherwise behaves like non bayesian Hyper Shot')
+    bhypershot_args.add_argument('--hn_use_kld', action='store_true', help="Includes KLD in cost function")
+    bhypershot_args.add_argument("--hn_use_mu_in_kld", action='store_true', help="Include mu in kld cost")
+
+    bhypershot_args.add_argument('--hn_warmup', action='store_true', help="Turns on warmup between HyperShot and BayesianHyperShot")
+    bhypershot_args.add_argument("--hn_warmup_start_epoch", type=int, default=10, help="Start warmup at given epoch")
+    bhypershot_args.add_argument("--hn_warmup_stop_epoch", type=int, default=50, help="Stop warmup at given epoch")
 
     # describes number of forwards in target networtk for one input sample (later results are averaged)
-    hypershot_args.add_argument("--hn_S", type=int, default=5, help="Number of samples.")
-    hypershot_args.add_argument("--hn_S_test", type=int, default=1, help="Number of samples on test.")
+    bhypershot_args.add_argument("--hn_S", type=int, default=5, help="Number of samples.")
+    bhypershot_args.add_argument("--hn_S_test", type=int, default=1, help="Number of samples on test.")
 
     # arguments for kld constant scaling and dynamic scaling
-    hypershot_args.add_argument('--hn_kld_const_scaler', default=0, type=int, help='Example: for value=-3 scaling equals 10e-3')
+    bhypershot_args.add_argument('--hn_kld_const_scaler', default=0, type=int, help='Example: for value=-3 scaling equals 10e-3')
 
-    hypershot_args.add_argument('--hn_use_kld_scheduler', action='store_true', help="Only with this flag we can use remaining two. Otherwise scaling is constant")
-    hypershot_args.add_argument('--hn_kld_stop_val', default=-3, type=int, help='final value of kld_scale')
-    hypershot_args.add_argument('--hn_kld_start_val', default=-24, type=int, help='initial value of kld_scale')
+    bhypershot_args.add_argument('--hn_use_kld_scheduler', action='store_true', help="Only with this flag we can use remaining two. Otherwise scaling is constant")
+    bhypershot_args.add_argument('--hn_kld_stop_val', default=-3, type=int, help='final value of kld_scale')
+    bhypershot_args.add_argument('--hn_kld_start_val', default=-24, type=int, help='initial value of kld_scale')
 
-    hypershot_args.add_argument('--hn_use_kld_from', default=0, type=int, help='Include kld from epoch passed with parameter')
+    bhypershot_args.add_argument('--hn_use_kld_from', default=0, type=int, help='Include kld from epoch passed with parameter')
 
     # Bayesian Hyper Shot or non bayesian Hyper Shot
-    hypershot_args.add_argument('--hn_bayesian_model', action='store_true', help='Uses reparametrization with this flag. Otherwise behaves like non bayesian Hyper Shot')
-    hypershot_args.add_argument('--hn_use_kld', action='store_true', help="Includes KLD in cost function")
-    hypershot_args.add_argument("--hn_use_mu_in_kld", action='store_true', help="Include mu in kld cost")
 
     #####################################
     #####################################
@@ -85,11 +87,11 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     #####################################
     #####################################
 
-    hypermaml_args =  parser.add_argument_group("HyperMAML-related arguments")
+    hypermaml_args =  parser.add_argument_group("HyperMAML and BayesHMAML- related arguments")
 
     hypermaml_args.add_argument('--hm_use_class_batch_input', action='store_true', help='Strategy for handling query set embeddings as an input of hyper network')
     hypermaml_args.add_argument("--hm_enhance_embeddings", type=bool, default=False, help="Flag that indicates if embeddings should be concatenated with logits and labels")
-    hypermaml_args.add_argument("--hm_update_operator", type=str, default='minus', choices=['minus', 'plus', 'multiply'], help="Add BatchNorm to hypernet")
+    hypermaml_args.add_argument("--hm_update_operator", type=str, default='minus', choices=['minus', 'plus', 'multiply'], help="Choice of operator to use with update value for weight update")
     hypermaml_args.add_argument('--hm_lambda', type=float, default=0.0, help='Regularization coefficient for the output of the hypernet')
     hypermaml_args.add_argument('--hm_save_delta_params', type=bool, default=False, help='saving delta parameters')
 
@@ -103,4 +105,13 @@ def add_hn_args_to_parser(parser: ArgumentParser) -> ArgumentParser:
     hypermaml_args.add_argument("--hm_detach_before_hyper_net", action="store_true", help="Do not calculate gradient which comes from hypernetwork")
     hypermaml_args.add_argument("--hm_support_set_loss", action='store_true', help="Use both query and support data when calculating loss")
     hypermaml_args.add_argument("--hm_set_forward_with_adaptation", action='store_true', help="Adapt network before test")
+
+
+    # BHMAML only
+    bhypermaml_args = parser.add_argument_group("BayesHMAML (only) related arguments")
+    bhypermaml_args.add_argument('--hm_weight_set_num_train', default=1, type=int, help='number of randomly generated weights for training (default 1)')
+    bhypermaml_args.add_argument('--hm_weight_set_num_test', default=20, type=int, help='number of randomly generated weights for test (default 20), if set to 0 expected value is generated')
+    bhypermaml_args.add_argument('--kl_stop_val', default=1e-3, type=float, help='final value of kld_scale (default 1e-3)')
+    bhypermaml_args.add_argument('--kl_scale', default=1e-24, type=float, help='initial value of kld_scale (default 1e-24)')
+
     return parser

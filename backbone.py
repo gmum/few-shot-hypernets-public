@@ -2,10 +2,8 @@
 
 from asyncio import start_server
 import torch
-from torch.autograd import Variable
 import torch.nn as nn
 import math
-import numpy as np
 import torch.nn.functional as F
 from torch.nn.utils.weight_norm import WeightNorm
 
@@ -31,9 +29,9 @@ class distLinear(nn.Module):
             WeightNorm.apply(self.L, 'weight', dim=0) #split the weight update component to direction and norm
 
         if outdim <=200:
-            self.scale_factor = 2; #a fixed scale factor to scale the output of cos value into a reasonably large input for softmax
+            self.scale_factor = 2 #a fixed scale factor to scale the output of cos value into a reasonably large input for softmax
         else:
-            self.scale_factor = 10; #in omniglot, a larger scale factor is required to handle >1000 output classes.
+            self.scale_factor = 10 #in omniglot, a larger scale factor is required to handle >1000 output classes.
 
     def forward(self, x):
         x_norm = torch.norm(x, p=2, dim =1).unsqueeze(1).expand_as(x)
@@ -60,6 +58,7 @@ class Linear_fw(nn.Linear): #used in MAML to forward input with fast weight
         self.weight.fast = None #Lazy hack to add fast weight link
         self.bias.fast = None
 
+
     def forward(self, x):
         if self.weight.fast is not None and self.bias.fast is not None:
             out = F.linear(x, self.weight.fast, self.bias.fast) #weight.fast (fast weight) is the temporaily adapted weight
@@ -67,7 +66,25 @@ class Linear_fw(nn.Linear): #used in MAML to forward input with fast weight
             out = super(Linear_fw, self).forward(x)
         return out
 
-class BayesLinear(nn.Module): 
+class BLinear_fw(Linear_fw): #used in BHMAML to forward input with fast weight
+    def __init__(self, in_features, out_features):
+        super(BLinear_fw, self).__init__(in_features, out_features)
+        self.weight.logvar = None
+        self.weight.mu = None
+        self.bias.logvar = None
+        self.bias.mu = None
+    def forward(self, x):
+        if self.weight.fast is not None and self.bias.fast is not None:
+            preds = []
+            for w, b in zip(self.weight.fast, self.bias.fast):
+                preds.append(F.linear(x, w, b))
+
+            out = sum(preds) / len(preds)
+        else:
+            out = super(BLinear_fw, self).forward(x)
+        return out
+
+class BayesLinear(nn.Module):
     def __init__(self, in_features, out_features, bias=True, bayesian=False, bayesian_test=False, epoch_state_dict = {}):
         super(BayesLinear, self).__init__()
 
@@ -77,7 +94,7 @@ class BayesLinear(nn.Module):
         self.bias = bias
         self.in_features = in_features
         self.out_features = out_features
-        
+
         self.weight_mu = nn.Parameter(torch.Tensor(out_features, in_features))
         self.weight_log_var = nn.Parameter(torch.Tensor(out_features, in_features))
 
@@ -96,7 +113,7 @@ class BayesLinear(nn.Module):
 
         if self.epoch_state_dict["cur_epoch"] < self.epoch_state_dict["from_epoch"]:
             return 0
-            
+
         beg = self.epoch_state_dict["from_epoch"]
         end = self.epoch_state_dict["to_epoch"]
         cur = self.epoch_state_dict["cur_epoch"]
@@ -314,7 +331,7 @@ class ConvNet(nn.Module):
             trunk.append(Flatten())
 
         self.trunk = nn.Sequential(*trunk)
-        self.final_feat_dim: int = outdim
+        self.final_feat_dim: int = 64 # outdim if pool else 1600
 
     def forward(self,x):
         out = self.trunk(x)
@@ -574,6 +591,25 @@ def Conv4SNP():
 
 def ResNet10( flatten = True):
     return ResNet(SimpleBlock, [1,1,1,1],[64,128,256,512], flatten)
+
+def ResNet12(flatten=True):
+    from learn2learn.vision.models import resnet12
+
+    class R12(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.model = resnet12.ResNet12Backbone()
+            self.avgpool = nn.AvgPool2d(14)
+            self.flat = nn.Flatten()
+            self.final_feat_dim = 640 # 640
+
+        def forward(self, x):
+            x = self.model(x)
+            return x
+
+    return R12()
+
+
 
 def ResNet18( flatten = True):
     return ResNet(SimpleBlock, [2,2,2,2],[64,128,256,512], flatten)
