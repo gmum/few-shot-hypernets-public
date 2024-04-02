@@ -37,6 +37,8 @@ from save_features import do_save_fts
 from test import perform_test
 
 def upload_images(neptune_run, hist_data, tag):
+    if neptune_run is None:
+        return
     if hist_data:
         if hist_data["mu_weight"] != []:
             # mu weight
@@ -204,7 +206,7 @@ def train(base_loader, val_loader, model, optimization, start_epoch, stop_epoch,
             print(
                 f"Epoch {epoch}/{stop_epoch}  | Max test acc {max_acc:.2f} | Test acc {acc:.2f} | Metrics: {test_loop_metrics}")
 
-            if bnn_dict:
+            if bnn_dict and neptune_run is not None:
                 for key in bnn_dict.keys():
                     if epoch % 100 == 0:
                         fig = plt.figure()
