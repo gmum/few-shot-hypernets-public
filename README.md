@@ -169,6 +169,8 @@ export NEPTUNE_API_TOKEN=...
 Acknowledgements
 ---------------
 
+This research was in part funded by National Science Centre, Poland, 2022/45/N/ST6/03374.
+
 This repository is a fork of: [https://github.com/BayesWatch/deep-kernel-transfer](https://github.com/BayesWatch/deep-kernel-transfer), which in turn is a fork of [https://github.com/wyharveychen/CloserLookFewShot](https://github.com/wyharveychen/CloserLookFewShot).
 
 ## Bibtex citations
