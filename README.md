@@ -8,12 +8,12 @@ Sendera M., Przewięźlikowski M., Karanowski K., Zięba M. Tabor J., Spurek P. 
 * *[The general framework for few-shot learning by kernel HyperNetworks
 ](https://link.springer.com/article/10.1007/s00138-023-01403-4)* (2023) Sendera M., Przewięźlikowski M., Miksa J., Rajski M., Karanowski K., Zięba M. Tabor J., Spurek P. -  Machine Vision and Applications Volume 34, article number 53
 
-* *[HyperMAML: Few-Shot Adaptation of Deep Models with Hypernetworks](https://arxiv.org/abs/2205.15745)* (2022)
-Przewięźlikowski M., Przybysz P. , Tabor J., Zięba M., Spurek P. - preprint.
+* *[HyperMAML: Few-Shot Adaptation of Deep Models with Hypernetworks](https://www.sciencedirect.com/science/article/abs/pii/S0925231224009500)* (2024)
+Przewięźlikowski M., Przybysz P. , Tabor J., Zięba M., Spurek P. - Neurocomputing Volume 598.
 
   
-* *[Hypernetwork approach to Bayesian MAML](https://arxiv.org/abs/2210.02796)* (2022)
-Borycki P., Kubacki P., Przewięźlikowski M., Kuśmierczyk T., Tabor J., Spurek P., preprint.
+* *[Hypernetwork approach to Bayesian MAML](https://ojs.aaai.org/index.php/AAAI/article/view/35239)* (2022)
+Borycki P., Kubacki P., Przewięźlikowski M., Kuśmierczyk T., Tabor J., Spurek P. - Proceedings of the AAAI Conference on Artificial Intelligence (Student Abstract).
 
 
 ## Overview
@@ -201,24 +201,27 @@ doi = {10.1007/s00138-023-01403-4}
 }
 ```
 ```bibtex
-@misc{przewiezlikowski2022hypermaml,
-  doi = {10.48550/ARXIV.2205.15745},
-  url = {https://arxiv.org/abs/2205.15745},
-  author = {Przewięźlikowski, M. and Przybysz, P. and Tabor, J. and Zięba, M. and Spurek, P.},
-  keywords = {Machine Learning (cs.LG), Artificial Intelligence (cs.AI), FOS: Computer and information sciences, FOS: Computer and information sciences},
-  title = {HyperMAML: Few-Shot Adaptation of Deep Models with Hypernetworks},
-  publisher = {arXiv},
-  year = {2022},
-  copyright = {arXiv.org perpetual, non-exclusive license}
+@article{przewiezlikowski2024hypermaml,
+    title   = {HyperMAML: Few-shot adaptation of deep models with hypernetworks},
+    author  = {Marcin Przewięźlikowski and Przemysław Przybysz and Jacek Tabor and Maciej Zięba and Przemysław Spurek},
+    journal = {Neurocomputing},
+    volume  = {598},
+    pages   = {128179},
+    year    = {2024},
+    issn    = {0925-2312},
+    doi     = {10.1016/j.neucom.2024.128179},
+    url     = {https://www.sciencedirect.com/science/article/pii/S0925231224009500}
 }
 ```
 ```bibtex
-@misc{borycki2023hypernetwork,
-      title={Hypernetwork approach to Bayesian MAML}, 
-      author={Piotr Borycki and Piotr Kubacki and Marcin Przewięźlikowski and Tomasz Kuśmierczyk and Jacek Tabor and Przemysław Spurek},
-      year={2023},
-      eprint={2210.02796},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG}
+@inproceedings{borycki2025hypernetwork,
+    title     = {Hypernetwork Approach to Bayesian MAML (Student Abstract)},
+    author    = {Borycki, Piotr and Kubacki, Piotr and Przewięźlikowski, Marcin and Kuśmierczyk, Tomasz and Tabor, Jacek and Spurek, Przemysław},
+    booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
+    volume    = {39},
+    number    = {28},
+    pages     = {29325--29327},
+    year      = {2025},
+    doi       = {10.1609/aaai.v39i28.35239}
 }
 ```
